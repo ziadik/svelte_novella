@@ -14,7 +14,7 @@
 
 </script>
 {#if showEditor}
-  <button on:click={() => showEditor = false} style="position:fixed; top:10px; right:10px; z-index:9999;">Закрыть редактор</button>
+  <button on:click={() => showEditor = false} style="position:fixed; top:10px; right:500px; z-index:9999;">Закрыть редактор</button>
   <Editor />
 {:else}
   <button on:click={() => showEditor = true} style="position:fixed; bottom:10px; right:10px; z-index:9999;">Редактор</button>
