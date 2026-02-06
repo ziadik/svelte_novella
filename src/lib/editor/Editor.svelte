@@ -320,6 +320,37 @@
   let rivResources = $derived(storedFiles.filter(f => f.name.endsWith('.riv')));
   let availableItems = $derived(data?.items || []); // Список предметов для условия
 
+    // --- Инфографика связей ---
+  
+  // Входящие связи (Backlinks)
+  let backlinks = $derived(() => {
+    if (!data || !selectedDialogueId) return [];
+    
+    return data.dialogues.filter(d => {
+      // 1. Ссылается через автоматический переход
+      if (d.nextDialogueId === selectedDialogueId) return true;
+      
+      // 2. Ссылается через варианты ответов
+      if (d.options) {
+        return d.options.some(o => o.nextDialogueId === selectedDialogueId);
+      }
+      return false;
+    });
+  });
+
+  // Тип ссылки для отображения (авто или опция)
+  function getLinkType(source: any, targetId: string): string {
+    if (source.nextDialogueId === targetId) return 'Auto';
+    return 'Option';
+  }
+
+  function getTargetText(id: string | undefined): string {
+    if (!id || !data) return "Нет";
+    const target = data.dialogues.find(d => d.id === id);
+    if (!target) return `❌ Не найден: ${id}`;
+    return target.text.substring(0, 40) + "...";
+  }
+
   function jumpTo(id: string) {
     const target = data?.dialogues.find(d => d.id === id);
     if (target) { selectedChapterId = target.chapterId; selectedDialogueId = id; }
@@ -608,6 +639,26 @@
                     {/if}
                 {/each}
             </div>
+                    <!-- Входящие связи (Откуда ведут) -->
+            <div class="info-block secondary">
+                <div class="info-title">👈 Откуда ведут сюда:</div>
+                {#if backlinks().length === 0}
+                    <div class="link-row empty">
+                        Никто не ссылается на этот диалог (это начало или тупик)
+                    </div>
+                {:else}
+                    {#each backlinks() as link}
+                        <div class="link-row">
+                            <span class="link-id">{link.id}</span>
+                            <span class="link-type-badge {getLinkType(link, currentDialogue.id) === 'Auto' ? 'auto' : 'option'}">
+                                {getLinkType(link, currentDialogue.id)}
+                            </span>
+                            <button class="btn-link" onclick={() => jumpTo(link.id)}>← Перейти</button>
+                            <span class="link-target">"{link.text.substring(0, 30)}..."</span>
+                        </div>
+                    {/each}
+                {/if}
+            </div>
           </div>
 
           <div class="form-actions">
@@ -815,6 +866,23 @@
       padding: 8px;
       border-radius: 4px;
       width: 100px;
+  }
+
+  .link-type-badge {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: bold;
+      min-width: 50px;
+      text-align: center;
+  }
+  .link-type-badge.auto {
+      background: #0d47a1; /* Синий для авто-перехода */
+      color: white;
+  }
+  .link-type-badge.option {
+      background: #f57c00; /* Оранжевый для опций */
+      color: white;
   }
   .empty-hint { color: #666; font-size: 12px; font-style: italic; margin: 0 0 10px 0; }
 </style>
