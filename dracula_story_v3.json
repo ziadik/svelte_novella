@@ -1,0 +1,152 @@
+{
+  "meta": {
+    "version": "3.1",
+    "title": "Dracula's Nightmare Quiz"
+  },
+  "items": [
+    {
+      "id": "flashlight",
+      "name": "Фонарик",
+      "description": "Старый, но надежный источник света.",
+      "icon": "icon_flashlight.png",
+      "type": "tool"
+    },
+    {
+      "id": "vampire_fangs",
+      "name": "Клыки вампира",
+      "description": "Потерянные клыки Дракулы.",
+      "icon": "fangs_icon.png",
+      "type": "key"
+    },
+    {
+      "id": "knowledge_tome",
+      "name": "Том знаний",
+      "description": "Древняя книга, содержащая тайные знания.",
+      "icon": "icon_book.png",
+      "type": "key"
+    }
+  ],
+  "chapters": [
+    {
+      "id": "ch_intro",
+      "title": "Глава 1: Встреча",
+      "description": "Знакомство с Дракулой и её замком."
+    },
+    {
+      "id": "ch_ritual",
+      "title": "Глава 2: Ритуал",
+      "description": "Призыв демонов и проверка на смелость."
+    }
+  ],
+  "dialogues": [
+    {
+      "id": "0",
+      "chapterId": "ch_intro",
+      "text": "”Иногда то, что пугает нас больше всего, при ближайшем рассмотрении оказывается не таким уж страшным...”",
+      "backgroundImage": "back_full.png",
+      "characterImage": "",
+      "stateMachineCharacterRive": "",
+      "smTriggerBackgroundRive": "",
+      "nextDialogueId": "1",
+      "options": []
+    },
+    {
+      "id": "choise_1",
+      "chapterId": "ch_intro",
+      "text": "”Но чей-то голос раздался здесь... Включить свет или уйти?”",
+      "backgroundImage": "back.riv",
+      "characterImage": "",
+      "stateMachineBackgroundRive": "SM1",
+      "options": [
+        {
+          "text": "Нащупать переключатель в комнате",
+          "nextDialogueId": "light",
+          "enabled": true,
+          "visible": true,
+          "visibilityCondition": {
+            "type": "always"
+          }
+        },
+        {
+          "text": "Включить фонарик",
+          "nextDialogueId": "flashlight",
+          "enabled": true,
+          "visible": true,
+          "visibilityCondition": {
+            "type": "always"
+          },
+          "actions": [{ "type": "add_item", "id": "flashlight" }]
+        }
+      ]
+    },
+    {
+      "id": "demon_event_12",
+      "chapterId": "ch_ritual",
+      "text": "Dracúla\nЯ так рада, что ты согласился! Давай посмотрим, что нам нужно для ритуала.",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "characterImage": "dracula_hug_book.riv",
+      "stateMachineCharacterRive": "SM1",
+      "options": [],
+      "onEnter": [{ "type": "add_item", "id": "demon_book" }]
+    },
+    {
+      "id": "demon_choise_2",
+      "chapterId": "ch_ritual",
+      "text": "Dracúla\nКого мы призовем?",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "characterImage": "dracula_open_book2.riv",
+      "stateMachineCharacterRive": "SM1",
+      "options": [
+        {
+          "text": "Суккуб, звучит неплохо",
+          "nextDialogueId": "demon_event_sukkub",
+          "enabled": true,
+          "visible": true,
+          "visibilityCondition": { "type": "always" }
+        },
+        {
+          "text": "Акамус, впервые слышу",
+          "nextDialogueId": "demon_quiz_start",
+          "enabled": true,
+          "visible": true,
+          "visibilityCondition": { "type": "always" }
+        },
+        {
+          "text": "Использовать знания из книги",
+          "nextDialogueId": "akamus_expert",
+          "enabled": true,
+          "visible": true,
+          "visibilityCondition": {
+            "type": "has_item",
+            "itemId": "knowledge_tome"
+          }
+        }
+      ]
+    },
+    {
+      "id": "demon_quiz_start",
+      "chapterId": "ch_ritual",
+      "text": "Начинаем викторину с Акамусом...",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "characterImage": "dracula_think.riv",
+      "stateMachineCharacterRive": "SM1",
+      "miniGame": {
+        "id": "demon_quiz",
+        "onWinDialogueId": "akamus_victory",
+        "onLoseDialogueId": "akamus_defeat"
+      },
+      "options": []
+    },
+    {
+      "id": "akamus_victory",
+      "chapterId": "ch_ritual",
+      "text": "Вы победили! Акамус впечатлен вашей эрудицией.",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "characterImage": "dracula_go_event.riv",
+      "stateMachineCharacterRive": "SM1",
+      "nextDialogueId": "demon_choise_2",
+      "options": [],
+      "onEnter": [{ "type": "add_item", "id": "knowledge_tome" }]
+    }
+  ]
+}

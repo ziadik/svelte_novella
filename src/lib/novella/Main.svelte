@@ -2,10 +2,10 @@
   import { onMount } from "svelte";
   import DialogueCard from "./DialogueCard.svelte";
   import { gameState } from "../store/gameStore.svelte";
-  import { bucketName, supabaseUrlFile } from "../store/store.svelte";
+  import { bucketName, supabaseUrlFile, storyName } from "../store/store.svelte";
 
   // Ссылка на JSON
-  let dialogLink = `${supabaseUrlFile}/storage/v1/object/public/${bucketName}/dracula_story_v2.json`;
+  let dialogLink = `${supabaseUrlFile}/storage/v1/object/public/${bucketName}/${storyName}`;
 
   onMount(async () => {
     console.log("Загружаем историю из:", dialogLink); // Для отладки
