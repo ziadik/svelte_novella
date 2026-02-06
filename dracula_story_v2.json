@@ -1,0 +1,1325 @@
+{
+  "meta": {
+    "version": "2.0",
+    "title": "Dracula's Nightmare Quiz"
+  },
+  "items": [
+    {
+      "id": "flashlight",
+      "name": "Фонарик",
+      "description": "Старый, но надежный источник света.",
+      "icon": "icon_flashlight.png",
+      "type": "tool"
+    },
+    {
+      "id": "vampire_fangs",
+      "name": "Клыки вампира",
+      "description": "Потерянные клыки Дракулы. Выглядят как дорогой косметический аксессуар.",
+      "icon": "fangs_icon.png",
+      "type": "key"
+    },
+    {
+      "id": "knowledge_tome",
+      "name": "Том знаний",
+      "description": "Выдается за победу в викторине демона.",
+      "icon": "icon_book.png",
+      "type": "key"
+    }
+  ],
+  "miniGames": [
+    {
+      "id": "demon_quiz",
+      "name": "Викторина Акамуса",
+      "type": "quiz",
+      "description": "Ответь на вопросы, чтобы доказать свой ум.",
+      "config": {
+        "timePerQuestion": 30,
+        "passScore": 1
+      },
+      "content": [
+        {
+          "question": "Сколько печатей должно быть сломано для апокалипсиса?",
+          "options": ["7", "12", "666"],
+          "correctIndex": 0
+        }
+      ],
+      "rewards": {
+        "items": ["knowledge_tome"],
+        "stats": { "knowledge": 10 }
+      }
+    },
+    {
+      "id": "shadow_memory",
+      "name": "Память Теней",
+      "type": "simon_says",
+      "description": "Запомни последовательность теней.",
+      "config": {
+        "startSequenceLength": 4,
+        "speed": 1.0
+      },
+      "rewards": {
+        "items": [],
+        "flags": { "shadow_master": true }
+      }
+    }
+  ],
+  "activities": [
+    {
+      "id": "book_search",
+      "name": "Поиск книг",
+      "type": "interaction",
+      "description": "Исследовать книжные полки.",
+      "rewards": {
+        "items": ["old_scroll"],
+        "stats": { "knowledge": 3 }
+      }
+    }
+  ],
+  "dialogues": [
+    {
+      "id": "0",
+      "text": "”Иногда то, что пугает нас больше всего, при ближайшем рассмотрении оказывается не таким уж страшным...”",
+      "characterImage": "",
+      "backgroundImage": "back_full.png",
+      "nextDialogueId": "1",
+      "options": []
+    },
+    {
+      "id": "1",
+      "text": "”И преодолевая свой страх, мы открываем перед собой новые горизонты”",
+      "backgroundImage": "back.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "2",
+      "options": []
+    },
+    {
+      "id": "2",
+      "text": "”Готов ли ты встретиться со своим страхом лицом к лицу?”",
+      "backgroundImage": "back.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "3",
+      "options": []
+    },
+    {
+      "id": "3",
+      "characterImage": "",
+      "text": "??? \nЗдесь кто-то говорил?",
+      "backgroundImage": "back.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "4",
+      "options": []
+    },
+    {
+      "id": "4",
+      "characterImage": "",
+      "text": "”Комната была окутана густой тьмой. Ничто не двигалось, и в воздухе витал запах… мрака. Возможно, немного пыли.”",
+      "backgroundImage": "back.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "choise_1",
+      "options": []
+    },
+    {
+      "id": "choise_1",
+      "characterImage": "",
+      "text": "”Но чей-то голос раздался здесь... Включить свет или уйти?”",
+      "backgroundImage": "back.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "options": [
+        {
+          "text": "Нащупать переключатель в комнате",
+          "nextDialogueId": "light"
+        },
+        {
+          "text": "Включить фонарик",
+          "nextDialogueId": "flashlight",
+          "actions": [{ "type": "add_item", "id": "flashlight" }]
+        }
+      ]
+    },
+    {
+      "id": "flashlight",
+      "characterImage": "dracula_pajamas.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "??? \nБу, испугался?",
+      "backgroundImage": "back.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "flashlight_1",
+      "options": []
+    },
+    {
+      "id": "flashlight_1",
+      "characterImage": "dracula_pajamas.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "??? \nАй, прости, я же шучу! Перестань светить мне прямо в лицо!",
+      "backgroundImage": "back.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "flashlight_2",
+      "options": []
+    },
+    {
+      "id": "flashlight_2",
+      "characterImage": "",
+      "text": "”Кажется, не совсем вежливо светить в лицо девушке при первой встрече”",
+      "backgroundImage": "back.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "flashlight_3",
+      "options": []
+    },
+    {
+      "id": "flashlight_3",
+      "characterImage": "",
+      "text": "”Незнакомка быстро скрылась с вашего поля зрения, но по шуршанию в комнате вы слышите, что она еще рядом”",
+      "backgroundImage": "back.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "flashlight_4",
+      "options": []
+    },
+    {
+      "id": "flashlight_4",
+      "characterImage": "",
+      "text": "”Вы слышите щелчек переключателя и теперь свет мягко освещает комнату.”",
+      "backgroundImage": "back.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "6",
+      "options": []
+    },
+    {
+      "id": "light",
+      "characterImage": "",
+      "text": "”Это оказалось непросто, особенно в незнакомой комнате, но свет наконец загорелся!”",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "light_1",
+      "options": []
+    },
+    {
+      "id": "light_1",
+      "characterImage": "",
+      "text": "”Правда, большого облегчения это не принесло... В комнате по-прежнему было слишком тускло.”",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "6",
+      "options": []
+    },
+    {
+      "id": "6",
+      "characterImage": "",
+      "text": "”Но этого хватало, что бы смогли разглядеть своего собеседника”",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "7",
+      "options": []
+    },
+    {
+      "id": "7",
+      "characterImage": "dracula_cloak.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "??? \nДобро пожаловать, смертный, в мой дворец ночи, ужасов и кошмаров!",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "8",
+      "options": []
+    },
+    {
+      "id": "8",
+      "characterImage": "dracula_cloak.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "Dracúla \nЧто привело тебя сюда?",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "9",
+      "options": []
+    },
+    {
+      "id": "9",
+      "characterImage": "dracula_panik.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "”Дракула застыла, как будто её только что поймали за чтением любовного романа в своём гробу”",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "10",
+      "options": []
+    },
+    {
+      "id": "10",
+      "characterImage": "dracula_panik.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "”Она прикрыла лицо плащом, но через секунду начала нащупывать зубы”",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "11",
+      "options": []
+    },
+    {
+      "id": "11",
+      "characterImage": "dracula_panik.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "Dracúla\nЧто?! Мои клыки… Да они всегда со мной!",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "12",
+      "options": []
+    },
+    {
+      "id": "12",
+      "characterImage": "dracula_panik.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "Dracúla\nИли... Нет?! Одну секунду!",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "13",
+      "options": []
+    },
+    {
+      "id": "13",
+      "characterImage": "",
+      "text": "”Она растворилась в тени. Кажется, её загадочное появление оказалось неудачным...”",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "14",
+      "options": []
+    },
+    {
+      "id": "14",
+      "characterImage": "dracula_cloak_vamp.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "”Но через мгновение она снова появилась, с таким же серьёзным видом, будто ничего не произошло”",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "15",
+      "options": []
+    },
+    {
+      "id": "15",
+      "characterImage": "dracula_cloak_vamp.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "Dracúla\nХа-ха! Думал, это остановит меня?! Меня — вечного ужаса ночи, повелителя… ",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "16",
+      "options": []
+    },
+    {
+      "id": "16",
+      "characterImage": "dracula_cloak_down.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "”Девушка вдруг замолкает, смущённо убирая плащ”",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "17",
+      "options": []
+    },
+    {
+      "id": "17",
+      "characterImage": "dracula_start_afk.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "Dracúla\nЛадно, ты прав... Прости. \nЯ просто… не ожидала гостей в такое время",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "chloise_2",
+      "options": []
+    },
+    {
+      "id": "chloise_2",
+      "characterImage": "dracula_start_afk.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "Dracúla\nОбычно никто сюда не заходит. И уж точно не в мой... эээ... ритуальный час",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "options": [
+        {
+          "text": "Ритуальный час?",
+          "nextDialogueId": "demon_event"
+        },
+        {
+          "text": "Где я вообще нахожусь?",
+          "nextDialogueId": "ghost_event"
+        }
+      ]
+    },
+    {
+      "id": "ghost_event",
+      "characterImage": "dracula_hehe.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "Dracúla\nАх, ты сейчас находишься в самом страшном месте всей Трансильвании!",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "ghost_event_1",
+      "options": []
+    },
+    {
+      "id": "ghost_event_1",
+      "characterImage": "dracula_hehe.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "Dracúla\nЗдесь творятся жуткие вещи… Например, когда я оставляю зубную щётку, она пропадает!",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "ghost_event_2",
+      "options": []
+    },
+    {
+      "id": "ghost_event_2",
+      "characterImage": "dracula_start_afk.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "Dracúla\nЭто моя… спальня",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "ghost_event_3",
+      "options": []
+    },
+    {
+      "id": "ghost_event_3",
+      "characterImage": "dracula_start_afk.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "”Глядя на обстановку — В углу старое кресло, покрытое пледом с котиками”",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "ghost_event_4",
+      "options": []
+    },
+    {
+      "id": "ghost_event_4",
+      "characterImage": "dracula_start_afk.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "”...И горку книг, среди которых была 'Как стать лидером: 10 шагов для доминирования'”",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "ghost_event_5",
+      "options": []
+    },
+    {
+      "id": "ghost_event_5",
+      "characterImage": "dracula_start_afk.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "”Страшнее места вы и правда не могли представить”",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "0",
+      "options": []
+    },
+    {
+      "id": "demon_event",
+      "characterImage": "dracula_hehe.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "Dracúla\nДа, я готовилась к важному ритуалу...",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_event_1",
+      "options": []
+    },
+    {
+      "id": "demon_event_1",
+      "characterImage": "dracula_start_afk.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "Dracúla\nГлубокого и спокойного сна",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_event_2",
+      "options": []
+    },
+    {
+      "id": "demon_event_2",
+      "characterImage": "dracula_hehe2.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "Dracúla\nНо раз уж ты здесь, можем попробовать что-нибудь… по-настоящему тёмное.",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_event_3",
+      "options": []
+    },
+    {
+      "id": "demon_event_3",
+      "characterImage": "dracula_hehe2.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "”Прозвучало это... ну, слегка двусмысленно.”",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_choise_1",
+      "options": []
+    },
+    {
+      "id": "demon_choise_1",
+      "characterImage": "dracula_hehe2.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "“Правда же?...”",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "options": [
+        {
+          "text": "Призвать кого-нибудь?",
+          "nextDialogueId": "demon_event_5"
+        },
+        {
+          "text": "Не думаю, что это безопасно",
+          "nextDialogueId": "demon_event_dop"
+        }
+      ]
+    },
+    {
+      "id": "demon_event_dop",
+      "characterImage": "dracula_hehe2.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "Dracúla\nДа ладно тебе, это будет весело! Вот, сейчас покажу!",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_event_7",
+      "options": []
+    },
+    {
+      "id": "demon_event_5",
+      "characterImage": "dracula_think.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "”Ваш энтузиазм явно застал Дракулу врасплох.”",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_event_6",
+      "options": []
+    },
+    {
+      "id": "demon_event_6",
+      "characterImage": "dracula_think.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "Dracúla\nХм... Надо проверить",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_event_7",
+      "options": []
+    },
+    {
+      "id": "demon_event_7",
+      "characterImage": "dracula_bookshelf.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "”Она подошла к книжной полке и начала рыться в её содержимом”",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_event_8",
+      "options": []
+    },
+    {
+      "id": "demon_event_8",
+      "characterImage": "dracula_bookshelf.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "”Казалось, что каждая книга была старше её самой”",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_event_9",
+      "options": []
+    },
+    {
+      "id": "demon_event_9",
+      "characterImage": "dracula_bookshelf.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "Dracúla\nЗдесь должна быть та самая книга… Где же она? Ага, вот!",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_event_10",
+      "options": []
+    },
+    {
+      "id": "demon_event_10",
+      "characterImage": "dracula_find_book.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "Dracúla\nДа, вот она! Она очень долго ждала своего часа, и наконец, он настал!",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_event_11",
+      "options": []
+    },
+    {
+      "id": "demon_event_11",
+      "characterImage": "dracula_find_book.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "”Она извлекла зловещего вида книгу.”",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_event_12",
+      "options": []
+    },
+    {
+      "id": "demon_event_12",
+      "characterImage": "dracula_hug_book.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "Dracúla\nЯ так рада, что ты согласился и не испугался! Давай посмотрим, что нам нужно для ритуала.",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_event_13",
+      "onEnter": [{ "type": "add_item", "id": "demon_book" }],
+      "options": []
+    },
+    {
+      "id": "demon_event_13",
+      "characterImage": "dracula_hug_book.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "Dracúla\nУверена, нам будет весело!",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_event_14",
+      "options": []
+    },
+    {
+      "id": "demon_event_14",
+      "characterImage": "dracula_hug_book_hehe.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "Dracúla\nТочнее... ты испытаешь неподдельный ужас! ",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_event_15",
+      "options": []
+    },
+    {
+      "id": "demon_event_15",
+      "characterImage": "dracula_hug_book_hehe2.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "Dracúla\nНу, не настолько ужасный, чтобы ты убежал.",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_event_16",
+      "options": []
+    },
+    {
+      "id": "demon_event_16",
+      "characterImage": "dracula_open_book1.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "Dracúla\nТак, давай посмотрим...",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_event_17",
+      "options": []
+    },
+    {
+      "id": "demon_event_17",
+      "characterImage": "dracula_open_book1.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "Dracúla\nВот, у нас два варианта. Слушай внимательно!",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_event_18",
+      "options": []
+    },
+    {
+      "id": "demon_event_18",
+      "characterImage": "dracula_open_book1.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "Dracúla\nСуккуб: Демон обольщения.",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_event_19",
+      "options": []
+    },
+    {
+      "id": "demon_event_19",
+      "characterImage": "dracula_open_book1.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "Dracúla\nИ Акамус: Демон знаний",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_choise_2",
+      "options": []
+    },
+    {
+      "id": "demon_choise_2",
+      "characterImage": "dracula_open_book2.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "Dracúla\nЭто так захватывающе! О, это будет здорово!",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "options": [
+        {
+          "text": "Всего два варианта?",
+          "nextDialogueId": "demon_event_dop2"
+        },
+        {
+          "text": "Суккуб, звучит неплохо",
+          "nextDialogueId": "demon_event_sukkub"
+        },
+        {
+          "text": "Акамус, впервые слышу",
+          "nextDialogueId": "demon_quiz_start"
+        },
+        {
+          "text": "Использовать знания из книги",
+          "nextDialogueId": "akamus_expert",
+          "visibleIf": { "hasItem": "knowledge_tome" }
+        }
+      ]
+    },
+    {
+      "id": "demon_event_dop2",
+      "characterImage": "dracula_hug_book_hehe2.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "Dracúla\nЯ думаю, потому что это книга из серии настольных игр “Призывы с друзьями”",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_event_dop3",
+      "options": []
+    },
+    {
+      "id": "demon_event_dop3",
+      "characterImage": "dracula_open_book1.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "Dracúla\nЗдесь есть и еще демоны, но для их призыва нужны такие ингридиенты...",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_event_dop4",
+      "options": []
+    },
+    {
+      "id": "demon_event_dop4",
+      "characterImage": "dracula_open_book1.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "Dracúla\nНа подобие “Свечи из воска ведьм”… А ты знаешь, сколько это стоит?!",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_event_dop5",
+      "options": []
+    },
+    {
+      "id": "demon_event_dop5",
+      "characterImage": "dracula_hug_book_hehe2.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "Dracúla\nТак что предлагаю принять эту игровую условность и выбрать из того, что предлагаю я.",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_choise_2",
+      "options": []
+    },
+    {
+      "id": "demon_event_sukkub",
+      "characterImage": "dracula_hug_book_hehe2.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "Dracúla\nЯ тоже подумала о нем, какое совпадение!",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_event_sukkub_1",
+      "options": []
+    },
+    {
+      "id": "demon_event_sukkub_1",
+      "characterImage": "dracula_open_book1.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "Dracúla\nДавай посмотрим, что для призыва Суккуба нам предлгает книга",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_event_sukkub_2",
+      "options": []
+    },
+    {
+      "id": "demon_event_sukkub_2",
+      "characterImage": "dracula_hug_book_hehe2.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "Dracúla\nОй, здесь написанно, что мы должны взяться за руки!",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_event_sukkub_3",
+      "options": []
+    },
+    {
+      "id": "demon_event_sukkub_3",
+      "characterImage": "dracula_hug_book_hehe.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "Dracúla\nНе волнуйся, я не кусаюсь... Пока меня не попросишь",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_event_sukkub_4",
+      "options": []
+    },
+    {
+      "id": "demon_event_sukkub_4",
+      "characterImage": "dracula_go_event.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "Dracúla\nТак давай же возьмемся за руки, что бы исполнить этот темный обряд!",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_event_sukkub_5",
+      "options": []
+    },
+    {
+      "id": "demon_event_sukkub_5",
+      "characterImage": "dracula_go_event.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "“Книга была моментом откинута в сторону, будто она с самого начала и не нужна была”",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_event_sukkub_choise",
+      "options": []
+    },
+    {
+      "id": "demon_event_sukkub_choise",
+      "characterImage": "dracula_go_event.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "“Ее воодушевление и энтузиазм может даже напугать... Стоит ли начинать?”",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "options": [
+        {
+          "text": "Начать ритуал",
+          "nextDialogueId": "demon_sukkub_start_minigame"
+        },
+        {
+          "text": "Не начинать, кто знает, что у нее на уме",
+          "nextDialogueId": "0",
+          "actions": [{ "type": "remove_item", "id": "demon_book" }]
+        }
+      ]
+    },
+    {
+      "id": "demon_sukkub_start_minigame",
+      "characterImage": "dracula_go_event.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "Начинаем ритуал призыва...",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "miniGame": {
+        "id": "shadow_memory",
+        "onWinDialogueId": "demon_sukkub",
+        "onLoseDialogueId": "demon_ritual_fail"
+      },
+      "options": []
+    },
+    {
+      "id": "demon_ritual_fail",
+      "characterImage": "dracula_panik.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "О нет! Ты сбился с ритма! Ритуал провалился, Дракула чихнула.",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_event_dop5",
+      "options": []
+    },
+    {
+      "id": "demon_sukkub",
+      "characterImage": "dracula_go_event.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "“Когда вы прикоснулись к рукам Дракулы, девушка вздрогнула... Ритуал прошел успешно!”",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_sukkub_1",
+      "options": []
+    },
+    {
+      "id": "demon_sukkub_1",
+      "characterImage": "dracula_go_event.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "Dracúla\nТеперь можно приступать",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_sukkub_2",
+      "options": []
+    },
+    {
+      "id": "demon_sukkub_2",
+      "characterImage": "dracula_think.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "“Дракула закрыла глаза и начала нашептывать на незнакомом языке”",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_sukkub_3",
+      "options": []
+    },
+    {
+      "id": "demon_sukkub_3",
+      "characterImage": "dracula_think.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "”Но эффекта это не дало... В комнате была тишина”",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_sukkub_4",
+      "options": []
+    },
+    {
+      "id": "demon_sukkub_4",
+      "characterImage": "dracula_think.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "”Девушка продолжала нашептывать, но ее голос становился все тише”",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_sukkub_5",
+      "options": []
+    },
+    {
+      "id": "demon_sukkub_5",
+      "characterImage": "dracula_think.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "”Она приоткрыла глаза, поглядывая на вашу реакцию”",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_sukkub_6",
+      "options": []
+    },
+    {
+      "id": "demon_sukkub_6",
+      "characterImage": "dracula_think.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "Dracúla\nХм, странно, должно было...",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_sukkub_7",
+      "options": []
+    },
+    {
+      "id": "demon_sukkub_7",
+      "characterImage": "dracula_show_sukkub.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "”Не успела Дракула договорить, как ее тело начало подниматься от пола”",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_sukkub_8",
+      "options": []
+    },
+    {
+      "id": "demon_sukkub_8",
+      "characterImage": "dracula_really_sukkub.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "”Глаза девушки закатились, заполняясь розовым свечением”",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_sukkub_9",
+      "options": []
+    },
+    {
+      "id": "demon_sukkub_9",
+      "characterImage": "dracula_really_sukkub.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "”Кажется, все пошло не по плану”",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_sukkub_10",
+      "options": []
+    },
+    {
+      "id": "demon_sukkub_10",
+      "characterImage": "",
+      "smTriggerBackgroundRive": "T1",
+      "text": "”Свет в комнате погас, и Дракула исчезла, ускользнув из вашего поля зрения”",
+      "backgroundImage": "back.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_sukkub_11",
+      "options": []
+    },
+    {
+      "id": "demon_sukkub_11",
+      "characterImage": "",
+      "text": "”Но вы все равно ощущаете его присутствие — оно словно шепчет в воздухе”",
+      "backgroundImage": "back.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_sukkub_12",
+      "options": []
+    },
+    {
+      "id": "demon_sukkub_12",
+      "characterImage": "",
+      "text": "???\nЗачем ты призвал меня, милый?",
+      "backgroundImage": "back.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_sukkub_13",
+      "options": []
+    },
+    {
+      "id": "demon_sukkub_13",
+      "characterImage": "",
+      "text": "”Голос Дракулы изменился. Он больше не звучал робко”",
+      "backgroundImage": "back.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_sukkub_14",
+      "options": []
+    },
+    {
+      "id": "demon_sukkub_14",
+      "characterImage": "",
+      "text": "”Теперь в ее интонации сквозила властность. Вы чувствуете, как ее дыхание тянется к вашему уху”",
+      "backgroundImage": "back.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_sukkub_15",
+      "options": []
+    },
+    {
+      "id": "demon_sukkub_15",
+      "characterImage": "dracula_sukkub_2.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "”Демон появился перед вами, но комната оставалась поглощена мраком”",
+      "backgroundImage": "back.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_sukkub_16",
+      "options": []
+    },
+    {
+      "id": "demon_sukkub_16",
+      "characterImage": "dracula_sukkub_2.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "???\nИли, возможно, были и другие причины призвать меня?",
+      "backgroundImage": "back.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_sukkub_ch",
+      "options": []
+    },
+    {
+      "id": "demon_sukkub_ch",
+      "characterImage": "dracula_sukkub_2.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "”Действительно, почему выбрали именно её? Она явно недовольна.”",
+      "backgroundImage": "back.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "options": [
+        {
+          "text": "Промолчать и убежать",
+          "nextDialogueId": "0"
+        },
+        {
+          "text": "Просто из любопытства",
+          "nextDialogueId": "demon_sukkub_18"
+        }
+      ]
+    },
+    {
+      "id": "demon_sukkub_18",
+      "characterImage": "dracula_sukkub_2.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "???\nАх, любопытство? Так теперь называется твоя смелость?",
+      "backgroundImage": "back.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_sukkub_19",
+      "options": []
+    },
+    {
+      "id": "demon_sukkub_19",
+      "characterImage": "dracula_sukkub_2.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "”Демон медленно вздохнул... Его взгляд прошелся по вам. В темноте что-то еще наблюдает”",
+      "backgroundImage": "back.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_sukkub_20",
+      "options": []
+    },
+    {
+      "id": "demon_sukkub_20",
+      "characterImage": "dracula_sukkub_2.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "???\nТогда добро пожаловать в мой мир",
+      "backgroundImage": "back_demon.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_sukkub_24",
+      "options": []
+    },
+    {
+      "id": "demon_sukkub_21",
+      "characterImage": "dracula_sukkub_2.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "???\nМожешь называть меня как угодно",
+      "backgroundImage": "back_demon.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_sukkub_22",
+      "options": []
+    },
+    {
+      "id": "demon_sukkub_22",
+      "characterImage": "dracula_sukkub_2.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "???\nОднако, я предлагаю тебе нечто гораздо более интересное",
+      "backgroundImage": "back_demon.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_sukkub_23",
+      "options": []
+    },
+    {
+      "id": "demon_sukkub_23",
+      "characterImage": "dracula_sukkub_2.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "???\nСыграй со мной в игру, и ставкой будет твоя душа...",
+      "backgroundImage": "back_demon.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_sukkub_26",
+      "options": []
+    },
+    {
+      "id": "demon_sukkub_24",
+      "characterImage": "dracula_sukkub_2.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "”Теперь вы наконец-то различили источники того неприятного ощущения”",
+      "backgroundImage": "back_demon.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_sukkub_25",
+      "options": []
+    },
+    {
+      "id": "demon_sukkub_25",
+      "characterImage": "dracula_sukkub_2.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "”Тех, кто продолжал скрываться в глубоких тенях, было невозможно разглядеть”",
+      "backgroundImage": "back_demon.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_sukkub_21",
+      "options": []
+    },
+    {
+      "id": "demon_sukkub_26",
+      "characterImage": "dracula_sukkub_2.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "???\nЕсли, конечно, она у тебя есть",
+      "backgroundImage": "back_demon.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "options": [
+        {
+          "text": "Что если ее нет?",
+          "nextDialogueId": "demon_sukkub_dop"
+        },
+        {
+          "text": "А каков мой выйгрыш?",
+          "nextDialogueId": "demon_sukkub_27"
+        },
+        {
+          "text": "Если я проиграю?",
+          "nextDialogueId": "demon_sukkub_dop"
+        }
+      ]
+    },
+    {
+      "id": "demon_sukkub_dop",
+      "characterImage": "dracula_sukkub_2.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "???\nТогда придется забрать твою жизнь, все просто",
+      "backgroundImage": "back_demon.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "0",
+      "options": []
+    },
+    {
+      "id": "demon_sukkub_27",
+      "characterImage": "dracula_sukkub_2.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "???\nТы надеешься выйграть? Как мило",
+      "backgroundImage": "back_demon.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_sukkub_28",
+      "options": []
+    },
+    {
+      "id": "demon_sukkub_28",
+      "characterImage": "dracula_sukkub_2.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "???\nОднако мне нравится твой энтузиазм. Хорошо... Если ты сможешь выиграть, я исполню одно твоё желание",
+      "backgroundImage": "back_demon.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_sukkub_29",
+      "options": []
+    },
+    {
+      "id": "demon_sukkub_29",
+      "characterImage": "dracula_sukkub_2.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "”Ее голос стал холодным и обещающим”",
+      "backgroundImage": "back_demon.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "options": [
+        {
+          "text": "Отказатся играть",
+          "nextDialogueId": "demon_sukkub_die"
+        },
+        {
+          "text": "Согласиться на игру",
+          "nextDialogueId": "demon_sukkub_30"
+        }
+      ]
+    },
+    {
+      "id": "demon_sukkub_die",
+      "characterImage": "dracula_sukkub_2.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "???\nОчень жаль... Мне бы хотелось с тобой повеселится ",
+      "backgroundImage": "back_demon.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_sukkub_die2",
+      "options": []
+    },
+    {
+      "id": "demon_sukkub_die2",
+      "characterImage": "dracula_sukkub_2.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "???\nНо и отпускать я тебя не намера, слишком ты сладкий кусочек...",
+      "backgroundImage": "back_demon.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_sukkub_die3",
+      "options": []
+    },
+    {
+      "id": "demon_sukkub_die3",
+      "characterImage": "",
+      "text": "”Демон растворился в тенях... Теперь тени смотрят на вас еще пристальнее”",
+      "backgroundImage": "dracula_demon_die.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_sukkub_die4",
+      "options": []
+    },
+    {
+      "id": "demon_sukkub_die4",
+      "characterImage": "",
+      "text": "”Кажется, если и стоило уходить, то делать это стоило раньше...”",
+      "backgroundImage": "dracula_demon_die.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_sukkub_die5",
+      "options": []
+    },
+    {
+      "id": "demon_sukkub_die5",
+      "characterImage": "",
+      "smTriggerBackgroundRive": "T1",
+      "text": "",
+      "backgroundImage": "dracula_demon_die.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "0",
+      "options": []
+    },
+    {
+      "id": "demon_sukkub_30",
+      "characterImage": "dracula_sukkub_2.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "???\nОтлично, я знала, что ты сделаешь правильный выбор",
+      "backgroundImage": "back_demon.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_sukkub_31",
+      "options": []
+    },
+    {
+      "id": "demon_sukkub_31",
+      "characterImage": "dracula_sukkub_2.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "???\nС учетом того, что по большому счету, у тебя его и небыло",
+      "backgroundImage": "back_demon.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_sukkub_32",
+      "options": []
+    },
+    {
+      "id": "demon_sukkub_32",
+      "characterImage": "dracula_sukkub_2.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "???\nИтак, правила просты...",
+      "backgroundImage": "back_demon.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "0",
+      "options": []
+    },
+    {
+      "id": "demon_quiz_start",
+      "characterImage": "dracula_think.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "Dracúla\nО, я слышала о нем! Звучит скучновато, но уверена, будет интригующе!",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_event_akamus_1",
+      "options": []
+    },
+    {
+      "id": "demon_event_akamus_1",
+      "characterImage": "dracula_open_book1.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "Dracúla\nДавай посмотрим, что для призыва Акамуса нам предлгает книга",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_event_akamus_2",
+      "options": []
+    },
+    {
+      "id": "demon_event_akamus_2",
+      "characterImage": "dracula_hug_book_hehe2.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "Dracúla\nОй, здесь написанно, что мы должны взяться за руки!",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_event_akamus_3",
+      "options": []
+    },
+    {
+      "id": "demon_event_akamus_3",
+      "characterImage": "dracula_hug_book_hehe.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "Dracúla\nНе волнуйся, я не кусаюсь... Пока меня не попросишь",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_event_akamus_4",
+      "options": []
+    },
+    {
+      "id": "demon_event_akamus_4",
+      "characterImage": "dracula_go_event.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "Dracúla\nТак давай же возьмемся за руки, что бы исполнить этот темный обряд!",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_event_akamus_5",
+      "options": []
+    },
+    {
+      "id": "demon_event_akamus_5",
+      "characterImage": "dracula_go_event.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "“Книга была моментом откинута в сторону”",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_event_akamus_choise",
+      "options": []
+    },
+    {
+      "id": "demon_event_akamus_choise",
+      "characterImage": "dracula_go_event.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "“Ее воодушевление и энтузиазм может даже напугать... Стоит ли начинать?”",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "options": [
+        {
+          "text": "Начать ритуал (Мини-игра)",
+          "nextDialogueId": "demon_akamus_start_minigame"
+        },
+        {
+          "text": "Не начинать, кто знает, что у нее на уме",
+          "nextDialogueId": "0"
+        }
+      ]
+    },
+    {
+      "id": "demon_akamus_start_minigame",
+      "characterImage": "dracula_go_event.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "Начинаем викторину с Акамусом...",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "miniGame": {
+        "id": "demon_quiz",
+        "onWinDialogueId": "akamus_victory",
+        "onLoseDialogueId": "akamus_defeat"
+      },
+      "options": []
+    },
+    {
+      "id": "akamus_victory",
+      "characterImage": "dracula_go_event.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "Вы ответили правильно! Акамус впечатлен вашей эрудицией.",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "onEnter": [{ "type": "add_item", "id": "knowledge_tome" }],
+      "nextDialogueId": "demon_choise_2",
+      "options": []
+    },
+    {
+      "id": "akamus_defeat",
+      "characterImage": "dracula_panik.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "К сожалению, вы ошиблись. Демон был не в духе и ушел.",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "demon_event_dop5",
+      "options": []
+    },
+    {
+      "id": "akamus_expert",
+      "characterImage": "dracula_hehe2.riv",
+      "stateMachineCharacterRive": "SM1",
+      "text": "Вы используете знания из Тома, чтобы пропустить ритуал! Дракула удивлена.",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "akamus_victory",
+      "options": []
+    }
+  ]
+}

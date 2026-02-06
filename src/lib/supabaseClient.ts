@@ -1,7 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const bucketName = 'dracula';
+// const bucketName = 'dracula';
+export const bucketName = 'dracula'; // Имя вашего бакета
+export const storyFileName = 'dracula_story_v2.json'; // Имя файла истории
 // Инициализация клиента Supabase
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     auth: {

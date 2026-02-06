@@ -1,389 +1,199 @@
-<script>
-  import { onMount } from "svelte";
+<script lang="ts">
+  import { onMount, onDestroy } from "svelte";
+  import { gameState } from "../store/gameStore.svelte";
   import Rive from "./Rive.svelte";
-  import {bucketName, supabaseUrlFile} from '../store/store.svelte'
-  let { index, dialogue } = $props();
+  import { bucketName, supabaseUrlFile } from "../store/store.svelte";
 
-  let backgroundImageUrl = $state(null);
-  let characterImageUrl = $state(null);
+  let { index, dialogue: propDialogue } = $props(); // Получаем пропсы из редактора
 
-  let errorMedia = $state(null);
+// Если пропс dialogue не передан, берем из стора (режим игры)
+const currentDialogue = $derived(propDialogue || gameState.findDialogue(gameState.currentDialogueId));
 
-  // Загрузка медиа-файлов из /assets/
-  async function loadMediaFiles() {
-    try {
-      errorMedia = null;
+  // Обработка входа в диалог (выполнение actions)
+  $effect(() => {
+    // currentDialogue здесь уже является реактивным значением
+    if (currentDialogue?.onEnter) {
+      gameState.runActions(currentDialogue.onEnter);
+    }
+  });
 
-      // Загружаем background image
-      if (dialogue.backgroundImage) {
-        try {
-          if (dialogue.backgroundImage.endsWith(".riv")) {
-           // await loadRiveAnimation(dialogue.backgroundImage, "background");
-          } else {
-            backgroundImageUrl =`${supabaseUrlFile}/storage/v1/object/public/${bucketName}/${dialogue.backgroundImage}`; // `${defaultAssetsUrl}${dialogue.backgroundImage}`;
-            await testImage(backgroundImageUrl);
-          }
-        } catch (err) {
-          console.warn("Background not found:", dialogue.backgroundImage);
-          backgroundImageUrl = null;
-        }
-      }
-
-      // Загружаем character image
-      if (dialogue.characterImage) {
-        try {
-          if (dialogue.characterImage.endsWith(".riv")) {
-            //await loadRiveAnimation(dialogue.characterImage, "character");
-          } else {
-            characterImageUrl = `${supabaseUrlFile}/storage/v1/object/public/${bucketName}/${dialogue.characterImage}`;
-            await testImage(characterImageUrl);
-          }
-        } catch (err) {
-          console.warn("Character not found:", dialogue.characterImage);
-          characterImageUrl = null;
-        }
-      }
-    } catch (err) {
-      errorMedia = "Ошибка загрузки медиа: " + err.message;
-      console.error("Media loading error:", err);
-      // Fallback: показываем placeholder вместо анимации
-      if (dialogue.backgroundImage?.endsWith(".riv")) {
-        backgroundImageUrl = null;
-      }
-      if (dialogue.characterImage?.endsWith(".riv")) {
-        characterImageUrl = null;
-      }
-    } finally {
+  function handleNext() {
+    // Если есть обычный переход
+    if (currentDialogue?.nextDialogueId) {
+      gameState.goToDialogue(currentDialogue.nextDialogueId);
     }
   }
 
-  // Функция для проверки доступности изображения
-  function testImage(url) {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => resolve(url);
-      img.onerror = () => reject(new Error(`Image not found: ${url}`));
-      img.src = url;
-    });
+  function handleOptionSelect(option: any) {
+    // Выполняем действия при выборе
+    if (option.actions) {
+      gameState.runActions(option.actions);
+    }
+
+    // Если это запуск мини-игры (заглушка логики)
+    if (option.miniGame) {
+      console.log("Запуск мини-игры:", option.miniGame.id);
+      // Здесь должна быть логика запуска мини-игры
+      // Пока для примера идем на Win диалог
+      gameState.goToDialogue(option.miniGame.onWinDialogueId);
+      return;
+    }
+
+    // Обычный переход
+    if (option.nextDialogueId) {
+      gameState.goToDialogue(option.nextDialogueId);
+    }
   }
 
-  // Эффект для загрузки медиа при изменении диалога
-   loadMediaFiles();
-
-  // Обработчик выбора варианта ответа
-  function handleOptionSelect(nextDialogueId) {
-    const event = new CustomEvent("dialogueChange", {
-      detail: { nextDialogueId },
-    });
-    window.dispatchEvent(event);
+  // Вспомогательная функция проверки условий
+  function isOptionVisible(option: any): boolean {
+    if (!option.visibleIf) return true;
+    if (option.visibleIf.hasItem) {
+      return gameState.hasItem(option.visibleIf.hasItem);
+    }
+    return true;
   }
 </script>
 
-<div class="dialogue-container">
-  <!-- Фон -->
-  {#if dialogue.backgroundImage}
-    <div class="background-media">
-      {#if dialogue.backgroundImage.endsWith(".riv")}
-      {#key dialogue.backgroundImage}
-      <Rive fileName={dialogue.backgroundImage} />
-      {/key}
-      {:else}
-        <img
-          src={backgroundImageUrl ? backgroundImageUrl : ""}
-          alt="Background"
-          class="background-image"
-          class:hidden={!backgroundImageUrl || !dialogue.backgroundImage.endsWith(".riv")}
-          onerror={() => {
-            errorMedia = "Ошибка загрузки фона: " + dialogue.backgroundImage;
-            backgroundImageUrl = null;
-          }}
-        />
-      {/if}
-    </div>
-  {/if}
-
-  <!-- Персонаж -->
-  {#if dialogue.characterImage}
-    <div class="character-media">
-      {#if dialogue.characterImage.endsWith(".riv")}
-       {#key dialogue.characterImage}  
-      <Rive fileName={dialogue.characterImage} /> {/key}
-      {:else}
-        <img
-          src={characterImageUrl ? characterImageUrl : ""}
-          alt="Character"
-          class="character-image"
-          class:hidden={!characterImageUrl || !dialogue.characterImageUrl.endsWith(".riv")}
-          onerror={() => {
-            errorMedia =
-              "Ошибка загрузки персонажа: " + dialogue.characterImage;
-            characterImageUrl = null;
-          }}
-        />
-      {/if}
-    </div>
-  {/if}
-
-  <!-- Текст диалога -->
-  <div class="dialogue-content">
-    <div class="dialogue-text">
-      "{dialogue.text}"
-    </div>
-
-    <!-- Варианты ответов -->
-    {#if dialogue.options && dialogue.options.length > 0}
-      <div class="options-container">
-        {#each dialogue.options as option (option.text)}
-          <button
-            class="option-button"
-            onclick={() => handleOptionSelect(option.nextDialogueId)}
-          >
-            {option.text}
-          </button>
-        {/each}
+{#if currentDialogue}
+  <div class="dialogue-container">
+    <!-- Фон -->
+    {#if currentDialogue.backgroundImage}
+      <div class="background-media">
+        {#if currentDialogue.backgroundImage.endsWith(".riv")}
+          {#key currentDialogue.backgroundImage}
+            <Rive fileName={currentDialogue.backgroundImage} />
+          {/key}
+        {:else}
+          <img 
+            src={`${supabaseUrlFile}/storage/v1/object/public/${bucketName}/${currentDialogue.backgroundImage}`} 
+            alt="BG" 
+            class="background-image" 
+          />
+        {/if}
       </div>
     {/if}
+
+    <!-- Персонаж -->
+    {#if currentDialogue.characterImage}
+      <div class="character-media">
+        {#if currentDialogue.characterImage.endsWith(".riv")}
+          {#key currentDialogue.characterImage}
+            <Rive fileName={currentDialogue.characterImage} />
+          {/key}
+        {:else}
+           <img 
+            src={`${supabaseUrlFile}/storage/v1/object/public/${bucketName}/${currentDialogue.characterImage}`} 
+            alt="Char" 
+            class="character-image" 
+          />
+        {/if}
+      </div>
+    {/if}
+
+    <!-- Контент -->
+    <div class="dialogue-content">
+      <div class="dialogue-text">
+        {currentDialogue.text}
+      </div>
+
+      <!-- Опции -->
+      {#if currentDialogue.options && currentDialogue.options.length > 0}
+        <div class="options-container">
+          {#each currentDialogue.options as option (option.text)}
+            {#if isOptionVisible(option)}
+              <button 
+                class="option-button" 
+                onclick={() => handleOptionSelect(option)}
+              >
+                {option.text}
+              </button>
+            {/if}
+          {/each}
+        </div>
+      {:else if currentDialogue.nextDialogueId}
+        <!-- Кнопка "Далее", если нет опций -->
+        <div class="next-container">
+           <button class="next-button" onclick={handleNext}>Далее...</button>
+        </div>
+      {/if}
+    </div>
   </div>
-
-  <!-- Сообщение об ошибке -->
-  {#if errorMedia}
-    <div class="error-overlay">
-      <p class="error-text">{errorMedia}</p>
-    </div>
-  {/if}
-
-  <!-- //Отладочная информация
-  {#if import.meta.env.DEV}
-    <div class="debug-info">
-      <p>BG: {dialogue.backgroundImage || "нет"}</p>
-      <p>Char: {dialogue.characterImage || "нет"}</p>
-      <p>State Machine: {dialogue.stateMachineBackgroundRive || "нет"}</p>
-      <p>Trigger: {dialogue.smTriggerBackgroundRive || "нет"}</p>
-    </div>
-  {/if} -->
-</div>
+{:else}
+  <p>Диалог не найден (ID: {gameState.currentDialogueId})</p>
+{/if}
 
 <style>
   .dialogue-container {
     position: relative;
     width: 100%;
-    height: 500px;
+    height: 600px; /* Фиксированная высота для примера */
     border-radius: 16px;
     overflow: hidden;
-    background: rgba(0, 0, 0, 0.3);
-    border: 1px solid rgba(139, 0, 0, 0.3);
-    margin-bottom: 20px;
+    background: #2a2a2a;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
   }
 
   .background-media {
     position: absolute;
-    bottom: 0;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index:1;
-    max-height: 70%;
-    display: flex;
-    align-items: flex-end;
-    justify-content: center;
+    top: 0; left: 0; width: 100%; height: 100%;
+    z-index: 1;
   }
-
   .background-image {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    opacity: 0.7;
-    overflow: hidden;
+    width: 100%; height: 100%; object-fit: cover; opacity: 0.6;
   }
 
   .character-media {
     position: absolute;
-    bottom: 0;
-    left: 50%;
-    transform: translateX(-50%);
+    bottom: 0; left: 50%; transform: translateX(-50%);
     z-index: 2;
-    max-height: 70%;
-    display: flex;
-    align-items: flex-end;
-    justify-content: center;
+    max-height: 90%;
+    display: flex; align-items: flex-end; justify-content: center;
   }
-
   .character-image {
-    height: 100%;
-    max-height: 300px;
-    object-fit: contain;
+    max-height: 100%; object-fit: contain;
   }
-
-  /* Rive стили */
-/*  .rive-container {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .rive-canvas {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .background-rive-container {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-  }
-
-  .background-rive {
-    width: 100%;
-    height: 100%;
-  }
-
-  .character-rive-container {
-    position: relative;
-    height: 100%;
-    max-height: 300px;
-  }
-
-  .character-rive {
-    height: 100%;
-    max-height: 300px;
-  }
-
-  .rive-loading {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    height: 100%;
-    color: rgba(255, 255, 255, 0.7);
-  }
-
-  .rive-loading-spinner {
-    width: 30px;
-    height: 30px;
-    border: 2px solid rgba(255, 255, 255, 0.3);
-    border-top: 2px solid #8b0000;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    margin-bottom: 10px;
-  }
-
-  .rive-loading.hidden {
-    display: none;
-  }*/
 
   .dialogue-content {
     position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
+    bottom: 0; left: 0; right: 0;
     z-index: 3;
-    background: linear-gradient(transparent, rgba(0, 0, 0, 0.9));
+    background: linear-gradient(transparent, rgba(0,0,0,0.95));
     padding: 20px;
+    min-height: 150px;
+    box-sizing: border-box;
   }
 
   .dialogue-text {
     font-size: 18px;
-    line-height: 1.4;
-    text-align: center;
-    margin: 0 0 20px 0;
-    color: #ffffff;
+    color: #fff;
+    margin-bottom: 20px;
+    line-height: 1.5;
     font-style: italic;
-    font-weight: 500;
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
   }
 
   .options-container {
     display: flex;
     flex-direction: column;
     gap: 10px;
-    max-width: 400px;
-    margin: 0 auto;
   }
 
-  .option-button {
-    background: rgba(139, 0, 0, 0.6);
+  .option-button, .next-button {
+    background: rgba(139, 0, 0, 0.7);
     color: white;
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    padding: 12px 20px;
-    border-radius: 25px;
-    cursor: pointer;
-    font-size: 14px;
-    transition: all 0.2s ease;
-    backdrop-filter: blur(10px);
-  }
-
-  .option-button:hover {
-    background: rgba(139, 0, 0, 0.8);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(139, 0, 0, 0.4);
-  }
-
-  /* .loading-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.7);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    z-index: 10;
-    color: white;
-    gap: 16px;
-  } */
-
-  /* .loading-spinner {
-    width: 40px;
-    height: 40px;
-    border: 3px solid rgba(255, 255, 255, 0.3);
-    border-top: 3px solid #8b0000;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-  } */
-
-  .error-overlay {
-    position: absolute;
-    top: 10px;
-    left: 10px;
-    right: 10px;
-    background: rgba(255, 59, 48, 0.2);
-    color: #ff3b30;
-    padding: 10px;
+    border: 1px solid rgba(255,255,255,0.2);
+    padding: 12px;
     border-radius: 8px;
-    border: 1px solid rgba(255, 59, 48, 0.3);
-    z-index: 10;
-    font-size: 12px;
+    cursor: pointer;
+    transition: 0.2s;
+    text-align: left;
+  }
+  
+  .option-button:hover, .next-button:hover {
+    background: rgba(200, 0, 0, 0.8);
   }
 
-  /* .debug-info {
-    position: absolute;
-    top: 10px;
-    left: 10px;
-    background: rgba(0, 0, 0, 0.6);
-    padding: 8px;
-    border-radius: 6px;
-    font-size: 10px;
-    color: #ccc;
-    z-index: 4;
-  } */
-
-  .hidden {
-    display: none !important;
-  }
-
-  @keyframes spin {
-    0% {
-      transform: rotate(0deg);
-    }
-    100% {
-      transform: rotate(360deg);
-    }
+  .next-container {
+    text-align: right;
   }
 </style>
