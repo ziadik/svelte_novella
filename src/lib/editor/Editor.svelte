@@ -66,16 +66,34 @@
     dialogues: [] 
   });
   
+  
   let selectedChapterId = $state<string | null>(null);
   let selectedDialogueId = $state<string | null>(null);
   let editingOptionIndex = $state<number | null>(null);
-  
+    // В блоке состояния (рядом с showItems)
+  let editingItemIndex = $state<number | null>(null); // Индекс редактируемого предмета
   let storedFiles = $state<StoredFile[]>([]);
   let statusMessage = $state({ type: '', text: '' });
   
   let storiesList = $state<string[]>([]);
-  let currentFileName = $state("dracula_story.json");
+  let currentFileName = $state("dracula_story_v3.json");
+  let showItems = $state(false); // Состояние открытости блока предметов
 
+//   // В блоке логики (например, после функции deleteDialogue)
+//   function addItem() {
+//     if (!data) return;
+//     if (!data.items) data.items = []; // Инициализируем массив, если его нет
+    
+//     const newItem = {
+//       id: "item_" + Date.now(),
+//       name: "Новый предмет",
+//       description: "Описание предмета",
+//       icon: "icon_default.png",
+//       type: "misc"
+//     };
+    
+//     data.items.push(newItem);
+//   }
   onMount(async () => {
     await loadStoriesList();
     await loadStory(currentFileName);
@@ -126,6 +144,9 @@
       const { data: fileData, error } = await supabase.storage.from(bucketName).download(fileName);
       if (error) throw error;
       let parsedData = JSON.parse(await fileData.text());
+      console.log(bucketName);
+      console.log(fileName);
+      console.log(JSON.stringify(parsedData.chapters,2));
 
       // Миграция для новых полей опций
       if (parsedData.dialogues) {
@@ -143,11 +164,12 @@
               }
           });
       }
+
       // Миграция глав
-      if (!parsedData.chapters) {
-        parsedData.chapters = [{ id: "main", title: "Основная история" }];
-        if (parsedData.dialogues) parsedData.dialogues.forEach((d: any) => { if (!d.chapterId) d.chapterId = "main"; });
-      }
+       if (!parsedData.chapters) {
+         parsedData.chapters = [{ id: "main", title: "Основная история" }];
+         if (parsedData.dialogues) parsedData.dialogues.forEach((d: any) => { if (!d.chapterId) d.chapterId = "main"; });
+       }
 
       data = parsedData;
       if (data.chapters && data.chapters.length > 0) selectedChapterId = data.chapters[0].id;
@@ -188,6 +210,40 @@
     const id = "ch_" + Date.now();
     data.chapters.push({ id, title: "Новая глава" });
     selectedChapterId = id;
+  }
+
+    // Функция редактирования предмета
+  function editItem(index: number) {
+    if (editingItemIndex === index) {
+      editingItemIndex = null; // Свернуть если уже открыт
+    } else {
+      editingItemIndex = index; // Раскрыть форму
+    }
+  }
+
+  // Функция удаления предмета
+  function deleteItem(index: number) {
+    if (!confirm("Удалить предмет?")) return;
+    if (!data || !data.items) return;
+    data.items.splice(index, 1);
+    editingItemIndex = null;
+  }
+
+  // Обновление функции addItem для создания полного объекта
+  function addItem() {
+    if (!data) return;
+    if (!data.items) data.items = []; // Инициализация
+    
+    const newItem = {
+      id: "item_" + Date.now(),
+      name: "Новый предмет",
+      description: "Описание предмета",
+      icon: "icon_default.png",
+      type: "misc"
+    };
+    
+    data.items.push(newItem);
+    editingItemIndex = data.items.length - 1; // Сразу открываем на редактирование
   }
 
   // Функция-защита: гарантирует, что у опции есть объект условия
@@ -259,6 +315,8 @@
   let currentEditingOption = $derived(currentDialogue && editingOptionIndex !== null ? currentDialogue.options[editingOptionIndex] : null);
   let chapterDialogues = $derived(data ? data.dialogues.filter(d => d.chapterId === selectedChapterId) : []);
   let imageResources = $derived(storedFiles.filter(f => f.name.match(/\.(png|jpg|jpeg|webp|gif)$/i)));
+  
+  
   let rivResources = $derived(storedFiles.filter(f => f.name.endsWith('.riv')));
   let availableItems = $derived(data?.items || []); // Список предметов для условия
 
@@ -315,6 +373,90 @@
 
     <!-- 2. Центр: Редактор -->
     <main class="editor-area">
+              <div class="items-manager">
+        <div class="section-header" onclick={() => showItems = !showItems}>
+          <h4>📦 Предметы ({data?.items?.length || 0})</h4>
+          <span class="toggle-icon">{showItems ? '▼' : '▶'}</span>
+        </div>
+        
+               {#if showItems}
+          <div class="items-list">
+            {#if data?.items}
+              {#each data.items as item, index (item.id)}
+                <div class="item-row {editingItemIndex === index ? 'editing' : ''}">
+                  <!-- ВЕРХНЯЯ СТРОКА: Инфо и кнопки -->
+                  <div class="item-info">
+                      <div class="item-main">
+                          <span class="item-id-badge">{item.id}</span>
+                          <span class="item-name-preview">{item.name}</span>
+                      </div>
+                      <div class="item-desc-preview">{item.description}</div>
+                  </div>
+                  
+                  <div class="item-actions">
+                      <button onclick={() => editItem(index)} class="btn-icon" title="Редактировать">✎️</button>
+                      <button onclick={() => deleteItem(index)} class="btn-icon danger" title="Удалить">×</button>
+                  </div>
+
+                  <!-- НИЖНЯЯ ЧАСТЬ: Форма редактирования (показывается при клике) -->
+                  {#if editingItemIndex === index}
+                    <div class="item-edit-form">
+                        <div class="edit-grid">
+                            <!-- ID -->
+                            <div class="form-group full-width-edit">
+                                <label>ID предмета</label>
+                                <input type="text" bind:value={item.id} class="input" />
+                            </div>
+                            
+                            <!-- Имя -->
+                            <div class="form-group full-width-edit">
+                                <label>Название</label>
+                                <input type="text" bind:value={item.name} class="input" />
+                            </div>
+
+                            <!-- Описание -->
+                            <div class="form-group full-width-edit">
+                                <label>Описание</label>
+                                <textarea bind:value={item.description} class="textarea" rows="2"></textarea>
+                            </div>
+
+                            <!-- Иконка (Ввод + Выбор) -->
+                            <div class="form-group full-width-edit">
+                                <label>Иконка (Файл)</label>
+                                <div class="input-group">
+                                    <input type="text" bind:value={item.icon} class="input" placeholder="icon.png" />
+                                    <select onchange={(e) => item.icon = e.target.value} class="input select" style="max-width: 150px;">
+                                        <option value="">-- Выбрать --</option>
+                                        {#each storedFiles.filter(f => f.name.match(/\.(png|jpg|jpeg|webp|gif|svg)$/i)) as img}
+                                            <option value={img.name}>{img.name}</option>
+                                        {/each}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Тип -->
+                            <div class="form-group">
+                                <label>Тип</label>
+                                <select bind:value={item.type} class="item-type-select">
+                                    <option value="tool">Инструмент</option>
+                                    <option value="key">Ключ</option>
+                                    <option value="consumable">Расходуемый</option>
+                                    <option value="quest">Квестовый</option>
+                                    <option value="misc">Разное</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                  {/if}
+                </div>
+              {/each}
+            {:else}
+              <p class="empty-hint">Нет предметов. Нажмите "+" чтобы добавить.</p>
+            {/if}
+            <button onclick={addItem} class="btn primary small" style="margin-top:10px; width:100%">+ Добавить предмет</button>
+          </div>
+        {/if}
+      </div>
       {#if currentDialogue}
         <div class="dialogue-form">
           <div class="form-group"><label>ID диалога</label><input type="text" bind:value={currentDialogue.id} class="input" /></div>
@@ -587,4 +729,92 @@
   .link-row { display: flex; align-items: center; gap: 10px; padding: 6px; background: #1e1e1e; border-radius: 4px; margin-bottom: 4px; font-size: 12px; }
   .link-type { color: #888; width: 60px; font-size: 10px; }
   .link-id { color: #4db6ac; font-family: monospace; font-weight: bold; flex: 0 0 80px; }
+    /* Items Manager Styles */
+  .items-manager {
+    margin-bottom: 20px;
+    background: #252526;
+    border: 1px solid #333;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .items-manager .section-header {
+    padding: 10px 15px;
+    cursor: pointer;
+    background: #2d2d2d;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    user-select: none;
+  }
+  .items-manager .section-header:hover { background: #383838; }
+  .items-manager h4 { margin: 0; font-size: 13px; color: #ddd; }
+  .toggle-icon { color: #888; font-size: 12px; }
+
+  /* Стили для списка и формы редактирования предметов */
+  .items-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+  }
+
+  .item-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #252526;
+      padding: 10px;
+      border-radius: 4px;
+      border-left: 3px solid #444;
+      transition: 0.2s;
+  }
+  .item-row:hover { background: #303030; }
+  .item-row.editing { 
+      border-left: 3px solid #ff5555; 
+      background: #2a2d2e;
+      box-shadow: 0 0 5px rgba(0,0,0,0.5);
+      flex-direction: column; /* При редактировании растягиваем в колонку */
+      align-items: flex-start;
+  }
+
+  /* Информация о предмете в списке */
+  .item-info { flex: 1; display: flex; flex-direction: column; }
+  .item-main { display: flex; align-items: center; gap: 10px; }
+  .item-id-badge { 
+      font-family: monospace; 
+      font-size: 11px; 
+      background: #000; 
+      color: #aaa; 
+      padding: 2px 6px; 
+      border-radius: 4px; 
+  }
+  .item-name-preview { font-weight: bold; color: #ddd; font-size: 13px; }
+  .item-desc-preview { font-size: 11px; color: #888; margin-top: 2px; }
+
+  /* Форма редактирования (показывается внутри item-row) */
+  .item-edit-form {
+      width: 100%;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px dashed #444;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+  }
+  
+  .edit-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+  }
+  .full-width-edit { grid-column: span 2; }
+
+  .item-type-select {
+      background: #1e1e1e;
+      color: white;
+      border: 1px solid #444;
+      padding: 8px;
+      border-radius: 4px;
+      width: 100px;
+  }
+  .empty-hint { color: #666; font-size: 12px; font-style: italic; margin: 0 0 10px 0; }
 </style>
