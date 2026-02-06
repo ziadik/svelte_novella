@@ -96,15 +96,39 @@
     }
   }
 
-  async function saveStoryCopy() {
-    let copyName = prompt("Введите имя для копии:", currentFileName.replace('.json', '_copy.json'));
-    if (!copyName || !data) return;
+ async function saveStoryCopy() {
+    if (!data) return;
+    
+    // Генерируем уникальное имя
+    const baseName = currentFileName.replace('.json', '');
+    const timestamp = new Date().getTime(); // Добавим время, чтобы не было конфликтов
+    let copyName = `${baseName}_copy_${timestamp}.json`;
+
+    // Очищаем имя от пробелов по краям (частая причина 400 ошибки)
+    copyName = copyName.trim();
+
+    // Спросим у пользователя, но предложим сгенерированное имя
+    const userInput = prompt("Введите имя для копии:", copyName);
+    
+    if (!userInput) return; // Отмена
+    
+    copyName = userInput.trim();
     if (!copyName.endsWith('.json')) copyName += '.json';
+
+    statusMessage = { type: 'loading', text: 'Создание копии...' };
+
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const { error } = await supabase.storage.from(bucketName).upload(copyName, blob, { upsert: true });
+    
+    // upsert: true позволяет перезаписать, если файл уже есть
+    const { error } = await supabase.storage
+      .from(bucketName)
+      .upload(copyName, blob, { upsert: true, contentType: 'application/json' });
+    
     if (error) {
-        statusMessage = { type: 'error', text: 'Ошибка копии: ' + error.message };
+        console.error("Supabase Error:", error);
+        statusMessage = { type: 'error', text: `Ошибка копии: ${error.message}` };
     } else {
+        // Обновляем список файлов
         await loadStoriesList();
         statusMessage = { type: 'success', text: 'Копия сохранена!' };
     }
@@ -404,6 +428,7 @@
 
                     <div class="form-row">
                       <div class="form-group full-width">
+                       
                         <label>Переход к диалогу</label>
                         <select bind:value={option.nextDialogueId} class="input select">
                           <option value="">-- Конец ветки --</option>
