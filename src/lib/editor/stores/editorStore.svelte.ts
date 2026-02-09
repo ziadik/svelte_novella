@@ -20,7 +20,7 @@ const editorStore = $state({
   // Мета-данные
   currentFileName: "dracula_story_v3.json",
   statusMessage: { type: "", text: "" } as StatusMessage,
-
+  get bucketName() {return bucketName},
   // Computed значения
   get currentDialogue() {
     return this.data?.dialogues.find((d) => d.id === this.selectedDialogueId);

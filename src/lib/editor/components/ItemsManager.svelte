@@ -89,7 +89,7 @@
                   <div class="item-icon">
                     {#if item.icon}
                       <img 
-                        src={`${import.meta.env.VITE_SUPABASE_URL_FILE}/${bucketName}/${item.icon}`} 
+                        src={`${import.meta.env.VITE_SUPABASE_URL_FILE}/${editor.bucketName}/${item.icon}`} 
                         alt={item.name}
                         class="icon-preview"
                        
@@ -215,7 +215,7 @@
                       {#if item.icon}
                         <div class="icon-preview-small">
                           <img 
-                            src={`${import.meta.env.VITE_SUPABASE_URL_FILE}/${bucketName}/${item.icon}`} 
+                            src={`${import.meta.env.VITE_SUPABASE_URL_FILE}/${editor.bucketName}/${item.icon}`} 
                             alt="Preview"
                             class="preview-image"
                            
