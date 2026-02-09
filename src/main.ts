@@ -1,6 +1,11 @@
-import { mount } from 'svelte'
-import './app.css'
-import App from './App.svelte'
+import "./styles/global.css";
+import App from "./App.svelte";
+
+const app = new App({
+  target: document.getElementById("app")!,
+});
+
+export default app;
 // import { init, miniApp } from '@telegram-apps/sdk-svelte';
 
 // const initializeTelegramSDK = async () => {
@@ -18,8 +23,3 @@ import App from './App.svelte'
 
 // Initialize Telegram SDK
 // initializeTelegramSDK();
-const app = mount(App, {
-  target: document.getElementById('app')!,
-})
-
-export default app
