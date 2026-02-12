@@ -1,8 +1,16 @@
 <script lang="ts">
   import type { Dialogue } from '../../../types';
-  import { editor } from '../../stores/editorStore';
-  import { storyActions } from '../../../stores/storyStore';
-  import { resourceActions } from '../../stores/resourceStore';
+  import {
+    currentDialogue,
+    editingOptionIndex,
+    imageResources,
+    rivResources,
+    editorData,
+    availableItems,
+    editorActions
+  } from '../../../stores/editorStore.svelte';
+  import { storyActions } from '../../../stores/storyStore.svelte';
+  import { resourceActions } from '../../../stores/resourceStore.svelte';
   import { createNewOption } from '../../../utils/migration';
   import OptionEditor from './OptionEditor.svelte';
 
@@ -12,16 +20,16 @@
     if (!dialogue.options) dialogue.options = [];
     const newOption = createNewOption();
     dialogue.options.push(newOption);
-    editor.editingOptionIndex = dialogue.options.length - 1;
+    editorActions.setEditingOptionIndex(dialogue.options.length - 1);
   }
 
   function handleEditOption(index: number) {
-    if (editor.editingOptionIndex === index) {
-      editor.editingOptionIndex = null;
+    if (editingOptionIndex === index) {
+      editorActions.setEditingOptionIndex(null);
     } else {
-      editor.editingOptionIndex = index;
+      editorActions.setEditingOptionIndex(index);
       // Проверяем структуру опции
-      const option = editor.currentDialogue?.options?.[index];
+      const option = currentDialogue()?.options?.[index];
       if (option && !option.visibilityCondition) {
         option.visibilityCondition = { type: 'always' };
       }
@@ -31,23 +39,24 @@
   function deleteOption(dialogue: Dialogue, index: number) {
     if (confirm("Удалить вариант ответа?")) {
       dialogue.options?.splice(index, 1);
-      if (editor.editingOptionIndex === index) {
-        editor.editingOptionIndex = null;
-      } else if (editor.editingOptionIndex && editor.editingOptionIndex > index) {
-        editor.editingOptionIndex--;
+      if (editingOptionIndex === index) {
+        editorActions.setEditingOptionIndex(null);
+      } else if (editingOptionIndex && editingOptionIndex > index) {
+        editorActions.setEditingOptionIndex(editingOptionIndex - 1);
       }
     }
   }
 </script>
 
-{#if editor.currentDialogue}
+{#if currentDialogue}
+  {@const dialogue = currentDialogue}
   <div class="dialogue-form">
     <!-- Основные поля -->
     <div class="form-group">
       <label>ID диалога</label>
       <input 
         type="text" 
-        bind:value={editor.currentDialogue.id} 
+        bind:value={dialogue.id}
         class="input" 
       />
     </div>
@@ -55,7 +64,7 @@
     <div class="form-group">
       <label>Текст</label>
       <textarea 
-        bind:value={editor.currentDialogue.text} 
+        bind:value={dialogue.text}
         class="textarea" 
         rows="3"
       ></textarea>
@@ -69,14 +78,14 @@
         <label>Фон</label>
         <div class="input-group">
           <select 
-            bind:value={editor.currentDialogue.backgroundImage} 
+            bind:value={dialogue.backgroundImage}
             class="input select"
           >
             <option value="">-- Нет --</option>
-            {#each editor.imageResources as img}
+            {#each imageResources as img}
               <option value={img.name}>{img.name}</option>
             {/each}
-            {#each editor.rivResources as riv}
+            {#each rivResources as riv}
               <option value={riv.name}>{riv.name} (Rive)</option>
             {/each}
           </select>
@@ -96,14 +105,14 @@
         <label>Персонаж</label>
         <div class="input-group">
           <select 
-            bind:value={editor.currentDialogue.characterImage} 
+            bind:value={dialogue.characterImage}
             class="input select"
           >
             <option value="">-- Нет --</option>
-            {#each editor.imageResources as img}
+            {#each imageResources as img}
               <option value={img.name}>{img.name}</option>
             {/each}
-            {#each editor.rivResources as riv}
+            {#each rivResources as riv}
               <option value={riv.name}>{riv.name} (Rive)</option>
             {/each}
           </select>
@@ -116,15 +125,15 @@
       <div class="section-header">
         <h4>Варианты ответов</h4>
         <button 
-          onclick={() => addOption(editor.currentDialogue!)} 
+          onclick={() => addOption(dialogue)}
           class="btn small"
         >
           + Добавить
         </button>
       </div>
       
-      {#each editor.currentDialogue.options || [] as option, index (index)}
-        <div class:editing={editor.editingOptionIndex === index} class="option-card">
+      {#each dialogue.options || [] as option, index (index)}
+        <div class:editing={editingOptionIndex === index} class="option-card">
           <div class="option-header" onclick={() => handleEditOption(index)}>
             <span class="status-icons">
               {#if !option.visible}👁️‍🗨️
@@ -133,19 +142,19 @@
             </span>
             <span>#{index + 1} {option.text}</span>
             <button 
-              onclick={() => deleteOption(editor.currentDialogue!, index)} 
+              onclick={() => deleteOption(dialogue, index)}
               class="btn-icon danger"
             >
               ×
             </button>
           </div>
           
-          {#if editor.editingOptionIndex === index}
+          {#if editingOptionIndex === index}
             <OptionEditor 
               {option} 
               {index} 
-              dialogues={editor.data.dialogues}
-              availableItems={editor.availableItems}
+              dialogues={editorData.dialogues}
+              availableItems={availableItems}
               {conditionTypes}
             />
           {/if}
@@ -157,11 +166,11 @@
     <div class="links-section">
       <h4>Авто-переход</h4>
       <select 
-        bind:value={editor.currentDialogue.nextDialogueId} 
+        bind:value={dialogue.nextDialogueId}
         class="input select"
       >
         <option value="">-- Нет --</option>
-        {#each editor.data.dialogues as d}
+        {#each editorData.dialogues as d}
           <option value={d.id}>
             {d.id}: {d.text.substring(0, 30)}...
           </option>
@@ -172,7 +181,7 @@
     <!-- Кнопка удаления -->
     <div class="form-actions">
       <button 
-        onclick={() => storyActions.deleteDialogue(editor.currentDialogue!.id)} 
+        onclick={() => storyActions.deleteDialogue(dialogue.id)}
         class="btn danger"
       >
         Удалить сцену

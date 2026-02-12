@@ -8,10 +8,14 @@
   import SaveLoadModal from './SaveLoadModal.svelte'
   import SettingsModal from './SettingsModal.svelte'
   
-  import { currentStory } from '../../stores/storyStore'
-  import { gameState, gameActions } from '../../stores/gameStore'
+  import { currentStory } from '../../stores/storyStore.svelte'
+  import { gameState, gameActions, currentDialogue } from '../../stores/gameStore.svelte'
   import type { GameSession } from '../../types'
   
+  const { onback } = $props<{
+    onback?: () => void
+  }>()
+
   // Показывать ли инвентарь и статистику
   let showInventory = $state(false)
   let showStats = $state(false)
@@ -28,11 +32,12 @@
   
   // Эффекты при монтировании
   onMount(async () => {
-    if ($currentStory) {
-      await gameActions.loadStory($currentStory.bucket, $currentStory.defaultFile)
+    const story = currentStory()
+    if (story) {
+      await gameActions.loadStory(story.bucket, story.defaultFile)
       
       // Восстанавливаем последнюю сессию
-      const savedSession = localStorage.getItem(`game_session_${$currentStory.id}`)
+      const savedSession = localStorage.getItem(`game_session_${story.id}`)
       if (savedSession) {
         const session = JSON.parse(savedSession) as GameSession
         gameActions.loadSession(session)
@@ -80,18 +85,19 @@
   
   // Сохранение текущей сессии
   function saveCurrentSession() {
-    if ($currentStory && $gameState.storyData) {
+    const story = currentStory()
+    if (story && gameState.storyData) {
       const session: GameSession = {
         id: `session_${Date.now()}`,
-        storyId: $currentStory.id,
-        playerState: $gameState.player,
+        storyId: story.id,
+        playerState: gameState.player,
         createdAt: new Date(),
         lastPlayed: new Date(),
-        currentDialogueId: $gameState.currentDialogueId
+        currentDialogueId: gameState.currentDialogueId
       }
       
-      localStorage.setItem(`game_session_${$currentStory.id}`, JSON.stringify(session))
-      localStorage.setItem(`last_session_${$currentStory.id}`, JSON.stringify(session))
+      localStorage.setItem(`game_session_${story.id}`, JSON.stringify(session))
+      localStorage.setItem(`last_session_${story.id}`, JSON.stringify(session))
     }
   }
   
@@ -137,8 +143,9 @@
         
         case ' ':
           // Пропуск диалога/автоматическое продолжение
-          if ($gameState.currentDialogue?.nextDialogueId) {
-            gameActions.goToDialogue($gameState.currentDialogue.nextDialogueId)
+          const dialog = currentDialogue()
+          if (dialog?.nextDialogueId) {
+            gameActions.goToDialogue(dialog.nextDialogueId)
             e.preventDefault()
           }
           break
@@ -191,10 +198,10 @@
   
   // Обработчик выбора опции
   function handleOptionSelect(optionIndex: number) {
-    const currentDialogue = $gameState.currentDialogue
-    if (!currentDialogue?.options?.[optionIndex]) return
-    
-    const option = currentDialogue.options[optionIndex]
+    const dialog = currentDialogue()
+    if (!dialog?.options?.[optionIndex]) return
+
+    const option = dialog.options[optionIndex]
     
     // Выполняем действия опции
     if (option.actions) {
@@ -212,13 +219,16 @@
   
   // Быстрое сохранение
   function quickSave() {
+    const story = currentStory()
+    if (!story) return
+
     const session: GameSession = {
       id: `quicksave_${Date.now()}`,
-      storyId: $currentStory!.id,
-      playerState: $gameState.player,
+      storyId: story.id,
+      playerState: gameState.player,
       createdAt: new Date(),
       lastPlayed: new Date(),
-      currentDialogueId: $gameState.currentDialogueId,
+      currentDialogueId: gameState.currentDialogueId,
       isQuickSave: true
     }
     
@@ -253,17 +263,18 @@
   
   // Получить текущий фон
   function getBackgroundImage() {
-    const dialogue = $gameState.currentDialogue
-    if (dialogue?.backgroundImage) {
-      return `url(${import.meta.env.VITE_SUPABASE_URL_FILE}/storage/v1/object/public/${$currentStory?.bucket}/${dialogue.backgroundImage})`
+    const dialog = currentDialogue()
+    const story = currentStory()
+    if (dialog?.backgroundImage && story) {
+      return `url(${import.meta.env.VITE_SUPABASE_URL_FILE}/storage/v1/object/public/${story.bucket}/${dialog.backgroundImage})`
     }
     return 'none'
   }
   
   // Получить текущий Rive файл
   function getCurrentRiveFile() {
-    const dialogue = $gameState.currentDialogue
-    return dialogue?.stateMachineCharacterRive || dialogue?.smTriggerBackgroundRive
+    const dialog = currentDialogue()
+    return dialog?.stateMachineCharacterRive || dialog?.smTriggerBackgroundRive
   }
 </script>
 
@@ -278,7 +289,7 @@
     <div class="rive-container">
       <RivePlayer 
         fileName={getCurrentRiveFile()!}
-        bucket={$currentStory?.bucket || ''}
+        bucket={currentStory?.bucket || ''}
         autoplay={true}
         class="rive-animation"
       />
@@ -288,27 +299,36 @@
   <!-- Верхняя панель инструментов -->
   <div class="game-toolbar">
     <div class="toolbar-left">
+      <!-- Кнопка назад -->
+      <button 
+        class="btn-icon back-btn"
+        onclick={onback}
+        title="Назад к выбору истории"
+      >
+        ←
+      </button>
+      
       <!-- Кнопка меню -->
       <button 
         class="btn-icon menu-btn"
-        on:click={() => showSettings = true}
+        onclick={() => showSettings = true}
         title="Меню"
       >
         ☰
       </button>
-      
+
       <!-- Название истории -->
       <div class="story-title">
-        {$currentStory?.name || 'История не выбрана'}
+        {currentStory()?.name || 'История не выбрана'}
       </div>
     </div>
     
     <div class="toolbar-center">
       <!-- Прогресс -->
       <div class="progress-info">
-        {#if $gameState.storyData}
+        {#if gameState.storyData}
           <span class="progress-text">
-            Диалог {$gameState.currentDialogueId} / {$gameState.storyData.dialogues.length}
+            Диалог {gameState.currentDialogueId} / {gameState.storyData.dialogues.length}
           </span>
         {/if}
       </div>
@@ -319,15 +339,15 @@
       <div class="quick-actions">
         <button 
           class="btn-icon quick-save"
-          on:click={quickSave}
+          onclick={quickSave}
           title="Быстрое сохранение (Ctrl+S)"
-          disabled={!$currentStory}
+          disabled={!currentStory()}
         >
           💾
         </button>
         <button 
           class="btn-icon quick-load"
-          on:click={quickLoad}
+          onclick={quickLoad}
           title="Быстрая загрузка (Ctrl+L)"
           disabled={!localStorage.getItem('quicksave')}
         >
@@ -339,7 +359,7 @@
       <div class="audio-controls">
         <button 
           class="btn-icon volume-btn"
-          on:click={toggleMute}
+          onclick={toggleMute}
           title={isMuted ? 'Включить звук' : 'Выключить звук'}
         >
           {#if isMuted}
@@ -359,7 +379,7 @@
           max="1"
           step="0.1"
           value={currentVolume}
-          on:input={(e) => changeVolume(parseFloat(e.target.value))}
+          oninput={(e) => changeVolume(parseFloat((e.target as HTMLInputElement).value))}
           class="volume-slider"
           title="Громкость"
         />
@@ -368,7 +388,7 @@
       <!-- Полноэкранный режим -->
       <button 
         class="btn-icon fullscreen-btn"
-        on:click={toggleFullscreen}
+        onclick={toggleFullscreen}
         title={isFullscreen ? 'Выйти из полноэкранного режима (F11)' : 'Полноэкранный режим (F11)'}
       >
         {#if isFullscreen}
@@ -391,28 +411,28 @@
     
     <!-- Центральная часть: Диалоги -->
     <div class="dialogue-container">
-      {#if $gameState.isLoading}
+      {#if gameState.isLoading}
         <div class="loading-screen">
           <div class="loading-spinner"></div>
           <p>Загрузка истории...</p>
         </div>
       
-      {:else if $gameState.error}
+      {:else if gameState.error}
         <div class="error-screen">
           <div class="error-icon">⚠️</div>
           <h3>Ошибка загрузки</h3>
-          <p>{$gameState.error}</p>
+          <p>{gameState.error}</p>
           <button 
             class="btn primary"
-            on:click={() => location.reload()}
+            onclick={() => location.reload()}
           >
             Перезагрузить
           </button>
         </div>
       
-      {:else if $gameState.storyData && $gameState.currentDialogue}
+      {:else if gameState.storyData && currentDialogue}
         <DialogueCard 
-          dialogue={$gameState.currentDialogue}
+          dialogue={currentDialogue!}
           on:option-select={handleOptionSelect}
         />
       {/if}
@@ -431,7 +451,7 @@
     <div class="nav-left">
       <button 
         class="btn nav-btn"
-        on:click={() => showInventory = !showInventory}
+        onclick={() => showInventory = !showInventory}
         title="Инвентарь (I)"
         class:active={showInventory}
       >
@@ -440,7 +460,7 @@
       
       <button 
         class="btn nav-btn"
-        on:click={() => showStats = !showStats}
+        onclick={() => showStats = !showStats}
         title="Характеристики"
         class:active={showStats}
       >
@@ -451,11 +471,11 @@
     <div class="nav-center">
       <!-- Номер текущего диалога -->
       <div class="current-dialogue-info">
-        {#if $gameState.currentDialogue}
-          <span class="dialogue-id">#{$gameState.currentDialogue.id}</span>
-          {#if $gameState.currentDialogue.chapterId}
+        {#if currentDialogue()}
+          <span class="dialogue-id">#{currentDialogue()!.id}</span>
+          {#if currentDialogue()!.chapterId}
             <span class="chapter-badge">
-              Глава {$gameState.storyData?.chapters?.find(c => c.id === $gameState.currentDialogue?.chapterId)?.title || $gameState.currentDialogue.chapterId}
+              Глава {gameState.storyData?.chapters?.find(c => c.id === currentDialogue()!.chapterId)?.title || currentDialogue()!.chapterId}
             </span>
           {/if}
         {/if}
@@ -465,23 +485,23 @@
     <div class="nav-right">
       <button 
         class="btn nav-btn"
-        on:click={() => showSaveModal = true}
-        disabled={!$currentStory}
+        onclick={() => showSaveModal = true}
+        disabled={!currentStory}
       >
         💾 Сохранить
       </button>
       
       <button 
         class="btn nav-btn"
-        on:click={() => showLoadModal = true}
-        disabled={!$currentStory}
+        onclick={() => showLoadModal = true}
+        disabled={!currentStory}
       >
         📂 Загрузить
       </button>
       
       <button 
         class="btn nav-btn"
-        on:click={() => showSettings = true}
+        onclick={() => showSettings = true}
       >
         ⚙️ Настройки
       </button>

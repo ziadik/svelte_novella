@@ -2,7 +2,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte'
   import * as rive from '@rive-app/canvas'
-  
+  import { editorData } from '../../stores/editorStore.svelte';
   // Пропсы компонента
   const { 
     fileName, 
@@ -32,10 +32,12 @@
     showInfo?: boolean
   }>()
   
+  
+
   // Локальные переменные
   let canvas: HTMLCanvasElement | undefined
   let riveInstance: rive.Rive | null = null
-  
+  let currentData = editorData
   // Состояния
   let isLoaded = $state(false)
   let isLoading = $state(false)
@@ -181,7 +183,7 @@
     }
     
     // Если бакет не указан, используем текущую историю
-    const currentBucket = bucket || $currentStory?.bucket || 'dracula'
+    const currentBucket = bucket || currentData?.meta?.title || 'dracula'
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL_FILE
     
     return `${supabaseUrl}/storage/v1/object/public/${currentBucket}/${fileName}`

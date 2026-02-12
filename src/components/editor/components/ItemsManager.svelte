@@ -1,8 +1,11 @@
 <script lang="ts">
-  import { editor } from '../../../stores/editorStore.svelte';
-  import { resourceActions } from '../../../stores/resourceStore';
+  import { editorData, showItems, storedFiles } from '../../../stores/editorStore.svelte';
+  import { resourceActions } from '../../../stores/resourceStore.svelte';
   import type { Item } from '../../../types';
   
+  // Локальное состояние для отслеживания редактируемого элемента
+  let editingItemIndex = $state<number | null>(null);
+
   const itemTypes = [
     { value: 'tool', label: 'Инструмент' },
     { value: 'key', label: 'Ключ' },
@@ -12,8 +15,8 @@
   ];
   
   function addItem() {
-    if (!editor.data) return;
-    if (!editor.data.items) editor.data.items = [];
+    if (!editorData) return;
+    if (!editorData.items) editorData.items = [];
     
     const newItem: Item = {
       id: `item_${Date.now()}`,
@@ -23,38 +26,38 @@
       type: 'misc'
     };
     
-    editor.data.items.push(newItem);
-    editor.editingItemIndex = editor.data.items.length - 1;
+    editorData.items.push(newItem);
+    editingItemIndex = editorData.items.length - 1;
   }
   
   function editItem(index: number) {
-    if (editor.editingItemIndex === index) {
-      editor.editingItemIndex = null;
+    if (editingItemIndex === index) {
+      editingItemIndex = null;
     } else {
-      editor.editingItemIndex = index;
+      editingItemIndex = index;
     }
   }
   
   function deleteItem(index: number) {
     if (!confirm('Удалить предмет?')) return;
-    if (!editor.data?.items) return;
+    if (!editorData?.items) return;
     
-    editor.data.items.splice(index, 1);
-    editor.editingItemIndex = null;
+    editorData.items.splice(index, 1);
+    editingItemIndex = null;
   }
   
   function duplicateItem(index: number) {
-    if (!editor.data?.items) return;
+    if (!editorData?.items) return;
     
-    const original = editor.data.items[index];
+    const original = editorData.items[index];
     const duplicate: Item = {
       ...original,
       id: `${original.id}_copy_${Date.now()}`,
       name: `${original.name} (копия)`
     };
     
-    editor.data.items.splice(index + 1, 0, duplicate);
-    editor.editingItemIndex = index + 1;
+    editorData.items.splice(index + 1, 0, duplicate);
+    editingItemIndex = index + 1;
   }
   
   function getItemTypeLabel(type: string) {
@@ -65,31 +68,31 @@
 <div class="items-manager">
   <div 
     class="section-header" 
-    onclick={() => editor.showItems = !editor.showItems}
-    title={editor.showItems ? 'Скрыть предметы' : 'Показать предметы'}
+    onclick={() => editorActions.toggleItemsPanel()}
+    title={showItems ? 'Скрыть предметы' : 'Показать предметы'}
   >
     <h4>
       <span class="icon">📦</span>
-      Предметы ({editor.data?.items?.length || 0})
+      Предметы ({editorData?.items?.length || 0})
     </h4>
     <span class="toggle-icon">
-      {editor.showItems ? '▼' : '▶'}
+      {showItems ? '▼' : '▶'}
     </span>
   </div>
   
-  {#if editor.showItems}
+  {#if showItems}
     <div class="items-container">
-      {#if editor.data?.items?.length}
+      {#if editorData?.items?.length}
         <div class="items-list">
-          {#each editor.data.items as item, index (item.id)}
-            <div class:editing={editor.editingItemIndex === index} class="item-row">
+          {#each editorData.items as item, index (item.id)}
+            <div class:editing={editingItemIndex === index} class="item-row">
               <!-- Информация о предмете -->
               <div class="item-info" onclick={() => editItem(index)}>
                 <div class="item-header">
                   <div class="item-icon">
                     {#if item.icon}
                       <img 
-                        src={`${import.meta.env.VITE_SUPABASE_URL_FILE}/${editor.bucketName}/${item.icon}`} 
+                        src={`${import.meta.env.VITE_SUPABASE_URL_FILE}/svelte_novella/${item.icon}`}
                         alt={item.name}
                         class="icon-preview"
                        
@@ -146,7 +149,7 @@
               </div>
               
               <!-- Форма редактирования -->
-              {#if editor.editingItemIndex === index}
+              {#if editingItemIndex === index}
                 <div class="item-edit-form">
                   <div class="edit-grid">
                     <!-- ID -->
@@ -197,7 +200,7 @@
                           class="input select"
                         >
                           <option value="">-- Выбрать из загруженных --</option>
-                          {#each editor.storedFiles.filter(f => 
+                          {#each storedFiles.filter(f =>
                             f.name.match(/\.(png|jpg|jpeg|webp|gif|svg)$/i)) as img}
                             <option value={img.name}>{img.name}</option>
                           {/each}
@@ -215,7 +218,7 @@
                       {#if item.icon}
                         <div class="icon-preview-small">
                           <img 
-                            src={`${import.meta.env.VITE_SUPABASE_URL_FILE}/${editor.bucketName}/${item.icon}`} 
+                            src={`${import.meta.env.VITE_SUPABASE_URL_FILE}/svelte_novella/${item.icon}`}
                             alt="Preview"
                             class="preview-image"
                            

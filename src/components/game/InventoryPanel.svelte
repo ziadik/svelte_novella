@@ -1,6 +1,6 @@
 <!-- src/components/game/InventoryPanel.svelte -->
 <script lang="ts">
-  import { gameState } from '../../stores/gameStore'
+  import { gameState } from '../../stores/gameStore.svelte'
   import type { Item } from '../../types'
   
   let selectedItem = $state<Item | null>(null)
@@ -34,7 +34,7 @@
         <div class="item-icon">
           {#if item.icon}
             <img 
-              src={`${import.meta.env.VITE_SUPABASE_URL_FILE}/storage/v1/object/public/${$currentStory?.bucket}/${item.icon}`} 
+              src={`${import.meta.env.VITE_SUPABASE_URL_FILE}/storage/v1/object/public/${globalThis.$currentStory?.bucket}/${item.icon}`} 
               alt={item.name}
               class="item-image"
             />

@@ -1,6 +1,6 @@
 <!-- src/components/game/StatsPanel.svelte -->
 <script lang="ts">
-  import { gameState } from '../../stores/gameStore'
+  import { gameState } from '../../stores/gameStore.svelte'
   
   // Основные характеристики игрока
   const stats = $derived($gameState.player.stats)

@@ -4,21 +4,15 @@
   import Editor from './components/editor/Editor.svelte'
   import Game from './components/game/GameView.svelte'
   
-  import { showEditor } from './stores/editorStore'
-  import { currentStory } from './stores/storyStore'
+  import { showEditor } from './stores/editorStore.svelte'
+  import { currentStory } from './stores/storyStore.svelte'
   
   type View = 'select' | 'editor' | 'game'
   
-  let currentView = $state<View>('select')
-  
-  // Восстанавливаем состояние из localStorage
-  $effect(() => {
-    const savedView = localStorage.getItem('currentView') as View
-    if (savedView) {
-      currentView = savedView
-    }
-  })
-  
+  // Восстанавливаем состояние из localStorage при инициализации
+  const savedView = localStorage.getItem('currentView') as View
+  let currentView = $state<View>(savedView || 'select')
+
   // Сохраняем состояние при изменении
   $effect(() => {
     localStorage.setItem('currentView', currentView)
@@ -29,15 +23,15 @@
   }
 </script>
 
-<Header {currentView} on:view-change={handleViewChange} />
+<Header {currentView} onViewChange={handleViewChange} />
 
 <main class="main-content">
   {#if currentView === 'select'}
-    <StorySelector on:open-editor={() => currentView = 'editor'} />
+    <StorySelector openEditor={() => currentView = 'editor'} />
   {:else if currentView === 'editor'}
-    <Editor on:back={() => currentView = 'select'} />
+    <Editor onback={() => currentView = 'select'} />
   {:else if currentView === 'game'}
-    <Game on:back={() => currentView = 'select'} />
+    <Game onback={() => currentView = 'select'} />
   {/if}
 </main>
 

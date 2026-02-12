@@ -1,8 +1,8 @@
 <!-- src/components/game/DialogueCard.svelte -->
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte'
-  import { gameState, gameActions } from '../../stores/gameStore'
-  import { currentStory } from '../../stores/storyStore'
+  import { gameState, gameActions } from '../../stores/gameStore.svelte'
+  import { currentStory } from '../../stores/storyStore.svelte'
   import type { Dialogue, Option } from '../../types'
   
   const { dialogue, onOptionSelect } = $props<{
@@ -201,14 +201,14 @@
         
         case 'stat_greater':
           if (condition.statName && condition.statValue !== undefined) {
-            const statValue = $gameState.player.stats[condition.statName] || 0
+            const statValue = gameState().player.stats[condition.statName] || 0
             return statValue > condition.statValue
           }
           return true
         
         case 'flag_true':
           return condition.flagName 
-            ? $gameState.player.flags?.[condition.flagName] === true
+            ? gameState().player.flags?.[condition.flagName] === true
             : true
         
         case 'always':
@@ -222,16 +222,16 @@
   
   // Получить URL изображения персонажа
   function getCharacterImageUrl(): string | null {
-    if (dialogue.characterImage && $currentStory) {
-      return `${import.meta.env.VITE_SUPABASE_URL_FILE}/storage/v1/object/public/${$currentStory.bucket}/${dialogue.characterImage}`
+    if (dialogue.characterImage && currentStory()) {
+      return `${import.meta.env.VITE_SUPABASE_URL_FILE}/storage/v1/object/public/${currentStory().bucket}/${dialogue.characterImage}`
     }
     return null
   }
   
   // Получить стиль для фона
   function getBackgroundStyle() {
-    if (dialogue.backgroundImage && $currentStory) {
-      return `url(${import.meta.env.VITE_SUPABASE_URL_FILE}/storage/v1/object/public/${$currentStory.bucket}/${dialogue.backgroundImage})`
+    if (dialogue.backgroundImage && currentStory()) {
+      return `url(${import.meta.env.VITE_SUPABASE_URL_FILE}/storage/v1/object/public/${currentStory().bucket}/${dialogue.backgroundImage})`
     }
     return 'none'
   }
@@ -272,7 +272,7 @@
           <span class="dialogue-id">{dialogue.id}</span>
           {#if dialogue.chapterId}
             <span class="chapter-badge">
-              Глава {$gameState.storyData?.chapters?.find(c => c.id === dialogue.chapterId)?.title || dialogue.chapterId}
+              Глава {gameState().storyData?.chapters?.find(c => c.id === dialogue.chapterId)?.title || dialogue.chapterId}
             </span>
           {/if}
         </div>

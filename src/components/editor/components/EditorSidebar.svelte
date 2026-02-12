@@ -1,25 +1,151 @@
 <script lang="ts">
-  import { editor } from '../../stores/editorStore';
-  import { storyActions } from '../../../stores/storyStore';
-  import { resourceActions } from '../../../stores/resourceStore';
+  import { 
+    data, selectedChapterId, selectedDialogueId,
+    chapterDialogues, editorActions, 
+    statusMessage
+
+  } from '../../../stores/editorStore.svelte';
+  import { storyActions } from '../../../stores/storyStore.svelte';
+  import type { Dialogue } from '../../../types';
+
+  // Безопасная функция для получения статистики диалога
+  function getDialogueStats(dialogue: Dialogue | undefined) {
+    if (!dialogue) {
+      return {
+        totalOptions: 0,
+        enabledOptions: 0,
+        visibleOptions: 0,
+        hasAutoTransition: false,
+        linkedOptions: 0,
+        conditionalOptions: 0
+      };
+    }
+
+    const stats = {
+      totalOptions: dialogue.options?.length || 0,
+      enabledOptions: 0,
+      visibleOptions: 0,
+      hasAutoTransition: !!dialogue.nextDialogueId,
+      linkedOptions: 0,
+      conditionalOptions: 0
+    };
+
+    if (dialogue.options) {
+      dialogue.options.forEach(option => {
+        if (option.enabled) stats.enabledOptions++;
+        if (option.visible) stats.visibleOptions++;
+        if (option.nextDialogueId) stats.linkedOptions++;
+        if (option.visibilityCondition && option.visibilityCondition.type !== 'always') {
+          stats.conditionalOptions++;
+        }
+      });
+    }
+
+    return stats;
+  }
+
+  // Статистика для главы
+  function getChapterStats(chapterId: string | null) {
+    if (!data || !chapterId) return null;
+
+    const chapterDialogues = data.dialogues.filter(d => d.chapterId === chapterId);
+    const stats = {
+      totalDialogues: chapterDialogues.length,
+      totalOptions: 0,
+      totalTransitions: 0,
+      conditionalDialogues: 0
+    };
+
+    chapterDialogues.forEach(dialogue => {
+      if (!dialogue) return;
+      
+      stats.totalOptions += dialogue.options?.length || 0;
+      if (dialogue.nextDialogueId) stats.totalTransitions++;
+      if (dialogue.options) {
+        dialogue.options.forEach(option => {
+          if (option.nextDialogueId) stats.totalTransitions++;
+        });
+      }
+      // Диалог с условными опциями
+      if (dialogue.options?.some(o => o.visibilityCondition && o.visibilityCondition.type !== 'always')) {
+        stats.conditionalDialogues++;
+      }
+    });
+
+    return stats;
+  }
+
+  // Иконки для типов диалогов
+  function getDialogueIcon(dialogue: Dialogue | undefined): string {
+    if (!dialogue) return '❓';
+    if (!dialogue.options || dialogue.options.length === 0) return '🔚';
+    if (dialogue.nextDialogueId) return '➡️';
+    return '💬';
+  }
+
+  // Иконки для глав
+  function getChapterIcon(chapterId: string | null): string {
+    const stats = getChapterStats(chapterId);
+    if (!stats) return '📖';
+    
+    if (stats.totalDialogues === 0) return '📕';
+    if (stats.conditionalDialogues > 0) return '🎭';
+    return '📘';
+  }
 </script>
 
 <aside class="sidebar">
   <!-- Раздел глав -->
   <div class="sidebar-section">
     <div class="section-header">
-      <h3>Главы</h3>
-      <button onclick={storyActions.addChapter} class="btn-icon">+</button>
+      <div class="section-title">
+        <h3>Главы</h3>
+        <span class="section-count">{data?.chapters?.length || 0}</span>
+      </div>
+      <button onclick={storyActions.addChapter} class="btn-icon" title="Добавить главу">+</button>
     </div>
     <div class="chapter-list">
-      {#each editor.data?.chapters || [] as chapter (chapter.id)}
-        <div 
-          class:active={editor.selectedChapterId === chapter.id}
-          class="chapter-item" 
-          onclick={() => editor.selectedChapterId = chapter.id}
-        >
-          {chapter.title}
-        </div>
+      {#each data?.chapters || [] as chapter (chapter.id)}
+        {#if chapter}
+          {@const stats = getChapterStats(chapter.id)}
+          <div 
+            class:active={selectedChapterId === chapter.id}
+            class="chapter-item" 
+            onclick={() => editorActions.setSelectedChapterId(chapter.id)}
+            title={`${stats?.totalDialogues || 0} сцен, ${stats?.totalOptions || 0} опций, ${stats?.totalTransitions || 0} переходов`}
+          >
+            <div class="chapter-header">
+              <span class="chapter-icon">{getChapterIcon(chapter.id)}</span>
+              <span class="chapter-title">{chapter.title || 'Без названия'}</span>
+            </div>
+            {#if stats}
+              <div class="chapter-stats">
+                <span class="stat-item" title="Сцены">
+                  <span class="stat-icon">🎬</span>
+                  <span class="stat-value">{stats.totalDialogues}</span>
+                </span>
+                {#if stats.totalOptions > 0}
+                  <span class="stat-item" title="Опции">
+                    <span class="stat-icon">💬</span>
+                    <span class="stat-value">{stats.totalOptions}</span>
+                  </span>
+                {/if}
+                {#if stats.totalTransitions > 0}
+                  <span class="stat-item" title="Переходы">
+                    <span class="stat-icon">↪️</span>
+                    <span class="stat-value">{stats.totalTransitions}</span>
+                  </span>
+                {/if}
+                {#if stats.conditionalDialogues > 0}
+                  <span class="stat-item conditional" title="Условные диалоги">
+                    <span class="stat-icon">🎭</span>
+                    <span class="stat-value">{stats.conditionalDialogues}</span>
+                  </span>
+                {/if}
+              </div>
+            {/if}
+          </div>
+        {/if}
       {/each}
     </div>
   </div>
@@ -27,34 +153,182 @@
   <!-- Раздел сцен -->
   <div class="sidebar-section flex-1">
     <div class="section-header">
-      <h3>Сцены ({editor.chapterDialogues.length})</h3>
+      <div class="section-title">
+        <h3>Сцены ({chapterDialogues().length})</h3>
+        <span class="section-hint">
+          {#if selectedChapterId()}
+            {data?.chapters?.find(c => c.id === selectedChapterId())?.title || 'Глава'}
+          {:else}
+            Все сцены
+          {/if}
+        </span>
+      </div>
       <button 
-        onclick={storyActions.addDialogue} 
+        onclick={storyActions.addDialogue}
         class="btn-icon" 
-        disabled={!editor.selectedChapterId}
+        disabled={!selectedChapterId()}
+        title="Добавить сцену"
       >
         +
       </button>
     </div>
     <div class="dialogue-list">
-      {#each editor.chapterDialogues as dialogue (dialogue.id)}
-        <div 
-          class:active={editor.selectedDialogueId === dialogue.id}
-          class="dialogue-item" 
-          onclick={() => editor.selectedDialogueId = dialogue.id}
-        >
-          <span class="id-badge">{dialogue.id}</span>
-          <span class="preview-text">{dialogue.text.substring(0, 25)}...</span>
-        </div>
+      {#each chapterDialogues() as dialogue, index (dialogue?.id || index)}
+        {#if dialogue}
+          {@const stats = getDialogueStats(dialogue)}
+          <div 
+            class:active={selectedDialogueId() === dialogue.id}
+            class:has-options={stats.totalOptions > 0}
+            class:has-transition={stats.hasAutoTransition}
+            class="dialogue-item" 
+            onclick={() => editorActions.setSelectedDialogueId(dialogue.id)}
+          >
+            <div class="dialogue-header">
+              <span class="dialogue-icon">{getDialogueIcon(dialogue)}</span>
+              <div class="dialogue-info">
+                <span class="id-badge">{dialogue.id || 'Без ID'}</span>
+                <span class="preview-text" title={dialogue.text || 'Без текста'}>
+                  {dialogue?.text ? dialogue.text.substring(0, 30) : 'Без текста'}{#if dialogue?.text && dialogue.text.length > 30}...{/if}
+                </span>
+              </div>
+            </div>
+            
+            <div class="dialogue-stats">
+              {#if stats.totalOptions > 0}
+                <div class="stats-row">
+                  <span class="stat-badge" title="Всего опций">
+                    <span class="stat-label">О:</span>
+                    <span class="stat-value">{stats.totalOptions}</span>
+                  </span>
+                  
+                  {#if stats.enabledOptions !== stats.totalOptions}
+                    <span class="stat-badge enabled" title="Активные опции">
+                      <span class="stat-label">А:</span>
+                      <span class="stat-value">{stats.enabledOptions}</span>
+                    </span>
+                  {/if}
+                  
+                  {#if stats.visibleOptions !== stats.totalOptions}
+                    <span class="stat-badge visible" title="Видимые опции">
+                      <span class="stat-label">В:</span>
+                      <span class="stat-value">{stats.visibleOptions}</span>
+                    </span>
+                  {/if}
+                  
+                  {#if stats.linkedOptions > 0}
+                    <span class="stat-badge linked" title="Опции с переходами">
+                      <span class="stat-label">→</span>
+                      <span class="stat-value">{stats.linkedOptions}</span>
+                    </span>
+                  {/if}
+                  
+                  {#if stats.conditionalOptions > 0}
+                    <span class="stat-badge conditional" title="Условные опции">
+                      <span class="stat-label">🎭</span>
+                      <span class="stat-value">{stats.conditionalOptions}</span>
+                    </span>
+                  {/if}
+                </div>
+              {:else}
+                <div class="stats-row">
+                  <span class="stat-badge empty" title="Нет опций">
+                    <span class="stat-label">—</span>
+                  </span>
+                  
+                  {#if stats.hasAutoTransition}
+                    <span class="stat-badge auto-transition" title="Авто-переход">
+                      <span class="stat-label">➡️</span>
+                    </span>
+                  {/if}
+                </div>
+              {/if}
+            </div>
+            
+            <!-- Дополнительная информация при наведении -->
+            <div class="dialogue-tooltip">
+              <div class="tooltip-content">
+                <div class="tooltip-title">{dialogue.id || 'Без ID'}</div>
+                <div class="tooltip-text">{dialogue.text || 'Без текста'}</div>
+                <div class="tooltip-stats">
+                  <div class="tooltip-stat">
+                    <span class="tooltip-label">Опции:</span>
+                    <span class="tooltip-value">{stats.totalOptions}</span>
+                  </div>
+                  {#if stats.totalOptions > 0}
+                    <div class="tooltip-stat">
+                      <span class="tooltip-label">• Активных:</span>
+                      <span class="tooltip-value">{stats.enabledOptions}</span>
+                    </div>
+                    <div class="tooltip-stat">
+                      <span class="tooltip-label">• Видимых:</span>
+                      <span class="tooltip-value">{stats.visibleOptions}</span>
+                    </div>
+                    <div class="tooltip-stat">
+                      <span class="tooltip-label">• С переходами:</span>
+                      <span class="tooltip-value">{stats.linkedOptions}</span>
+                    </div>
+                    <div class="tooltip-stat">
+                      <span class="tooltip-label">• Условных:</span>
+                      <span class="tooltip-value">{stats.conditionalOptions}</span>
+                    </div>
+                  {/if}
+                  <div class="tooltip-stat">
+                    <span class="tooltip-label">Авто-переход:</span>
+                    <span class="tooltip-value">{stats.hasAutoTransition ? 'Да' : 'Нет'}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        {/if}
       {/each}
+    </div>
+  </div>
+  
+  <!-- Общая статистика -->
+  <div class="sidebar-section stats-summary">
+    <div class="summary-header">
+      <h4>📊 Статистика</h4>
+    </div>
+    <div class="summary-stats">
+      {#if data}
+        <div class="summary-row">
+          <span class="summary-label">Всего сцен:</span>
+          <span class="summary-value">{data.dialogues.length}</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">Всего опций:</span>
+          <span class="summary-value">
+            {data.dialogues.reduce((acc, d) => acc + (d?.options?.length || 0), 0)}
+          </span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">Авто-переходов:</span>
+          <span class="summary-value">
+            {data.dialogues.filter(d => d?.nextDialogueId).length}
+          </span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">Условных опций:</span>
+          <span class="summary-value">
+            {data.dialogues.reduce((acc, d) => {
+              if (!d?.options) return acc;
+              return acc + d.options.filter(o => o?.visibilityCondition && o.visibilityCondition.type !== 'always').length;
+            }, 0)}
+          </span>
+        </div>
+      {/if}
     </div>
   </div>
   
   <!-- Статус -->
   <div class="status-box">
-    {#if editor.statusMessage.text}
-      <div class="alert {editor.statusMessage.type}">
-        {editor.statusMessage.text}
+    {#if statusMessage.text}
+      <div class:success={statusMessage.type === 'success'}
+           class:error={statusMessage.type === 'error'}
+           class:loading={statusMessage.type === 'loading'}
+           class="alert">
+        {statusMessage.text}
       </div>
     {/if}
   </div>

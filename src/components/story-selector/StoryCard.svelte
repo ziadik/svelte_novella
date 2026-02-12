@@ -1,138 +1,60 @@
 <!-- src/components/story-selector/StoryCard.svelte -->
 <script lang="ts">
-  import type { StoryInfo } from '../../types'
-  
-  const { story, isSelected } = $props<{
-    story: StoryInfo
-    isSelected: boolean
+
+  const { storyName, onselect } = $props<{
+    storyName: string
+    onselect?: () => void
   }>()
-  
-  const { onSelect, onEdit, onDelete } = $props<{
-    onSelect?: () => void
-    onEdit?: () => void
-    onDelete?: () => void
-  }>()
-  
+    
   let showActions = $state(false)
   
   function handleClick() {
-    onSelect?.()
+    onselect?.()
   }
   
-  function handleEdit(e: MouseEvent) {
-    e.stopPropagation()
-    onEdit?.()
-  }
-  
-  function handleDelete(e: MouseEvent) {
-    e.stopPropagation()
-    if (confirm(`Удалить историю "${story.name}"?`)) {
-      onDelete?.()
-    }
-  }
-  
-  function getBucketIcon(bucket: string): string {
-    // Можно добавить больше иконок по названию бакета
-    if (bucket.includes('dracula')) return '🧛‍♂️'
-    if (bucket.includes('sherlock')) return '🔍'
-    if (bucket.includes('space')) return '🚀'
-    if (bucket.includes('fantasy')) return '🐉'
-    if (bucket.includes('detective')) return '🕵️‍♂️'
+  function getStoryIcon(fileName: string): string {
+    if (fileName.includes('dracula')) return '🧛‍♂️'
+    if (fileName.includes('sherlock')) return '🔍'
+    if (fileName.includes('space')) return '🚀'
+    if (fileName.includes('fantasy')) return '🐉'
+    if (fileName.includes('detective')) return '🕵️‍♂️'
     return '📖'
   }
   
-  function getFileTypeIcon(fileName: string): string {
-    if (fileName.endsWith('.json')) return '📋'
-    return '📄'
+  function getDisplayName(fileName: string): string {
+    return fileName.replace('.json', '')
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, c => c.toUpperCase())
   }
 </script>
 
 <div 
-  class:selected={isSelected}
   class="story-card"
-  on:click={handleClick}
-  on:mouseenter={() => showActions = true}
-  on:mouseleave={() => showActions = false}
+  onclick={handleClick}
+  onmouseenter={() => showActions = true}
+  onmouseleave={() => showActions = false}
 >
   <!-- Иконка истории -->
   <div class="story-icon">
-    {getBucketIcon(story.bucket)}
+    {getStoryIcon(storyName)}
   </div>
   
   <!-- Основное содержимое -->
   <div class="story-content">
     <div class="story-header">
-      <h3 class="story-title" title={story.name}>
-        {story.name}
+      <h3 class="story-title" title={storyName}>
+        {getDisplayName(storyName)}
       </h3>
-      
-      <!-- Действия (появляются при наведении) -->
-      {#if showActions}
-        <div class="story-actions">
-          <button 
-            class="btn-icon edit" 
-            title="Редактировать настройки"
-            on:click={handleEdit}
-          >
-            ✏️
-          </button>
-          <button 
-            class="btn-icon delete" 
-            title="Удалить историю"
-            on:click={handleDelete}
-          >
-            🗑️
-          </button>
-        </div>
-      {/if}
     </div>
-    
-    <!-- Описание -->
-    {#if story.description}
-      <p class="story-description" title={story.description}>
-        {story.description}
-      </p>
-    {/if}
     
     <!-- Метаданные -->
     <div class="story-meta">
       <div class="meta-item">
-        <span class="meta-icon">📦</span>
-        <span class="meta-text" title="Бакет">{story.bucket}</span>
+        <span class="meta-icon">📋</span>
+        <span class="meta-text" title="Файл истории">{storyName}</span>
       </div>
-      
-      <div class="meta-item">
-        <span class="meta-icon">{getFileTypeIcon(story.defaultFile)}</span>
-        <span class="meta-text" title="Файл истории">{story.defaultFile}</span>
-      </div>
-      
-      {#if story.lastModified}
-        <div class="meta-item">
-          <span class="meta-icon">🕒</span>
-          <span class="meta-text" title="Последнее изменение">
-            {story.lastModified.toLocaleDateString('ru-RU')}
-          </span>
-        </div>
-      {/if}
     </div>
-    
-    <!-- Теги -->
-    {#if story.tags && story.tags.length > 0}
-      <div class="story-tags">
-        {#each story.tags as tag}
-          <span class="tag">{tag}</span>
-        {/each}
-      </div>
-    {/if}
   </div>
-  
-  <!-- Индикатор выбора -->
-  {#if isSelected}
-    <div class="selected-indicator">
-      <div class="checkmark">✓</div>
-      <span class="selected-text">Выбрано</span>
-    </div>
-  {/if}
 </div>
 
 <style>

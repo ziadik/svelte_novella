@@ -139,7 +139,7 @@
       <!-- Слоты сохранений -->
       <div class="save-slots">
         {#each Array(10).fill(0) as _, index}
-          {#const session = saveSlots[index]}
+          {@const session = saveSlots[index]}
           <div 
             class:selected={selectedSlot === index}
             class:empty={!session}

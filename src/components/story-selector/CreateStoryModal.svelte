@@ -1,11 +1,12 @@
 <!-- src/components/story-selector/CreateStoryModal.svelte -->
 <script lang="ts">
   import { StoryService } from '../../services/storyService'
-  import { stories, setCurrentStory } from '../../stores/storyStore'
-  
+  import { storiesList, editorActions } from '../../stores/editorStore.svelte'
+  import { storyActions } from '../../stores/storyStore.svelte'
+
   const { onClose, onSuccess } = $props<{
     onClose?: () => void
-    onSuccess?: (story: any) => void
+    onSuccess?: (story: string) => void
   }>()
   
   // Форма
@@ -87,7 +88,7 @@
     }
     
     // Проверяем уникальность бакета
-    const existingBuckets = $stories.map(s => s.bucket)
+    const existingBuckets = storiesList.map(s => s.replace('.json', ''))
     if (existingBuckets.includes(bucketName)) {
       error = `Бакет "${bucketName}" уже существует`
       return false
@@ -115,32 +116,24 @@
       // Создаем структуру истории в зависимости от типа
       const storyTemplate = createStoryTemplate(storyName, storyType)
       
+      // Имя файла
+      const fileName = `${bucketName}.json`
+
       // Сохраняем в Supabase
-      const success = await StoryService.saveStory(bucketName, 'story.json', storyTemplate)
-      
+      const success = await StoryService.saveStory(bucketName, fileName, storyTemplate)
+
       if (!success) {
         throw new Error('Не удалось создать историю')
       }
       
-      // Создаем объект истории
-      const newStory = {
-        id: bucketName,
-        name: storyName,
-        bucket: bucketName,
-        defaultFile: 'story.json',
-        description: description || undefined,
-        tags: tags.length > 0 ? tags : undefined,
-        lastModified: new Date(),
-      }
-      
       // Обновляем список историй
-      stories.update(current => [...current, newStory])
-      
-      // Устанавливаем как текущую
-      setCurrentStory(newStory)
-      
+      editorActions.setStoriesList([...storiesList, fileName])
+
+      // Загружаем новую историю
+      await storyActions.loadStory(fileName)
+
       // Вызываем коллбэки
-      onSuccess?.(newStory)
+      onSuccess?.(fileName)
       onClose?.()
       
     } catch (err: any) {

@@ -1,14 +1,27 @@
 <script lang="ts">
-  import { editor } from '../../../stores/editorStore';
+  import { 
+    editorData, selectedDialogueId, currentDialogue,
+    backlinks, editorActions 
+  } from '../../../stores/editorStore.svelte';
   import { storyActions } from '../../../stores/storyStore';
+  import { get } from 'svelte/store';
+  
+  // Получаем текущий диалог из store
+  const $currentDialogue = $currentDialogue;
   
   // Получаем текст целевого диалога
   function getTargetText(id: string | undefined): string {
-    if (!id || !editor.data) return "Нет";
-    const target = editor.data.dialogues.find(d => d.id === id);
+    if (!id) return "Нет";
+    const $data = get(data);
+    if (!$data) return "Нет";
+    
+    const target = $data.dialogues.find(d => d.id === id);
     if (!target) return `❌ Не найден: ${id}`;
-    return target.text.substring(0, 40) + "...";
+    return target.text?.substring(0, 40) || "Без текста" + "...";
   }
+  
+  // Получаем входящие связи
+  const $backlinks = $backlinks;
 </script>
 
 <div class="infographic-section">
@@ -19,16 +32,16 @@
     <div class="info-title">👉 Куда ведет:</div>
     
     <!-- Авто-переход -->
-    {#if editor.currentDialogue?.nextDialogueId}
+    {#if $currentDialogue?.nextDialogueId}
       <div class="link-row">
         <span class="link-type">Auto:</span>
-        <span class="link-id">{editor.currentDialogue.nextDialogueId}</span>
+        <span class="link-id">{$currentDialogue.nextDialogueId}</span>
         <span class="link-preview">
-          {getTargetText(editor.currentDialogue.nextDialogueId)}
+          {getTargetText($currentDialogue.nextDialogueId)}
         </span>
         <button 
           class="btn-link" 
-          onclick={() => storyActions.jumpTo(editor.currentDialogue!.nextDialogueId!)}
+          on:click={() => storyActions.jumpTo($currentDialogue.nextDialogueId!)}
         >
           Перейти →
         </button>
@@ -36,8 +49,8 @@
     {/if}
     
     <!-- Переходы по опциям -->
-    {#each editor.currentDialogue?.options || [] as option}
-      {#if option.nextDialogueId}
+    {#each $currentDialogue?.options || [] as option}
+      {#if option?.nextDialogueId}
         <div class="link-row">
           <span class="link-type">Opt:</span>
           <span class="link-id">{option.nextDialogueId}</span>
@@ -46,7 +59,7 @@
           </span>
           <button 
             class="btn-link" 
-            onclick={() => storyActions.jumpTo(option.nextDialogueId!)}
+            on:click={() => storyActions.jumpTo(option.nextDialogueId!)}
           >
             Перейти →
           </button>
@@ -54,9 +67,9 @@
       {/if}
     {/each}
     
-    {#if !editor.currentDialogue?.nextDialogueId && 
-        (!editor.currentDialogue?.options || 
-         !editor.currentDialogue.options.some(o => o.nextDialogueId))}
+    {#if !$currentDialogue?.nextDialogueId && 
+        (!$currentDialogue?.options || 
+         !$currentDialogue.options.some(o => o?.nextDialogueId))}
       <div class="link-row empty">
         Нет исходящих связей (конечная сцена)
       </div>
@@ -67,27 +80,27 @@
   <div class="info-block secondary">
     <div class="info-title">👈 Откуда ведут сюда:</div>
     
-    {#if editor.backlinks.length === 0}
+    {#if $backlinks.length === 0}
       <div class="link-row empty">
         Никто не ссылается на этот диалог (это начало или тупик)
       </div>
     {:else}
-      {#each editor.backlinks as link}
+      {#each $backlinks as link}
         <div class="link-row">
-          <span class="link-id">{link.id}</span>
-          <span class:auto={storyActions.getLinkType(link, editor.currentDialogue!.id) === 'Auto'}
-                class:option={storyActions.getLinkType(link, editor.currentDialogue!.id) === 'Option'}
+          <span class="link-id">{link.id || 'Без ID'}</span>
+          <span class:auto={editorActions.getLinkType(link, $currentDialogue?.id || '') === 'Auto'}
+                class:option={editorActions.getLinkType(link, $currentDialogue?.id || '') === 'Option'}
                 class="link-type-badge">
-            {storyActions.getLinkType(link, editor.currentDialogue!.id)}
+            {editorActions.getLinkType(link, $currentDialogue?.id || '')}
           </span>
           <button 
             class="btn-link" 
-            onclick={() => storyActions.jumpTo(link.id)}
+            on:click={() => storyActions.jumpTo(link.id)}
           >
             ← Перейти
           </button>
           <span class="link-target">
-            "{link.text.substring(0, 30)}..."
+            "{link.text?.substring(0, 30) || 'Без текста'}..."
           </span>
         </div>
       {/each}
@@ -100,23 +113,23 @@
       <div class="stat-item">
         <div class="stat-label">Всего опций</div>
         <div class="stat-value">
-          {editor.currentDialogue?.options?.length || 0}
+          {$currentDialogue?.options?.length || 0}
         </div>
       </div>
       <div class="stat-item">
         <div class="stat-label">Входящих</div>
-        <div class="stat-value">{editor.backlinks.length}</div>
+        <div class="stat-value">{$backlinks.length}</div>
       </div>
       <div class="stat-item">
         <div class="stat-label">Активных</div>
         <div class="stat-value">
-          {editor.currentDialogue?.options?.filter(o => o.enabled).length || 0}
+          {$currentDialogue?.options?.filter(o => o?.enabled).length || 0}
         </div>
       </div>
       <div class="stat-item">
         <div class="stat-label">Видимых</div>
         <div class="stat-value">
-          {editor.currentDialogue?.options?.filter(o => o.visible).length || 0}
+          {$currentDialogue?.options?.filter(o => o?.visible).length || 0}
         </div>
       </div>
     </div>

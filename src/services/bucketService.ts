@@ -1,23 +1,6 @@
 // services/bucketService.ts
-import { supabase } from "../supabaseClient";
-import type { StoryInfo, BucketInfo } from "../types";
-
-export interface StoryInfo {
-  id: string;
-  name: string;
-  bucket: string;
-  defaultFile: string;
-  description?: string;
-  thumbnail?: string;
-  lastModified?: Date;
-}
-
-export interface BucketInfo {
-  name: string;
-  size?: number;
-  fileCount?: number;
-  isPublic?: boolean;
-}
+import { supabase } from "./supabase";
+import type {  BucketInfo } from "../types";
 
 export class BucketService {
   // Получить список всех доступных бакетов

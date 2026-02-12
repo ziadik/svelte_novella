@@ -54,7 +54,7 @@ export interface StoryData {
     description?: string;
   };
   chapters?: Chapter[];
-  dialogues: Dialogue[];
+  dialogues?: Dialogue[];
   items?: Item[];
   miniGames?: any[];
 }
@@ -117,13 +117,7 @@ export interface Item {
   type: "tool" | "key" | "consumable" | "quest" | "misc";
 }
 
-export interface StoryData {
-  meta?: { version: string; title: string };
-  chapters?: Chapter[];
-  dialogues: Dialogue[];
-  items?: Item[];
-  miniGames?: any[];
-}
+
 
 export interface StoredFile {
   name: string;
@@ -136,10 +130,6 @@ export interface StatusMessage {
   text: string;
 }
 
-export interface PlayerState {
-  inventory: string[];
-  stats: { knowledge: number; courage: number; charisma: number };
-}
 
 export interface EditorState {
   showEditor: boolean;

@@ -2,37 +2,41 @@
   import StoryCard from './StoryCard.svelte'
   import CreateStoryModal from './CreateStoryModal.svelte'
   
-  import { stories, currentStory, setCurrentStory } from '../../stores/storyStore'
-  
+  import { storiesList } from '../../stores/editorStore.svelte'
+  import { storyActions } from '../../stores/storyStore.svelte'
+
   let showCreateModal = $state(false)
-  
-  function handleSelectStory(story: any) {
-    setCurrentStory(story)
-    dispatch('open-editor')
+
+  const { openEditor } = $props<{
+    openEditor?: () => void
+  }>()
+
+  async function handleSelectStory(storyName: string) {
+    await storyActions.loadStory(storyName)
+    openEditor?.()
   }
 </script>
 
 <div class="story-selector">
   <div class="header">
     <h1>Выберите историю</h1>
-    <button on:click={() => showCreateModal = true} class="btn primary">
+    <button onclick={() => showCreateModal = true} class="btn primary">
       + Новая история
     </button>
   </div>
   
   <div class="stories-grid">
-    {#each $stories as story}
+    {#each storiesList() as storyName}
       <StoryCard 
-        {story} 
-        isSelected={$currentStory?.id === story.id}
-        on:select={() => handleSelectStory(story)}
+        storyName={storyName}
+        onselect={() => handleSelectStory(storyName)}
       />
     {/each}
   </div>
 </div>
 
 {#if showCreateModal}
-  <CreateStoryModal on:close={() => showCreateModal = false} />
+  <CreateStoryModal onclose={() => showCreateModal = false} />
 {/if}
 
 <style>
