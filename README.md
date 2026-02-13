@@ -5,7 +5,7 @@
 Frontend: Svelte 5 (runes), TypeScript, Vite
 Бэкенд: Supabase (хранилище файлов, аутентификация)
 Анимации: Rive (интерактивные анимации персонажей и фонов)
-Платформа: Telegram Mini App (TMA)
+
 Основные компоненты:
 1. Игровой режим (src/lib/novella/)
 Main.svelte: Главный компонент, загружает историю из JSON

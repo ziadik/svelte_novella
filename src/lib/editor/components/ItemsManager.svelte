@@ -63,10 +63,13 @@
 </script>
 
 <div class="items-manager">
-  <div 
+  <button
+    type="button"
     class="section-header" 
     onclick={() => editor.showItems = !editor.showItems}
     title={editor.showItems ? 'Скрыть предметы' : 'Показать предметы'}
+    aria-expanded={editor.showItems}
+    aria-controls="items-container"
   >
     <h4>
       <span class="icon">📦</span>
@@ -75,21 +78,26 @@
     <span class="toggle-icon">
       {editor.showItems ? '▼' : '▶'}
     </span>
-  </div>
+  </button>
   
   {#if editor.showItems}
-    <div class="items-container">
+    <div id="items-container" class="items-container">
       {#if editor.data?.items?.length}
         <div class="items-list">
           {#each editor.data.items as item, index (item.id)}
             <div class:editing={editor.editingItemIndex === index} class="item-row">
               <!-- Информация о предмете -->
-              <div class="item-info" onclick={() => editItem(index)}>
+              <button
+                type="button"
+                class="item-info"
+                onclick={() => editItem(index)}
+                aria-label="Редактировать предмет {item.name}"
+              >
                 <div class="item-header">
                   <div class="item-icon">
                     {#if item.icon}
                       <img 
-                        src={`${import.meta.env.VITE_SUPABASE_URL_FILE}/${editor.bucketName}/${item.icon}`} 
+                        src={`${import.meta.env.VITE_SUPABASE_URL_FILE}/${editor.selectedBucket}/${item.icon}`}
                         alt={item.name}
                         class="icon-preview"
                        
@@ -118,7 +126,7 @@
                 <div class="item-description">
                   {item.description} || <em>Нет описания</em>
                 </div>
-              </div>
+              </button>
               
               <!-- Кнопки действий -->
               <div class="item-actions">
@@ -151,9 +159,10 @@
                   <div class="edit-grid">
                     <!-- ID -->
                     <div class="form-group full-width-edit">
-                      <label>ID предмета</label>
+                      <label for="item-id-{index}">ID предмета</label>
                       <input 
                         type="text" 
+                        id="item-id-{index}"
                         bind:value={item.id} 
                         class="input" 
                         placeholder="item_unique_id"
@@ -162,9 +171,10 @@
                     
                     <!-- Название -->
                     <div class="form-group full-width-edit">
-                      <label>Название</label>
+                      <label for="item-name-{index}">Название</label>
                       <input 
                         type="text" 
+                        id="item-name-{index}"
                         bind:value={item.name} 
                         class="input" 
                         placeholder="Название предмета"
@@ -173,8 +183,9 @@
                     
                     <!-- Описание -->
                     <div class="form-group full-width-edit">
-                      <label>Описание</label>
+                      <label for="item-desc-{index}">Описание</label>
                       <textarea 
+                        id="item-desc-{index}"
                         bind:value={item.description} 
                         class="textarea" 
                         rows="2"
@@ -184,10 +195,11 @@
                     
                     <!-- Иконка -->
                     <div class="form-group full-width-edit">
-                      <label>Иконка</label>
+                      <label for="item-icon-{index}">Иконка</label>
                       <div class="input-group">
                         <input 
                           type="text" 
+                          id="item-icon-{index}"
                           bind:value={item.icon} 
                           class="input" 
                           placeholder="icon.png"
@@ -215,7 +227,7 @@
                       {#if item.icon}
                         <div class="icon-preview-small">
                           <img 
-                            src={`${import.meta.env.VITE_SUPABASE_URL_FILE}/${editor.bucketName}/${item.icon}`} 
+                            src={`${import.meta.env.VITE_SUPABASE_URL_FILE}/${editor.selectedBucket}/${item.icon}`}
                             alt="Preview"
                             class="preview-image"
                            
@@ -227,8 +239,8 @@
                     
                     <!-- Тип -->
                     <div class="form-group">
-                      <label>Тип</label>
-                      <select bind:value={item.type} class="item-type-select">
+                      <label for="item-type-{index}">Тип</label>
+                      <select id="item-type-{index}" bind:value={item.type} class="item-type-select">
                         {#each itemTypes as typeOption}
                           <option value={typeOption.value}>
                             {typeOption.label}
@@ -269,6 +281,7 @@
   }
   
   .items-manager .section-header {
+    width: 100%;
     padding: 12px 15px;
     cursor: pointer;
     background: #2d2d2d;
@@ -277,6 +290,9 @@
     align-items: center;
     user-select: none;
     transition: background 0.2s;
+    border: none;
+    text-align: left;
+    color: inherit;
   }
   
   .items-manager .section-header:hover {
@@ -343,6 +359,11 @@
     flex-direction: column;
     gap: 8px;
     cursor: pointer;
+    background: none;
+    border: none;
+    text-align: left;
+    color: inherit;
+    padding: 0;
   }
   
   .item-header {

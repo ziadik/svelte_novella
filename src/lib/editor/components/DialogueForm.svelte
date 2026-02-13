@@ -44,17 +44,19 @@
   <div class="dialogue-form">
     <!-- Основные поля -->
     <div class="form-group">
-      <label>ID диалога</label>
+      <label for="dialogue-id">ID диалога</label>
       <input 
         type="text" 
+        id="dialogue-id"
         bind:value={editorDerived.currentDialogue.id} 
         class="input" 
       />
     </div>
 
     <div class="form-group">
-      <label>Текст</label>
+      <label for="dialogue-text">Текст</label>
       <textarea 
+        id="dialogue-text"
         bind:value={editorDerived.currentDialogue.text} 
         class="textarea" 
         rows="3"
@@ -66,9 +68,10 @@
       <h4>Медиа ресурсы</h4>
       
       <div class="form-group">
-        <label>Фон</label>
+        <label for="dialogue-background">Фон</label>
         <div class="input-group">
           <select 
+            id="dialogue-background"
             bind:value={editorDerived.currentDialogue.backgroundImage} 
             class="input select"
           >
@@ -93,9 +96,10 @@
       </div>
 
       <div class="form-group">
-        <label>Персонаж</label>
+        <label for="dialogue-character">Персонаж</label>
         <div class="input-group">
           <select 
+            id="dialogue-character"
             bind:value={editorDerived.currentDialogue.characterImage} 
             class="input select"
           >
@@ -125,29 +129,48 @@
       
       {#each editorDerived.currentDialogue.options || [] as option, index (index)}
         <div class:editing={editor.editingOptionIndex === index} class="option-card">
-          <div class="option-header" onclick={() => handleEditOption(index)}>
-            <span class="status-icons">
-              {#if !option.visible}👁️‍🗨️
-              {:else if !option.enabled}🔒
-              {:else}✅{/if}
-            </span>
-            <span>#{index + 1} {option.text}</span>
-            <button 
-              onclick={() => deleteOption(editorDerived.currentDialogue!, index)} 
+          <div class="option-header-row">
+            <div
+              class="option-header"
+              role="button"
+              tabindex="0"
+              onclick={() => handleEditOption(index)}
+              onkeydown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleEditOption(index);
+                }
+              }}
+              aria-expanded={editor.editingOptionIndex === index}
+              aria-controls={`option-content-${index}`}
+            >
+              <span class="status-icons">
+                {#if !option.visible}👁️‍🗨️
+                {:else if !option.enabled}🔒
+                {:else}✅{/if}
+              </span>
+              <span>#{index + 1} {option.text}</span>
+            </div>
+            <button
+              type="button"
+              onclick={() => deleteOption(editorDerived.currentDialogue!, index)}
               class="btn-icon danger"
+              aria-label="Удалить вариант"
             >
               ×
             </button>
           </div>
-          
+
           {#if editor.editingOptionIndex === index}
-            <OptionEditor 
-              {option} 
-              {index} 
-              dialogues={editor.data.dialogues}
-              availableItems={editorDerived.availableItems}
-              {conditionTypes}
-            />
+            <div id={`option-content-${index}`} class="option-content">
+              <OptionEditor
+                {option}
+                {index}
+                dialogues={editor.data.dialogues}
+                availableItems={editorDerived.availableItems}
+                {conditionTypes}
+              />
+            </div>
           {/if}
         </div>
       {/each}
@@ -279,18 +302,31 @@
     box-shadow: 0 0 5px rgba(255, 85, 85, 0.2);
   }
 
-  .option-header {
+  .option-header-row {
     display: flex;
     justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .option-header {
+    flex: 1;
+    display: flex;
+    justify-content: flex-start;
     align-items: center;
     cursor: pointer;
     font-weight: bold;
     font-size: 13px;
     gap: 10px;
+    padding: 0;
   }
 
   .option-header:hover {
     color: #fff;
+  }
+
+  .option-content {
+    margin-top: 10px;
   }
 
   .status-icons {

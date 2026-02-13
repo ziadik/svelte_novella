@@ -2,9 +2,9 @@
   import { onMount, onDestroy } from "svelte";
   import { gameState } from "../store/gameStore.svelte";
   import Rive from "./Rive.svelte";
-  import { bucketName, supabaseUrlFile } from "../store/store.svelte";
+  import { bucketName as defaultBucketName, supabaseUrlFile } from "../store/store.svelte";
 
-  let { index, dialogue: propDialogue } = $props(); // Получаем пропсы из редактора
+  let { index, dialogue: propDialogue, bucketName = defaultBucketName } = $props(); // bucketName может быть передан из редактора
 
 // Если пропс dialogue не передан, берем из стора (режим игры)
 const currentDialogue = $derived(propDialogue || gameState.findDialogue(gameState.currentDialogueId));
@@ -62,7 +62,7 @@ const currentDialogue = $derived(propDialogue || gameState.findDialogue(gameStat
       <div class="background-media">
         {#if currentDialogue.backgroundImage.endsWith(".riv")}
           {#key currentDialogue.backgroundImage}
-            <Rive fileName={currentDialogue.backgroundImage} />
+            <Rive fileName={currentDialogue.backgroundImage} {bucketName} />
           {/key}
         {:else}
           <img 
@@ -79,7 +79,7 @@ const currentDialogue = $derived(propDialogue || gameState.findDialogue(gameStat
       <div class="character-media">
         {#if currentDialogue.characterImage.endsWith(".riv")}
           {#key currentDialogue.characterImage}
-            <Rive fileName={currentDialogue.characterImage} />
+            <Rive fileName={currentDialogue.characterImage} {bucketName} />
           {/key}
         {:else}
            <img 

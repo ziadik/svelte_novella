@@ -55,9 +55,14 @@ export const resourceActions = {
     const file = input.files[0];
     editorActions.setStatus("loading", "Загрузка файла...");
 
+    // Читаем файл как ArrayBuffer и конвертируем в Uint8Array
+    // Это предотвращает добавление multipart заголовков Supabase SDK
+    const arrayBuffer = await file.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
+
     const { error } = await supabase.storage
       .from(editor.selectedBucket)
-      .upload(file.name, file, { upsert: true });
+      .upload(file.name, uint8Array, { upsert: true, contentType: file.type });
 
     if (error) {
       editorActions.setStatus("error", "Ошибка загрузки");

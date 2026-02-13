@@ -13,13 +13,15 @@
     </div>
     <div class="chapter-list">
       {#each editor.data?.chapters || [] as chapter (chapter.id)}
-        <div 
+        <button
+          type="button"
           class:active={editor.selectedChapterId === chapter.id}
           class="chapter-item" 
           onclick={() => editor.selectedChapterId = chapter.id}
+          aria-pressed={editor.selectedChapterId === chapter.id}
         >
           {chapter.title}
-        </div>
+        </button>
       {/each}
     </div>
   </div>
@@ -38,14 +40,16 @@
     </div>
     <div class="dialogue-list">
       {#each editorDerived.chapterDialogues as dialogue (dialogue.id)}
-        <div 
+        <button
+          type="button"
           class:active={editor.selectedDialogueId === dialogue.id}
           class="dialogue-item" 
           onclick={() => editor.selectedDialogueId = dialogue.id}
+          aria-pressed={editor.selectedDialogueId === dialogue.id}
         >
           <span class="id-badge">{dialogue.id}</span>
           <span class="preview-text">{dialogue.text.substring(0, 25)}...</span>
-        </div>
+        </button>
       {/each}
     </div>
   </div>
@@ -86,10 +90,16 @@
   }
   
   .chapter-item {
+    width: 100%;
     padding: 10px;
     cursor: pointer;
     border-bottom: 1px solid #333;
     font-size: 13px;
+    background: none;
+    border: none;
+    text-align: left;
+    color: inherit;
+    border-left: 3px solid transparent;
   }
   
   .chapter-item:hover { background: #2a2d2e; }
@@ -101,12 +111,18 @@
   .dialogue-list { flex: 1; overflow-y: auto; }
   
   .dialogue-item {
+    width: 100%;
     padding: 8px;
     border-bottom: 1px solid #333;
     cursor: pointer;
     display: flex;
     flex-direction: column;
     gap: 4px;
+    background: none;
+    border: none;
+    text-align: left;
+    color: inherit;
+    border-left: 3px solid transparent;
   }
   
   .dialogue-item:hover { background: #2a2d2e; }
