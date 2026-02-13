@@ -1,5 +1,4 @@
-import { bucketName } from "../../supabaseClient";
-import type { StoryData, StoredFile, StatusMessage, Dialogue, Option, Item } from "../types";
+import type { StoryData, StoredFile, StatusMessage, Dialogue, Option, Item, BucketInfo } from "../types";
 
 // Тип для типа сообщения статуса
 export type StatusMessageType = 'success' | 'error' | 'info' | 'warning' | '';
@@ -16,6 +15,10 @@ interface EditorState {
   selectedChapterId: string | null;
   selectedDialogueId: string | null;
 
+  // Выбранная история (bucket)
+  selectedBucket: string | null;
+  availableBuckets: BucketInfo[];
+
   // Данные
   data: StoryData;
   storedFiles: StoredFile[];
@@ -24,7 +27,6 @@ interface EditorState {
   // Мета-данные
   currentFileName: string;
   statusMessage: StatusMessage;
-  bucketName: string;
 }
 
 // Создаем реактивное состояние с использованием Svelte 5 runes
@@ -40,6 +42,10 @@ export const editor = $state<EditorState>({
   selectedChapterId: null,
   selectedDialogueId: null,
 
+  // Выбранная история (bucket)
+  selectedBucket: null,
+  availableBuckets: [],
+
   // Данные
   data: { 
     meta: { version: "3.1", title: "Новая история" },
@@ -52,9 +58,8 @@ export const editor = $state<EditorState>({
   storiesList: [],
 
   // Мета-данные
-  currentFileName: "dracula_story_v3.json",
+  currentFileName: "dracula_story.json",
   statusMessage: { type: "", text: "" },
-  bucketName,
 });
 
 // Экспортируем derived значения как отдельные функции для доступа
@@ -133,6 +138,28 @@ export const editorActions = {
   // Очистка статуса
   clearStatus(): void {
     editor.statusMessage = { type: "", text: "" };
+  },
+
+  // Выбор истории (bucket)
+  selectBucket(bucketName: string | null): void {
+    editor.selectedBucket = bucketName;
+    // Сбрасываем данные при смене bucket
+    editor.data = { 
+      meta: { version: "3.1", title: "Новая история" },
+      dialogues: [], 
+      chapters: [],
+      items: [],
+      miniGames: []
+    } as StoryData;
+    editor.storedFiles = [];
+    editor.storiesList = [];
+    editor.selectedChapterId = null;
+    editor.selectedDialogueId = null;
+  },
+
+  // Обновление списка bucket'ов
+  updateBucketsList(buckets: BucketInfo[]): void {
+    editor.availableBuckets = buckets;
   },
 
   // Выбор главы

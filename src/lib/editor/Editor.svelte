@@ -5,72 +5,117 @@
   import ItemsManager from './components/ItemsManager.svelte';
   import InfographicPanel from './components/InfographicPanel.svelte';
   import PreviewPanel from './components/PreviewPanel.svelte';
+  import StorySelector from './components/StorySelector.svelte';
   import { editor, editorDerived } from './stores/editorStore.svelte';
   import { resourceActions } from './stores/resourceStore';
   import { storyActions } from './stores/storyStore';
+  import { getStoriesList } from './stores/bucketStore';
 
   onMount(async () => {
-    await resourceActions.loadStoriesList();
-    await storyActions.loadStory(editor.currentFileName);
-    await resourceActions.loadStoredResources();
+    // Загружаем список историй
+    getStoriesList();
+    
+    // Если есть истории и ни одна не выбрана, выбираем первую
+    if (editor.availableBuckets.length > 0 && !editor.selectedBucket) {
+      editor.selectedBucket = editor.availableBuckets[0].name;
+    }
+  });
+
+  // Реагируем на изменение выбранного bucket
+  $effect(async () => {
+    if (editor.selectedBucket) {
+      console.log(`[Editor] Bucket выбран: ${editor.selectedBucket}`);
+
+      // Загружаем ресурсы
+      await resourceActions.loadStoredResources();
+
+      // Формируем имя файла и загружаем историю напрямую
+      const storyFileName = `${editor.selectedBucket}_story.json`;
+      editor.currentFileName = storyFileName;
+      await storyActions.loadStory(storyFileName);
+    }
   });
 </script>
 
-<div class="editor-container">
-  <!-- Верхняя панель -->
-  <header class="toolbar">
-    <div class="logo"><h2>Story Editor v3.1</h2></div>
-    <div class="stories-control">
-      <select 
-        bind:value={editor.currentFileName} 
-        onchange={(e) => storyActions.loadStory(e.target.value)} 
-        class="story-select"
-      >
-        {#each editor.storiesList as story}
-          <option value={story}>{story}</option>
-        {/each}
-      </select>
-      
-      <button onclick={storyActions.createNewStory} class="btn primary small">
-        + Новая
-      </button>
-      
-      <button onclick={storyActions.saveCurrentStory} class="btn success small">
-        💾 Сохранить
-      </button>
-      
-      <button onclick={storyActions.saveStoryCopy} class="btn small">
-        📋 Копия
-      </button>
-    </div>
-  </header>
+<!-- Экран выбора истории -->
+{#if !editor.selectedBucket}
+  <StorySelector />
+{:else}
+  <div class="editor-container">
+    <!-- Верхняя панель -->
+    <header class="toolbar">
+      <div class="logo">
+        <button 
+          class="btn-link" 
+          onclick={() => editor.selectedBucket = null}
+        >
+          ← Сменить историю
+        </button>
+        <h2>Story Editor v3.1 - {editor.selectedBucket}</h2>
+      </div>
+      <div class="stories-control">
+        <span class="story-file-name">{editor.currentFileName || 'Нет файла'}</span>
 
-  <!-- Основная рабочая область -->
-  <div class="main-workspace">
-    <!-- Левая панель: Главы и сцены -->
-    <EditorSidebar />
-    
-    <!-- Центральная часть: Редактор -->
-    <main class="editor-area">
-      <!-- Менеджер предметов -->
-      <ItemsManager />
+        <!-- Отображение статуса -->
+        {#if editor.statusMessage.text}
+          <span class="status-message {editor.statusMessage.type}">
+            {editor.statusMessage.text}
+          </span>
+        {/if}
+
+        <button onclick={storyActions.saveCurrentStory} class="btn success small">
+          💾 Сохранить
+        </button>
+
+        <button onclick={storyActions.saveStoryCopy} class="btn small">
+          📋 Копия
+        </button>
+      </div>
+    </header>
+
+    <!-- Основная рабочая область -->
+    <div class="main-workspace">
+      <!-- Левая панель: Главы и сцены -->
+      <EditorSidebar />
       
-      <!-- Редактор диалогов -->
-      {#if editorDerived.currentDialogue}
-        <DialogueForm 
-          {editor}
-          {storyActions}
-          {resourceActions}
-        />
-      {:else}
-        <div class="empty-state">Выберите сцену</div>
-      {/if}
-    </main>
-    
-    <!-- Правая панель: Предпросмотр -->
-    <PreviewPanel />
+      <!-- Центральная часть: Редактор -->
+      <main class="editor-area">
+        <!-- Отладочная информация -->
+        {#if editor.data}
+          <div class="debug-info">
+            <small>
+              Загружено: {editor.data.meta?.title} |
+              Глав: {editor.data.chapters?.length || 0} |
+              Диалогов: {editor.data.dialogues?.length || 0} |
+              Предметов: {editor.data.items?.length || 0}
+            </small>
+          </div>
+        {:else}
+          <div class="debug-info warning">
+            <small>⚠️ Данные не загружены</small>
+          </div>
+        {/if}
+
+        <!-- Менеджер предметов -->
+        <ItemsManager />
+
+        <!-- Редактор диалогов -->
+        {#if editorDerived.currentDialogue}
+          <DialogueForm
+            {editor}
+            {storyActions}
+            {resourceActions}
+          />
+        {:else}
+          <div class="empty-state">Выберите сцену</div>
+        {/if}
+      </main>
+      
+      <!-- Правая панель: Предпросмотр -->
+      <PreviewPanel />
+    </div>
   </div>
-</div>
+{/if}
 
 <style>
   :global(body) { 
@@ -96,10 +141,32 @@
     align-items: center; 
   }
   
+  .logo { 
+    display: flex; 
+    align-items: center; 
+    gap: 12px;
+  }
+  
   .logo h2 { 
     margin: 0; 
     color: #ff5555; 
     font-size: 18px; 
+  }
+
+  .btn-link {
+    background: none;
+    border: none; 
+    color: #888;
+    cursor: pointer; 
+    font-size: 12px; 
+    padding: 4px 8px;
+    border-radius: 4px; 
+    transition: all 0.2s;
+  }
+  
+  .btn-link:hover {
+    color: #fff;
+    background: #444;
   }
   
   .stories-control { 
@@ -108,14 +175,40 @@
     align-items: center; 
   }
   
-  .story-select { 
+  .story-file-name {
     background: #3c3c3c; 
-    color: white; 
-    border: 1px solid #3c3c3c; 
-    padding: 5px; 
+    color: #888;
+    padding: 5px 12px;
     border-radius: 4px; 
     font-size: 12px; 
     min-width: 200px; 
+  }
+  
+  .status-message {
+    padding: 5px 12px;
+    border-radius: 4px; 
+    font-size: 12px; 
+    font-weight: 600; 
+  }
+  
+  .status-message.success {
+    background: #2e7d32;
+    color: white; 
+  }
+  
+  .status-message.error {
+    background: #c62828;
+    color: white;
+  }
+
+  .status-message.loading {
+    background: #0e639c;
+    color: white;
+  }
+
+  .status-message.warning {
+    background: #f57f17;
+    color: white;
   }
   
   .main-workspace { 
@@ -129,6 +222,19 @@
     padding: 20px; 
     overflow-y: auto; 
     background: #1e1e1e; 
+  }
+  
+  .debug-info {
+    background: #2d2d2d;
+    padding: 8px 12px;
+    border-radius: 4px; 
+    margin-bottom: 12px;
+    color: #888;
+  }
+  
+  .debug-info.warning {
+    background: #3d2d2d;
+    color: #ffaa88;
   }
   
   .empty-state { 

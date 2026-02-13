@@ -62,6 +62,14 @@ export interface StoredFile {
   updated_at: string;
 }
 
+export interface BucketInfo {
+  id: string;
+  name: string;
+  public: boolean;
+  file_count: number;
+  created_at: string;
+}
+
 export interface StatusMessage {
   type: "success" | "error" | "loading" | "";
   text: string;
