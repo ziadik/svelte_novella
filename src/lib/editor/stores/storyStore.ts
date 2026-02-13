@@ -44,13 +44,13 @@ export const storyActions = {
       ],
     };
 
-    const blob = new Blob([JSON.stringify(newTemplate, null, 2)], {
-      type: "application/json",
-    });
+    const jsonString = JSON.stringify(newTemplate, null, 2);
+    const encoder = new TextEncoder();
+    const uint8Array = encoder.encode(jsonString);
 
     const { error } = await supabase.storage
       .from(editor.selectedBucket)
-      .upload(name, blob);
+      .upload(name, uint8Array, { contentType: "application/json" });
 
     if (error) {
       editorActions.setStatus("error", "Ошибка создания: " + error.message);
@@ -144,18 +144,39 @@ export const storyActions = {
     }
 
     editorActions.setStatus("loading", "Сохранение...");
-    const blob = new Blob([JSON.stringify(editor.data, null, 2)], {
-      type: "application/json",
-    });
 
+    const jsonString = JSON.stringify(editor.data, null, 2);
+    console.log(`[StoryStore] Сохранение файла: ${editor.currentFileName}, размер: ${jsonString.length} байт`);
+
+    // Кодируем JSON как Uint8Array (UTF-8)
+    const encoder = new TextEncoder();
+    const uint8Array = encoder.encode(jsonString);
+
+    // Используем update для существующего файла, upload для нового
     const { error } = await supabase.storage
       .from(editor.selectedBucket)
-      .upload(editor.currentFileName, blob, { upsert: true });
+      .update(editor.currentFileName, uint8Array, { contentType: "application/json" });
 
-    editorActions.setStatus(
-      error ? "error" : "success",
-      error ? "Ошибка сохранения" : "Сохранено!",
-    );
+    if (error) {
+      console.error(`[StoryStore] Ошибка сохранения (update):`, error);
+
+      // Если файл не существует, пробуем upload
+      console.log(`[StoryStore] Пробуем upload вместо update`);
+      const uploadResult = await supabase.storage
+        .from(editor.selectedBucket)
+        .upload(editor.currentFileName, uint8Array, { contentType: "application/json" });
+
+      if (uploadResult.error) {
+        console.error(`[StoryStore] Ошибка сохранения (upload):`, uploadResult.error);
+        editorActions.setStatus("error", "Ошибка сохранения: " + uploadResult.error.message);
+      } else {
+        console.log(`[StoryStore] Файл успешно сохранен через upload`);
+        editorActions.setStatus("success", "Сохранено!");
+      }
+    } else {
+      console.log(`[StoryStore] Файл успешно сохранен через update`);
+      editorActions.setStatus("success", "Сохранено!");
+    }
   },
 
   async saveStoryCopy() {
@@ -176,13 +197,14 @@ export const storyActions = {
     if (!copyName.endsWith(".json")) copyName += ".json";
 
     editorActions.setStatus("loading", "Создание копии...");
-    const blob = new Blob([JSON.stringify(editor.data, null, 2)], {
-      type: "application/json",
-    });
+
+    const jsonString = JSON.stringify(editor.data, null, 2);
+    const encoder = new TextEncoder();
+    const uint8Array = encoder.encode(jsonString);
 
     const { error } = await supabase.storage
       .from(editor.selectedBucket)
-      .upload(copyName, blob, { upsert: true });
+      .upload(copyName, uint8Array, { upsert: true, contentType: "application/json" });
 
     if (error) {
       editorActions.setStatus("error", `Ошибка копии: ${error.message}`);
