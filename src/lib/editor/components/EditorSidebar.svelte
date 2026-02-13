@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { editor } from '../stores/editorStore.svelte';
+  import { editor, editorDerived } from '../stores/editorStore.svelte';
   import { storyActions } from '../stores/storyStore';
   import { resourceActions } from '../stores/resourceStore';
 </script>
@@ -27,7 +27,7 @@
   <!-- Раздел сцен -->
   <div class="sidebar-section flex-1">
     <div class="section-header">
-      <h3>Сцены ({editor.chapterDialogues.length})</h3>
+      <h3>Сцены ({editorDerived.chapterDialogues.length})</h3>
       <button 
         onclick={storyActions.addDialogue} 
         class="btn-icon" 
@@ -37,7 +37,7 @@
       </button>
     </div>
     <div class="dialogue-list">
-      {#each editor.chapterDialogues as dialogue (dialogue.id)}
+      {#each editorDerived.chapterDialogues as dialogue (dialogue.id)}
         <div 
           class:active={editor.selectedDialogueId === dialogue.id}
           class="dialogue-item" 

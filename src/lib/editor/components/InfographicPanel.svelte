@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { editor } from '../stores/editorStore.svelte';
+  import { editor, editorDerived } from '../stores/editorStore.svelte';
   import { storyActions } from '../stores/storyStore';
   
   // Получаем текст целевого диалога
@@ -19,16 +19,16 @@
     <div class="info-title">👉 Куда ведет:</div>
     
     <!-- Авто-переход -->
-    {#if editor.currentDialogue?.nextDialogueId}
+    {#if editorDerived.currentDialogue?.nextDialogueId}
       <div class="link-row">
         <span class="link-type">Auto:</span>
-        <span class="link-id">{editor.currentDialogue.nextDialogueId}</span>
+        <span class="link-id">{editorDerived.currentDialogue.nextDialogueId}</span>
         <span class="link-preview">
-          {getTargetText(editor.currentDialogue.nextDialogueId)}
+          {getTargetText(editorDerived.currentDialogue.nextDialogueId)}
         </span>
         <button 
           class="btn-link" 
-          onclick={() => storyActions.jumpTo(editor.currentDialogue!.nextDialogueId!)}
+          onclick={() => storyActions.jumpTo(editorDerived.currentDialogue!.nextDialogueId!)}
         >
           Перейти →
         </button>
@@ -36,7 +36,7 @@
     {/if}
     
     <!-- Переходы по опциям -->
-    {#each editor.currentDialogue?.options || [] as option}
+    {#each editorDerived.currentDialogue?.options || [] as option}
       {#if option.nextDialogueId}
         <div class="link-row">
           <span class="link-type">Opt:</span>
@@ -54,9 +54,9 @@
       {/if}
     {/each}
     
-    {#if !editor.currentDialogue?.nextDialogueId && 
-        (!editor.currentDialogue?.options || 
-         !editor.currentDialogue.options.some(o => o.nextDialogueId))}
+    {#if !editorDerived.currentDialogue?.nextDialogueId && 
+        (!editorDerived.currentDialogue?.options || 
+         !editorDerived.currentDialogue.options.some(o => o.nextDialogueId))}
       <div class="link-row empty">
         Нет исходящих связей (конечная сцена)
       </div>
@@ -67,18 +67,18 @@
   <div class="info-block secondary">
     <div class="info-title">👈 Откуда ведут сюда:</div>
     
-    {#if editor.backlinks.length === 0}
+    {#if editorDerived.backlinks.length === 0}
       <div class="link-row empty">
         Никто не ссылается на этот диалог (это начало или тупик)
       </div>
     {:else}
-      {#each editor.backlinks as link}
+      {#each editorDerived.backlinks as link}
         <div class="link-row">
           <span class="link-id">{link.id}</span>
-          <span class:auto={storyActions.getLinkType(link, editor.currentDialogue!.id) === 'Auto'}
-                class:option={storyActions.getLinkType(link, editor.currentDialogue!.id) === 'Option'}
+          <span class:auto={storyActions.getLinkType(link, editorDerived.currentDialogue!.id) === 'Auto'}
+                class:option={storyActions.getLinkType(link, editorDerived.currentDialogue!.id) === 'Option'}
                 class="link-type-badge">
-            {storyActions.getLinkType(link, editor.currentDialogue!.id)}
+            {storyActions.getLinkType(link, editorDerived.currentDialogue!.id)}
           </span>
           <button 
             class="btn-link" 
@@ -100,23 +100,23 @@
       <div class="stat-item">
         <div class="stat-label">Всего опций</div>
         <div class="stat-value">
-          {editor.currentDialogue?.options?.length || 0}
+          {editorDerived.currentDialogue?.options?.length || 0}
         </div>
       </div>
       <div class="stat-item">
         <div class="stat-label">Входящих</div>
-        <div class="stat-value">{editor.backlinks.length}</div>
+        <div class="stat-value">{editorDerived.backlinks.length}</div>
       </div>
       <div class="stat-item">
         <div class="stat-label">Активных</div>
         <div class="stat-value">
-          {editor.currentDialogue?.options?.filter(o => o.enabled).length || 0}
+          {editorDerived.currentDialogue?.options?.filter(o => o.enabled).length || 0}
         </div>
       </div>
       <div class="stat-item">
         <div class="stat-label">Видимых</div>
         <div class="stat-value">
-          {editor.currentDialogue?.options?.filter(o => o.visible).length || 0}
+          {editorDerived.currentDialogue?.options?.filter(o => o.visible).length || 0}
         </div>
       </div>
     </div>

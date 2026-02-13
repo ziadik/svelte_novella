@@ -1,9 +1,11 @@
 import { createClient } from '@supabase/supabase-js'
+
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-// const bucketName = 'dracula';
-export const bucketName = 'dracula'; // Имя вашего бакета
-export const storyFileName = 'dracula_story_v3.json'; // Имя файла истории
+
+// Имя файла истории по умолчанию (используется для загрузки данных внутри bucket)
+export const storyFileName = 'dracula_story.json';
+
 // Инициализация клиента Supabase
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     auth: {
@@ -19,7 +21,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 })
 
 
-export async function createSignedUrl(fileName: string){
+export async function createSignedUrl(fileName: string, bucketName: string){
         const { data, error } = await supabase.storage
       .from(bucketName)
       .createSignedUrl(fileName, 3600); 
@@ -27,6 +29,7 @@ export async function createSignedUrl(fileName: string){
     if (data) {
      return data.signedUrl;
     }
+    return null;
 }
 
 // Аутентификация через Edge Function

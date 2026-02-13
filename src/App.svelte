@@ -6,7 +6,7 @@
 
 {#if editor.showEditor}
   <button 
-    on:click={editorActions.toggleEditor}
+    onclick={editorActions.toggleEditor}
     style="position:fixed; top:10px; right:500px; z-index:9999;"
   >
     Закрыть редактор
@@ -14,7 +14,7 @@
   <Editor />
 {:else}
   <button 
-    on:click={editorActions.toggleEditor}
+    onclick={editorActions.toggleEditor}
     style="position:fixed; bottom:10px; right:10px; z-index:9999;"
   >
     Редактор

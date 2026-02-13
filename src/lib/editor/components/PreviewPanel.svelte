@@ -1,6 +1,6 @@
 <script lang="ts">
   import DialogueCard from '../../novella/DialogueCard.svelte';
-  import { editor } from '../stores/editorStore.svelte';
+  import { editor, editorDerived } from '../stores/editorStore.svelte';
   
   function resetEditingOption() {
     editor.editingOptionIndex = null;
@@ -19,10 +19,10 @@
   </div>
   
   <div class="preview-wrapper">
-    {#if editor.currentDialogue}
+    {#if editorDerived.currentDialogue}
       <div class="preview-container">
         <DialogueCard 
-          dialogue={editor.currentDialogue} 
+          dialogue={editorDerived.currentDialogue} 
           index={0} 
         />
         
@@ -30,37 +30,37 @@
         <div class="preview-info">
           <div class="info-row">
             <span class="info-label">ID:</span>
-            <span class="info-value">{editor.currentDialogue.id}</span>
+            <span class="info-value">{editorDerived.currentDialogue.id}</span>
           </div>
           
           <div class="info-row">
             <span class="info-label">Глава:</span>
-            <span class="info-value">{editor.currentChapter?.title || 'Без главы'}</span>
+            <span class="info-value">{editorDerived.currentChapter?.title || 'Без главы'}</span>
           </div>
           
-          {#if editor.currentDialogue.backgroundImage}
+          {#if editorDerived.currentDialogue.backgroundImage}
             <div class="info-row">
               <span class="info-label">Фон:</span>
-              <span class="info-value">{editor.currentDialogue.backgroundImage}</span>
+              <span class="info-value">{editorDerived.currentDialogue.backgroundImage}</span>
             </div>
           {/if}
           
-          {#if editor.currentDialogue.characterImage}
+          {#if editorDerived.currentDialogue.characterImage}
             <div class="info-row">
               <span class="info-label">Персонаж:</span>
-              <span class="info-value">{editor.currentDialogue.characterImage}</span>
+              <span class="info-value">{editorDerived.currentDialogue.characterImage}</span>
             </div>
           {/if}
         </div>
         
         <!-- Предупреждения -->
-        {#if !editor.currentDialogue.options || editor.currentDialogue.options.length === 0}
+        {#if !editorDerived.currentDialogue.options || editorDerived.currentDialogue.options.length === 0}
           <div class="preview-warning">
             ⚠️ Нет вариантов ответов
           </div>
         {/if}
         
-        {#if editor.currentDialogue.options?.some(o => !o.nextDialogueId)}
+        {#if editorDerived.currentDialogue.options?.some(o => !o.nextDialogueId)}
           <div class="preview-warning">
             ⚠️ Некоторые варианты не ведут дальше
           </div>
