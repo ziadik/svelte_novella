@@ -34,7 +34,7 @@ const state = $state({
   } as StatusMessage,
 });
 
-// Computed значения как реактивные значения (без $derived для экспорта)
+// Computed значения как реактивные значения
 let currentDialogueValue = $derived(
   state.selectedDialogueId ? state.editorData.dialogues.find((d) => d.id === state.selectedDialogueId) : null
 );
@@ -188,7 +188,14 @@ export const editorActions = {
   setSelectedDialogueId(id: string | null) {
     state.selectedDialogueId = id;
   },
+
+  updateDialogue(id: string, updates: Partial<Dialogue>) {
+    const index = state.editorData.dialogues.findIndex((d) => d.id === id);
+    if (index !== -1) {
+      state.editorData.dialogues[index] = { ...state.editorData.dialogues[index], ...updates };
+    }
+  },
 };
 
-// Алиас для обратной совместимости (если нужно)
-export const data = state.editorData;
+// Алиас для обратной совместимости (использовать editorData() вместо data)
+export const data = () => state.editorData;

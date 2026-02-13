@@ -3,13 +3,13 @@
   import { gameState } from '../../stores/gameStore.svelte'
   
   // Основные характеристики игрока
-  const stats = $derived($gameState.player.stats)
-  
+  const stats = $derived(gameState().player.stats)
+
   // Дополнительные метрики
   const metrics = $derived({
-    dialoguesCompleted: $gameState.player.progress?.completedDialogues?.length || 0,
-    totalDialogues: $gameState.storyData?.dialogues.length || 0,
-    itemsCollected: $gameState.player.inventory.length,
+    dialoguesCompleted: gameState().player.progress?.completedDialogues?.length || 0,
+    totalDialogues: gameState().storyData?.dialogues.length || 0,
+    itemsCollected: gameState().player.inventory.length,
     playTime: calculatePlayTime(),
     currentChapter: getCurrentChapter()
   })
@@ -20,10 +20,11 @@
   }
   
   function getCurrentChapter() {
-    const dialogue = $gameState.currentDialogue
-    if (!dialogue?.chapterId || !$gameState.storyData?.chapters) return null
-    
-    return $gameState.storyData.chapters.find(c => c.id === dialogue.chapterId)
+    const state = gameState()
+    const dialogue = state.currentDialogue
+    if (!dialogue?.chapterId || !state.storyData?.chapters) return null
+
+    return state.storyData.chapters.find(c => c.id === dialogue.chapterId)
   }
 </script>
 
@@ -91,12 +92,12 @@
     </div>
     
     <!-- Флаги (достижения) -->
-    {#if $gameState.player.flags && Object.keys($gameState.player.flags).length > 0}
+    {#if gameState().player.flags && Object.keys(gameState().player.flags).length > 0}
       <div class="stats-section">
         <h4 class="section-title">🏆 Достижения</h4>
         
         <div class="flags-grid">
-          {#each Object.entries($gameState.player.flags) as [flag, isActive]}
+          {#each Object.entries(gameState().player.flags) as [flag, isActive]}
             {#if isActive}
               <div class="flag-item">
                 <span class="flag-icon">✅</span>
@@ -295,7 +296,7 @@
   }
 </style>
 
-<script lang="ts" context="module">
+<script lang="ts" module>
   // Вспомогательные функции для локализации
   export function getStatLabel(stat: string): string {
     const labels: Record<string, string> = {

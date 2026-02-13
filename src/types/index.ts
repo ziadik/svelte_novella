@@ -20,6 +20,13 @@ export interface Option {
   visibilityCondition?: Condition;
 }
 
+export interface GameAction {
+  type: string;
+  id?: string;
+  value?: any;
+  stat?: string;
+}
+
 export interface Dialogue {
   id: string;
   chapterId: string;
@@ -27,10 +34,15 @@ export interface Dialogue {
   backgroundImage?: string;
   characterImage?: string;
   stateMachineCharacterRive?: string;
-  smTriggerBackgroundRive?: string;
+  stateMachineBackgroundRive?: string;
   nextDialogueId?: string;
   options?: Option[];
-  onEnter?: Array<{ type: string; id?: string; value?: any }>;
+  onEnter?: GameAction[];
+  miniGame?: {
+    id: string;
+    onWinDialogueId: string;
+    onLoseDialogueId: string;
+  };
 }
 
 export interface Chapter {
@@ -47,6 +59,32 @@ export interface Item {
   type: "tool" | "key" | "consumable" | "quest" | "misc";
 }
 
+export interface MiniGame {
+  id: string;
+  name: string;
+  type: string;
+  description?: string;
+  config?: Record<string, any>;
+  content?: any[];
+  rewards?: {
+    items?: string[];
+    stats?: Record<string, number>;
+    flags?: Record<string, boolean>;
+  };
+}
+
+export interface Activity {
+  id: string;
+  name: string;
+  type: string;
+  description?: string;
+  rewards?: {
+    items?: string[];
+    stats?: Record<string, number>;
+    flags?: Record<string, boolean>;
+  };
+}
+
 export interface StoryData {
   meta?: {
     version: string;
@@ -56,7 +94,8 @@ export interface StoryData {
   chapters?: Chapter[];
   dialogues?: Dialogue[];
   items?: Item[];
-  miniGames?: any[];
+  miniGames?: MiniGame[];
+  activities?: Activity[];
 }
 export interface StoryInfo {
   id: string;
@@ -75,49 +114,6 @@ export interface BucketInfo {
   isPublic?: boolean;
   storyName?: string;
 }
-export interface Condition {
-  type: "has_item" | "stat_greater" | "flag_true" | "always";
-  itemId?: string;
-  statName?: string;
-  statValue?: number;
-  flagName?: string;
-}
-
-export interface GameAction {
-  type: string;
-  id?: string;
-  value?: any;
-  stat?: string;
-}
-
-export interface Dialogue {
-  id: string;
-  chapterId: string;
-  text: string;
-  backgroundImage?: string;
-  characterImage?: string;
-  stateMachineCharacterRive?: string;
-  smTriggerBackgroundRive?: string;
-  nextDialogueId?: string;
-  options?: Option[];
-  onEnter?: GameAction[];
-}
-
-export interface Chapter {
-  id: string;
-  title: string;
-  description?: string;
-}
-
-export interface Item {
-  id: string;
-  name: string;
-  description: string;
-  icon: string;
-  type: "tool" | "key" | "consumable" | "quest" | "misc";
-}
-
-
 
 export interface StoredFile {
   name: string;

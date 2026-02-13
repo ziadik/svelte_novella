@@ -66,8 +66,9 @@
 </script>
 
 <div class="items-manager">
-  <div 
+  <button
     class="section-header" 
+    type="button"
     onclick={() => editorActions.toggleItemsPanel()}
     title={showItems ? 'Скрыть предметы' : 'Показать предметы'}
   >
@@ -78,7 +79,7 @@
     <span class="toggle-icon">
       {showItems ? '▼' : '▶'}
     </span>
-  </div>
+  </button>
   
   {#if showItems}
     <div class="items-container">
@@ -87,7 +88,7 @@
           {#each editorData.items as item, index (item.id)}
             <div class:editing={editingItemIndex === index} class="item-row">
               <!-- Информация о предмете -->
-              <div class="item-info" onclick={() => editItem(index)}>
+              <button class="item-info" type="button" onclick={() => editItem(index)}>
                 <div class="item-header">
                   <div class="item-icon">
                     {#if item.icon}
@@ -121,7 +122,7 @@
                 <div class="item-description">
                   {item.description} || <em>Нет описания</em>
                 </div>
-              </div>
+              </button>
               
               <!-- Кнопки действий -->
               <div class="item-actions">
@@ -154,8 +155,9 @@
                   <div class="edit-grid">
                     <!-- ID -->
                     <div class="form-group full-width-edit">
-                      <label>ID предмета</label>
+                      <label for="item-id-{index}">ID предмета</label>
                       <input 
+                        id="item-id-{index}"
                         type="text" 
                         bind:value={item.id} 
                         class="input" 
@@ -165,8 +167,9 @@
                     
                     <!-- Название -->
                     <div class="form-group full-width-edit">
-                      <label>Название</label>
+                      <label for="item-name-{index}">Название</label>
                       <input 
+                        id="item-name-{index}"
                         type="text" 
                         bind:value={item.name} 
                         class="input" 
@@ -176,8 +179,9 @@
                     
                     <!-- Описание -->
                     <div class="form-group full-width-edit">
-                      <label>Описание</label>
+                      <label for="item-desc-{index}">Описание</label>
                       <textarea 
+                        id="item-desc-{index}"
                         bind:value={item.description} 
                         class="textarea" 
                         rows="2"
@@ -187,9 +191,10 @@
                     
                     <!-- Иконка -->
                     <div class="form-group full-width-edit">
-                      <label>Иконка</label>
+                      <label for="item-icon-{index}">Иконка</label>
                       <div class="input-group">
                         <input 
+                          id="item-icon-{index}"
                           type="text" 
                           bind:value={item.icon} 
                           class="input" 
@@ -230,8 +235,8 @@
                     
                     <!-- Тип -->
                     <div class="form-group">
-                      <label>Тип</label>
-                      <select bind:value={item.type} class="item-type-select">
+                      <label for="item-type-{index}">Тип</label>
+                      <select id="item-type-{index}" bind:value={item.type} class="item-type-select">
                         {#each itemTypes as typeOption}
                           <option value={typeOption.value}>
                             {typeOption.label}
@@ -272,6 +277,7 @@
   }
   
   .items-manager .section-header {
+    width: 100%;
     padding: 12px 15px;
     cursor: pointer;
     background: #2d2d2d;
@@ -280,6 +286,8 @@
     align-items: center;
     user-select: none;
     transition: background 0.2s;
+    border: none;
+    text-align: left;
   }
   
   .items-manager .section-header:hover {
@@ -346,6 +354,10 @@
     flex-direction: column;
     gap: 8px;
     cursor: pointer;
+    background: none;
+    border: none;
+    padding: 0;
+    text-align: left;
   }
   
   .item-header {

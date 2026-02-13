@@ -16,6 +16,21 @@
 
   const conditionTypes = ['always', 'has_item', 'stat_greater', 'flag_true'];
 
+  // Реактивные значения
+  const dialogue = $derived(currentDialogue());
+  const data = $derived(editorData());
+  const imgs = $derived(imageResources());
+  const rivs = $derived(rivResources());
+
+  // Отладка
+  $effect(() => {
+    console.log('DialogueForm: currentDialogue changed', dialogue);
+    console.log('DialogueForm: imageResources', imgs);
+    console.log('DialogueForm: rivResources', rivs);
+    console.log('DialogueForm: dialogue.backgroundImage', dialogue?.backgroundImage);
+    console.log('DialogueForm: dialogue.characterImage', dialogue?.characterImage);
+  });
+
   function addOption(dialogue: Dialogue) {
     if (!dialogue.options) dialogue.options = [];
     const newOption = createNewOption();
@@ -24,12 +39,12 @@
   }
 
   function handleEditOption(index: number) {
-    if (editingOptionIndex === index) {
+    if (editingOptionIndex() === index) {
       editorActions.setEditingOptionIndex(null);
     } else {
       editorActions.setEditingOptionIndex(index);
       // Проверяем структуру опции
-      const option = currentDialogue()?.options?.[index];
+      const option = dialogue?.options?.[index];
       if (option && !option.visibilityCondition) {
         option.visibilityCondition = { type: 'always' };
       }
@@ -39,32 +54,41 @@
   function deleteOption(dialogue: Dialogue, index: number) {
     if (confirm("Удалить вариант ответа?")) {
       dialogue.options?.splice(index, 1);
-      if (editingOptionIndex === index) {
+      if (editingOptionIndex() === index) {
         editorActions.setEditingOptionIndex(null);
-      } else if (editingOptionIndex && editingOptionIndex > index) {
-        editorActions.setEditingOptionIndex(editingOptionIndex - 1);
+      } else if (editingOptionIndex() && editingOptionIndex() > index) {
+        editorActions.setEditingOptionIndex(editingOptionIndex() - 1);
       }
     }
   }
 </script>
 
-{#if currentDialogue}
-  {@const dialogue = currentDialogue}
+{#if dialogue}
   <div class="dialogue-form">
     <!-- Основные поля -->
     <div class="form-group">
-      <label>ID диалога</label>
+      <label for="dialogue-id">ID диалога</label>
       <input 
+        id="dialogue-id"
         type="text" 
-        bind:value={dialogue.id}
+        value={dialogue.id}
+        onchange={(e) => {
+          const target = e.target as HTMLInputElement;
+          editorActions.updateDialogue(dialogue.id, { id: target.value });
+        }}
         class="input" 
       />
     </div>
 
     <div class="form-group">
-      <label>Текст</label>
+      <label for="dialogue-text">Текст</label>
       <textarea 
-        bind:value={dialogue.text}
+        id="dialogue-text"
+        value={dialogue.text}
+        onchange={(e) => {
+          const target = e.target as HTMLTextAreaElement;
+          editorActions.updateDialogue(dialogue.id, { text: target.value });
+        }}
         class="textarea" 
         rows="3"
       ></textarea>
@@ -72,47 +96,65 @@
 
     <!-- Медиа ресурсы -->
     <div class="media-section">
-      <h4>Медиа ресурсы</h4>
-      
+      <h4>Медиа ресурсы ({imgs.length} изображений, {rivs.length} Rive)</h4>
+
+      {#if imgs.length === 0 && rivs.length === 0}
+        <p style="color: #888; font-size: 12px;">Нет загруженных ресурсов. Нажмите "Загрузить" чтобы добавить изображения или .riv файлы.</p>
+      {/if}
+
       <div class="form-group">
-        <label>Фон</label>
+        <label for="dialogue-background">
+          Фон: {dialogue.backgroundImage || '(не выбран)'}
+        </label>
         <div class="input-group">
           <select 
-            bind:value={dialogue.backgroundImage}
+            id="dialogue-background"
+            value={dialogue.backgroundImage || ''}
+            onchange={(e) => {
+              const target = e.target as HTMLSelectElement;
+              editorActions.updateDialogue(dialogue.id, { backgroundImage: target.value || undefined });
+            }}
             class="input select"
           >
             <option value="">-- Нет --</option>
-            {#each imageResources as img}
+            {#each imgs as img}
               <option value={img.name}>{img.name}</option>
             {/each}
-            {#each rivResources as riv}
+            {#each rivs as riv}
               <option value={riv.name}>{riv.name} (Rive)</option>
             {/each}
           </select>
           <label class="btn-file">
-            Загрузить 
-            <input 
-              type="file" 
-              accept="image/*,.riv" 
-              onchange={resourceActions.uploadNewFile} 
-              hidden 
+            Загрузить
+            <input
+              type="file"
+              accept="image/*,.riv"
+              onchange={(e) => resourceActions.uploadNewFile(e)}
+              hidden
             />
           </label>
         </div>
       </div>
 
       <div class="form-group">
-        <label>Персонаж</label>
+        <label for="dialogue-character">
+          Персонаж: {dialogue.characterImage || '(не выбран)'}
+        </label>
         <div class="input-group">
           <select 
-            bind:value={dialogue.characterImage}
+            id="dialogue-character"
+            value={dialogue.characterImage || ''}
+            onchange={(e) => {
+              const target = e.target as HTMLSelectElement;
+              editorActions.updateDialogue(dialogue.id, { characterImage: target.value || undefined });
+            }}
             class="input select"
           >
             <option value="">-- Нет --</option>
-            {#each imageResources as img}
+            {#each imgs as img}
               <option value={img.name}>{img.name}</option>
             {/each}
-            {#each rivResources as riv}
+            {#each rivs as riv}
               <option value={riv.name}>{riv.name} (Rive)</option>
             {/each}
           </select>
@@ -133,8 +175,19 @@
       </div>
       
       {#each dialogue.options || [] as option, index (index)}
-        <div class:editing={editingOptionIndex === index} class="option-card">
-          <div class="option-header" onclick={() => handleEditOption(index)}>
+        <div class:editing={editingOptionIndex() === index} class="option-card">
+          <div
+            class="option-header"
+            role="button"
+            tabindex="0"
+            onclick={() => handleEditOption(index)}
+            onkeydown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                handleEditOption(index)
+              }
+            }}
+          >
             <span class="status-icons">
               {#if !option.visible}👁️‍🗨️
               {:else if !option.enabled}🔒
@@ -148,12 +201,12 @@
               ×
             </button>
           </div>
-          
-          {#if editingOptionIndex === index}
+
+          {#if editingOptionIndex() === index}
             <OptionEditor 
               {option} 
               {index} 
-              dialogues={editorData.dialogues}
+              dialogues={data.dialogues}
               availableItems={availableItems}
               {conditionTypes}
             />
@@ -166,11 +219,15 @@
     <div class="links-section">
       <h4>Авто-переход</h4>
       <select 
-        bind:value={dialogue.nextDialogueId}
+        value={dialogue.nextDialogueId || ''}
+        onchange={(e) => {
+          const target = e.target as HTMLSelectElement;
+          editorActions.updateDialogue(dialogue.id, { nextDialogueId: target.value || undefined });
+        }}
         class="input select"
       >
         <option value="">-- Нет --</option>
-        {#each editorData.dialogues as d}
+        {#each data.dialogues as d}
           <option value={d.id}>
             {d.id}: {d.text.substring(0, 30)}...
           </option>
@@ -289,6 +346,7 @@
   }
 
   .option-header {
+    width: 100%;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -300,6 +358,11 @@
 
   .option-header:hover {
     color: #fff;
+  }
+
+  .option-header:focus {
+    outline: 1px solid #ff5555;
+    outline-offset: 2px;
   }
 
   .status-icons {

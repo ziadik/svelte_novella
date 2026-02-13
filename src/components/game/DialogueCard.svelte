@@ -5,6 +5,9 @@
   import { currentStory } from '../../stores/storyStore.svelte'
   import type { Dialogue, Option } from '../../types'
   
+  // Отладка
+  console.log('DialogueCard: component initialized', { dialogue });
+
   const { dialogue, onOptionSelect } = $props<{
     dialogue: Dialogue
     onOptionSelect?: (optionIndex: number) => void
@@ -29,6 +32,10 @@
   
   // При монтировании начинаем анимацию появления
   onMount(() => {
+    console.log('DialogueCard: onMount', { dialogue, backgroundImage: dialogue.backgroundImage, characterImage: dialogue.characterImage });
+    console.log('DialogueCard: VITE_SUPABASE_URL', import.meta.env.VITE_SUPABASE_URL);
+    console.log('DialogueCard: currentStory', currentStory());
+
     isVisible = true
     
     // Начинаем печатать текст
@@ -222,16 +229,20 @@
   
   // Получить URL изображения персонажа
   function getCharacterImageUrl(): string | null {
-    if (dialogue.characterImage && currentStory()) {
-      return `${import.meta.env.VITE_SUPABASE_URL_FILE}/storage/v1/object/public/${currentStory().bucket}/${dialogue.characterImage}`
+    if (dialogue.characterImage) {
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/dracula/${dialogue.characterImage}`
+      console.log('DialogueCard: getCharacterImageUrl', { dialogueId: dialogue.id, characterImage: dialogue.characterImage, url })
+      return url
     }
     return null
   }
   
   // Получить стиль для фона
   function getBackgroundStyle() {
-    if (dialogue.backgroundImage && currentStory()) {
-      return `url(${import.meta.env.VITE_SUPABASE_URL_FILE}/storage/v1/object/public/${currentStory().bucket}/${dialogue.backgroundImage})`
+    if (dialogue.backgroundImage) {
+      const url = `url(${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/dracula/${dialogue.backgroundImage})`
+      console.log('DialogueCard: getBackgroundStyle', { dialogueId: dialogue.id, backgroundImage: dialogue.backgroundImage, url })
+      return url
     }
     return 'none'
   }
@@ -279,9 +290,10 @@
       {/if}
       
       <!-- Текст -->
-      <div 
+      <button
         class="dialogue-text"
-        on:click={skipTyping}
+        type="button"
+        onclick={skipTyping}
         title={isTyping ? "Кликните для пропуска" : ""}
       >
         <p>{textRevealed}</p>
@@ -290,15 +302,15 @@
         {#if isTyping}
           <span class="typing-cursor">|</span>
         {/if}
-      </div>
-      
+      </button>
+
       <!-- Панель управления -->
       <div class="controls-panel">
         <!-- Кнопка пропуска -->
         {#if isTyping}
           <button 
             class="btn control-btn skip-btn"
-            on:click={skipTyping}
+            onclick={skipTyping}
             title="Пропустить печать (Пробел)"
           >
             ⏩ Пропустить
@@ -312,21 +324,21 @@
             <button 
               class:active={typingSpeed === 10}
               class="btn speed-btn"
-              on:click={() => changeTypingSpeed(10)}
+              onclick={() => changeTypingSpeed(10)}
             >
               Медленно
             </button>
             <button 
               class:active={typingSpeed === 30}
               class="btn speed-btn"
-              on:click={() => changeTypingSpeed(30)}
+              onclick={() => changeTypingSpeed(30)}
             >
               Нормально
             </button>
             <button 
               class:active={typingSpeed === 60}
               class="btn speed-btn"
-              on:click={() => changeTypingSpeed(60)}
+              onclick={() => changeTypingSpeed(60)}
             >
               Быстро
             </button>
@@ -338,7 +350,7 @@
           <button 
             class:active={autoPlayEnabled}
             class="btn control-btn autoplay-btn"
-            on:click={toggleAutoPlay}
+            onclick={toggleAutoPlay}
             title="Автоматическое продолжение"
           >
             {#if autoPlayEnabled}
@@ -362,11 +374,12 @@
       <div class="options-list">
         {#each dialogue.options as option, index}
           {#if isOptionVisible(option)}
-            <div 
+            <button
               class:selected={selectedOptionIndex === index}
               class:disabled={!option.enabled}
               class="option-item"
-              on:click={() => handleOptionClick(index)}
+              type="button"
+              onclick={() => handleOptionClick(index)}
               title={!option.enabled ? 'Опция недоступна' : ''}
             >
               <!-- Иконка опции -->
@@ -409,7 +422,7 @@
               
               <!-- Стрелка выбора -->
               <div class="option-arrow">→</div>
-            </div>
+            </button>
           {/if}
         {/each}
       </div>
@@ -419,7 +432,7 @@
       <div class="continue-container">
         <button 
           class="btn continue-btn"
-          on:click={handleContinue}
+          onclick={handleContinue}
         >
           Продолжить →
         </button>
@@ -431,7 +444,7 @@
         <div class="end-text">Конец этой ветки диалога</div>
         <button 
           class="btn"
-          on:click={() => gameActions.goToDialogue('start')}
+          onclick={() => gameActions.goToDialogue('start')}
         >
           Вернуться к началу
         </button>
@@ -594,6 +607,8 @@
     min-height: 200px;
     display: flex;
     align-items: center;
+    width: 100%;
+    text-align: left;
   }
   
   .dialogue-text p {
@@ -716,6 +731,7 @@
   }
   
   .option-item {
+    width: 100%;
     background: rgba(255, 255, 255, 0.08);
     border: 2px solid transparent;
     border-radius: 15px;
@@ -727,6 +743,7 @@
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
     overflow: hidden;
+    text-align: left;
   }
   
   .option-item:hover:not(.disabled):not(.selected) {

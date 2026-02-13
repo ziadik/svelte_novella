@@ -88,6 +88,9 @@ export const storyActions = {
 
       editorActions.setEditorData(parsedData);
 
+      // Устанавливаем текущую историю для отображения ресурсов в PreviewPanel
+      gameStateInternal.currentStory = parsedData;
+
       // Устанавливаем выбранные элементы
       if (parsedData.chapters && parsedData.chapters.length > 0) {
         editorActions.setSelectedChapterId(parsedData.chapters[0].id);

@@ -36,13 +36,18 @@
 
   // Локальные переменные
   let canvas: HTMLCanvasElement | undefined
-  let riveInstance: rive.Rive | null = null
+  let riveInstance = $state<rive.Rive | null>(null)
   let currentData = editorData
   // Состояния
   let isLoaded = $state(false)
   let isLoading = $state(false)
   let error = $state<string | null>(null)
-  let isPlaying = $state(autoplay)
+  let isPlaying = $state(true)
+
+  // Синхронизация с изменениями пропа autoplay
+  $effect(() => {
+    isPlaying = autoplay
+  })
   
   // Публичные методы (доступны через bind:this)
   const rivePlayer = {
@@ -355,7 +360,7 @@
     bind:this={canvas}
     style={getCanvasStyle()}
     class="rive-canvas"
-  />
+  ></canvas>
   
   <!-- Состояние загрузки -->
   {#if isLoading}
@@ -372,7 +377,7 @@
       <div class="error-message">{error}</div>
       <button 
         class="btn retry-btn"
-        on:click={handleRetry}
+        onclick={handleRetry}
       >
         Повторить попытку
       </button>
@@ -387,7 +392,7 @@
         <div class="playback-controls">
           <button 
             class="btn-icon"
-            on:click={handlePlay}
+            onclick={handlePlay}
             disabled={isPlaying}
             title="Воспроизвести"
           >
@@ -395,7 +400,7 @@
           </button>
           <button 
             class="btn-icon"
-            on:click={handlePause}
+            onclick={handlePause}
             disabled={!isPlaying}
             title="Пауза"
           >
@@ -403,14 +408,14 @@
           </button>
           <button 
             class="btn-icon"
-            on:click={handleStop}
+            onclick={handleStop}
             title="Стоп"
           >
             ⏹️
           </button>
           <button 
             class="btn-icon"
-            on:click={handleRestart}
+            onclick={handleRestart}
             title="Перезапустить"
           >
             🔄
@@ -430,7 +435,7 @@
         <div class="inputs-control">
           <select 
             class="inputs-select"
-            on:change={(e) => {
+            onchange={(e) => {
               const inputName = e.target.value
               if (inputName) {
                 rivePlayer.triggerInput(inputName)

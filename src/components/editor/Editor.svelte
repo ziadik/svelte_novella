@@ -18,9 +18,14 @@
   }>()
 
   onMount(async () => {
+    console.log('Editor onMount: starting...');
     await resourceActions.loadStoriesList();
+    console.log('Editor onMount: storiesList loaded', storiesList());
     await storyActions.loadStory(currentFileName());
+    console.log('Editor onMount: story loaded', data());
+    console.log('Editor onMount: chapters', data()?.chapters);
     await resourceActions.loadStoredResources();
+    console.log('Editor onMount: loadStoredResources completed');
   });
 
   function handleExit() {

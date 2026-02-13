@@ -17,14 +17,18 @@ export const resourceActions = {
   },
 
   async loadStoredResources() {
-    const { data: files } = await supabase.storage.from(bucketName).list();
+    console.log('resourceActions.loadStoredResources: loading...');
+    const { data: files, error } = await supabase.storage.from(bucketName).list();
+    console.log('resourceActions.loadStoredResources: files', files, 'error', error);
+
     if (files) {
-      editorActions.setStoredFiles(
-        files.filter(
-          (f) =>
-            f.name !== ".emptyFolderPlaceholder" && !f.name.endsWith(".json"),
-        )
+      const filteredFiles = files.filter(
+        (f) =>
+          f.name !== ".emptyFolderPlaceholder" && !f.name.endsWith(".json"),
       );
+      console.log('resourceActions.loadStoredResources: filtered files', filteredFiles);
+      editorActions.setStoredFiles(filteredFiles);
+      console.log('resourceActions.loadStoredResources: storedFiles after set', storedFiles());
     }
   },
 
@@ -33,6 +37,7 @@ export const resourceActions = {
     if (!input.files || input.files.length === 0) return;
 
     const file = input.files[0];
+    console.log('resourceActions.uploadNewFile: uploading', file.name);
     editorActions.setStatus("loading", "Загрузка файла...");
 
     const { error } = await supabase.storage
@@ -40,8 +45,10 @@ export const resourceActions = {
       .upload(file.name, file, { upsert: true });
 
     if (error) {
-      editorActions.setStatus("error", "Ошибка загрузки");
+      console.error('resourceActions.uploadNewFile: error', error);
+      editorActions.setStatus("error", "Ошибка загрузки: " + error.message);
     } else {
+      console.log('resourceActions.uploadNewFile: success');
       editorActions.setStatus("success", "Файл загружен");
       await this.loadStoredResources();
     }

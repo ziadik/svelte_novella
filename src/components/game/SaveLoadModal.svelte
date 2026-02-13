@@ -109,13 +109,23 @@
   }
 </script>
 
-<div class="modal-overlay" on:click={() => onClose?.()}>
-  <div class="modal" on:click|stopPropagation>
+<div class="modal-overlay" role="presentation" onclick={() => onClose?.()}>
+  <div
+    class="modal"
+    role="dialog"
+    tabindex="-1"
+    onclick={(e) => e.stopPropagation()}
+    onkeydown={(e) => {
+      if (e.key === 'Escape') {
+        onClose?.()
+      }
+    }}
+  >
     <div class="modal-header">
       <h2 class="modal-title">
         {mode === 'save' ? '💾 Сохранить игру' : '📂 Загрузить игру'}
       </h2>
-      <button class="close-btn" on:click={() => onClose?.()}>×</button>
+      <button class="close-btn" onclick={() => onClose?.()}>×</button>
     </div>
     
     <div class="modal-body">
@@ -141,14 +151,26 @@
         {#each Array(10).fill(0) as _, index}
           {@const session = saveSlots[index]}
           <div 
+            role="button"
+            tabindex="0"
             class:selected={selectedSlot === index}
             class:empty={!session}
             class="save-slot"
-            on:click={() => {
+            onclick={() => {
               if (mode === 'save') {
                 selectedSlot = index
               } else if (session) {
                 loadFromSlot(index)
+              }
+            }}
+            onkeydown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                if (mode === 'save') {
+                  selectedSlot = index
+                } else if (session) {
+                  loadFromSlot(index)
+                }
               }
             }}
           >
@@ -182,14 +204,20 @@
                   {#if mode === 'save'}
                     <button 
                       class="btn small"
-                      on:click|stopPropagation={() => deleteSlot(index)}
+                      onclick={(e) => {
+                        e.stopPropagation()
+                        deleteSlot(index)
+                      }}
                     >
                       Удалить
                     </button>
                   {:else}
                     <button 
                       class="btn primary small"
-                      on:click|stopPropagation={() => loadFromSlot(index)}
+                      onclick={(e) => {
+                        e.stopPropagation()
+                        loadFromSlot(index)
+                      }}
                     >
                       Загрузить
                     </button>
@@ -217,7 +245,7 @@
       {#if mode === 'save'}
         <button 
           class="btn primary"
-          on:click={() => {
+          onclick={() => {
             if (selectedSlot !== null && saveName.trim()) {
               saveToSlot(selectedSlot)
             }
@@ -228,7 +256,7 @@
         </button>
       {/if}
       
-      <button class="btn" on:click={() => onClose?.()}>
+      <button class="btn" onclick={() => onClose?.()}>
         Отмена
       </button>
     </div>
@@ -359,6 +387,11 @@
   .save-slot:hover {
     background: rgba(255, 255, 255, 0.1);
     transform: translateY(-2px);
+  }
+  
+  .save-slot:focus {
+    outline: 2px solid #007acc;
+    outline-offset: 2px;
   }
   
   .save-slot.selected {

@@ -6,7 +6,7 @@
   import InventoryPanel from './InventoryPanel.svelte'
   import StatsPanel from './StatsPanel.svelte'
   import SaveLoadModal from './SaveLoadModal.svelte'
-  import SettingsModal from './SettingsModal.svelte'
+  // import SettingsModal from './SettingsModal.svelte'
   
   import { currentStory } from '../../stores/storyStore.svelte'
   import { gameState, gameActions, currentDialogue } from '../../stores/gameStore.svelte'
@@ -309,6 +309,7 @@
       </button>
       
       <!-- Кнопка меню -->
+      <!--
       <button 
         class="btn-icon menu-btn"
         onclick={() => showSettings = true}
@@ -316,6 +317,7 @@
       >
         ☰
       </button>
+      -->
 
       <!-- Название истории -->
       <div class="story-title">
@@ -499,12 +501,14 @@
         📂 Загрузить
       </button>
       
+      <!--
       <button 
         class="btn nav-btn"
         onclick={() => showSettings = true}
       >
         ⚙️ Настройки
       </button>
+      -->
     </div>
   </div>
   
@@ -532,6 +536,7 @@
     />
   {/if}
   
+  <!--
   {#if showSettings}
     <SettingsModal 
       on:close={() => showSettings = false}
@@ -541,6 +546,7 @@
       {currentVolume}
     />
   {/if}
+  -->
 </div>
 
 <style>
@@ -574,12 +580,6 @@
     bottom: 0;
     pointer-events: none;
     z-index: 1;
-  }
-  
-  .rive-animation {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
   }
   
   /* Верхняя панель */
@@ -917,11 +917,6 @@
     transform: translateX(-50%) translateY(0);
   }
   
-  /* Кнопка меню (только на мобильных) */
-  .menu-btn {
-    display: none;
-  }
-  
   /* Анимации */
   @keyframes fadeIn {
     from { opacity: 0; }
@@ -983,10 +978,6 @@
       right: 0;
     }
     
-    .nav-btn span {
-      display: none;
-    }
-    
     .nav-btn {
       padding: 12px;
       justify-content: center;
@@ -1014,10 +1005,6 @@
     
     .volume-slider {
       display: none;
-    }
-    
-    .menu-btn {
-      display: flex;
     }
     
     .toolbar-center {

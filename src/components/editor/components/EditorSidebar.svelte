@@ -1,6 +1,6 @@
 <script lang="ts">
   import { 
-    data, selectedChapterId, selectedDialogueId,
+    editorData, selectedChapterId, selectedDialogueId,
     chapterDialogues, editorActions, 
     statusMessage
 
@@ -46,6 +46,7 @@
 
   // Статистика для главы
   function getChapterStats(chapterId: string | null) {
+    const data = editorData();
     if (!data || !chapterId) return null;
 
     const chapterDialogues = data.dialogues.filter(d => d.chapterId === chapterId);
@@ -92,6 +93,19 @@
     if (stats.conditionalDialogues > 0) return '🎭';
     return '📘';
   }
+
+  // Реактивные значения для разметки
+  const chapters = $derived(editorData().chapters || []);
+  const data = $derived(editorData());
+
+  // Отладка: следим за изменениями данных
+  $effect(() => {
+    console.log('EditorSidebar: editorData changed', {
+      chaptersLength: data.chapters?.length,
+      chapters: data.chapters,
+      dialoguesLength: data.dialogues?.length
+    });
+  });
 </script>
 
 <aside class="sidebar">
@@ -100,17 +114,18 @@
     <div class="section-header">
       <div class="section-title">
         <h3>Главы</h3>
-        <span class="section-count">{data?.chapters?.length || 0}</span>
+        <span class="section-count">{chapters.length}</span>
       </div>
       <button onclick={storyActions.addChapter} class="btn-icon" title="Добавить главу">+</button>
     </div>
     <div class="chapter-list">
-      {#each data?.chapters || [] as chapter (chapter.id)}
+      {#each chapters as chapter (chapter.id)}
         {#if chapter}
           {@const stats = getChapterStats(chapter.id)}
-          <div 
-            class:active={selectedChapterId === chapter.id}
+          <button
+            class:active={selectedChapterId() === chapter.id}
             class="chapter-item" 
+            type="button"
             onclick={() => editorActions.setSelectedChapterId(chapter.id)}
             title={`${stats?.totalDialogues || 0} сцен, ${stats?.totalOptions || 0} опций, ${stats?.totalTransitions || 0} переходов`}
           >
@@ -144,7 +159,7 @@
                 {/if}
               </div>
             {/if}
-          </div>
+          </button>
         {/if}
       {/each}
     </div>
@@ -157,7 +172,7 @@
         <h3>Сцены ({chapterDialogues().length})</h3>
         <span class="section-hint">
           {#if selectedChapterId()}
-            {data?.chapters?.find(c => c.id === selectedChapterId())?.title || 'Глава'}
+            {data.chapters?.find(c => c.id === selectedChapterId())?.title || 'Глава'}
           {:else}
             Все сцены
           {/if}
@@ -176,11 +191,12 @@
       {#each chapterDialogues() as dialogue, index (dialogue?.id || index)}
         {#if dialogue}
           {@const stats = getDialogueStats(dialogue)}
-          <div 
+          <button
             class:active={selectedDialogueId() === dialogue.id}
             class:has-options={stats.totalOptions > 0}
             class:has-transition={stats.hasAutoTransition}
             class="dialogue-item" 
+            type="button"
             onclick={() => editorActions.setSelectedDialogueId(dialogue.id)}
           >
             <div class="dialogue-header">
@@ -247,8 +263,6 @@
             <!-- Дополнительная информация при наведении -->
             <div class="dialogue-tooltip">
               <div class="tooltip-content">
-                <div class="tooltip-title">{dialogue.id || 'Без ID'}</div>
-                <div class="tooltip-text">{dialogue.text || 'Без текста'}</div>
                 <div class="tooltip-stats">
                   <div class="tooltip-stat">
                     <span class="tooltip-label">Опции:</span>
@@ -279,7 +293,7 @@
                 </div>
               </div>
             </div>
-          </div>
+          </button>
         {/if}
       {/each}
     </div>
@@ -321,8 +335,7 @@
     </div>
   </div>
   
-  <!-- Статус -->
-  <div class="status-box">
+  <!-- Статус -->  <div class="status-box">
     {#if statusMessage.text}
       <div class:success={statusMessage.type === 'success'}
            class:error={statusMessage.type === 'error'}
@@ -360,10 +373,14 @@
   }
   
   .chapter-item {
+    width: 100%;
     padding: 10px;
     cursor: pointer;
     border-bottom: 1px solid #333;
     font-size: 13px;
+    background: none;
+    border: none;
+    text-align: left;
   }
   
   .chapter-item:hover { background: #2a2d2e; }
@@ -375,12 +392,16 @@
   .dialogue-list { flex: 1; overflow-y: auto; }
   
   .dialogue-item {
+    width: 100%;
     padding: 8px;
     border-bottom: 1px solid #333;
     cursor: pointer;
     display: flex;
     flex-direction: column;
     gap: 4px;
+    background: none;
+    border: none;
+    text-align: left;
   }
   
   .dialogue-item:hover { background: #2a2d2e; }

@@ -1,18 +1,20 @@
 <!-- src/components/game/InventoryPanel.svelte -->
 <script lang="ts">
   import { gameState } from '../../stores/gameStore.svelte'
+  import { currentStory } from '../../stores/storyStore.svelte'
   import type { Item } from '../../types'
   
   let selectedItem = $state<Item | null>(null)
   
   // Получаем предметы из инвентаря
   function getInventoryItems() {
-    if (!$gameState.storyData?.items || !$gameState.player.inventory) {
+    const state = gameState()
+    if (!state.storyData?.items || !state.player.inventory) {
       return []
     }
     
-    return $gameState.player.inventory
-      .map(itemId => $gameState.storyData!.items!.find(item => item.id === itemId))
+    return state.player.inventory
+      .map(itemId => state.storyData!.items!.find(item => item.id === itemId))
       .filter(Boolean) as Item[]
   }
 </script>
@@ -25,16 +27,17 @@
   
   <div class="inventory-grid">
     {#each getInventoryItems() as item}
-      <div 
+      <button
         class:selected={selectedItem?.id === item.id}
         class="inventory-item"
-        on:click={() => selectedItem = item}
+        type="button"
+        onclick={() => selectedItem = item}
         title={`${item.name}: ${item.description}`}
       >
         <div class="item-icon">
           {#if item.icon}
             <img 
-              src={`${import.meta.env.VITE_SUPABASE_URL_FILE}/storage/v1/object/public/${globalThis.$currentStory?.bucket}/${item.icon}`} 
+              src={`${import.meta.env.VITE_SUPABASE_URL_FILE}/storage/v1/object/public/${currentStory()?.bucket}/${item.icon}`}
               alt={item.name}
               class="item-image"
             />
@@ -52,7 +55,7 @@
           <div class="item-name">{item.name}</div>
           <div class="item-type">{item.type}</div>
         </div>
-      </div>
+      </button>
     {:else}
       <div class="empty-inventory">
         <div class="empty-icon">📭</div>
@@ -124,6 +127,7 @@
   }
   
   .inventory-item {
+    width: 100%;
     background: rgba(255, 255, 255, 0.05);
     border: 2px solid transparent;
     border-radius: 12px;

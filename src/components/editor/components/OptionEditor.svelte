@@ -39,8 +39,9 @@
 <div class="option-details">
   <!-- Основные поля -->
   <div class="form-group">
-    <label>Текст кнопки</label>
+    <label for="option-text-{index}">Текст кнопки</label>
     <input 
+      id="option-text-{index}"
       type="text" 
       bind:value={option.text} 
       class="input" 
@@ -49,8 +50,9 @@
 
   <!-- Переход -->
   <div class="form-group">
-    <label>Переход</label>
+    <label for="option-next-{index}">Переход</label>
     <select 
+      id="option-next-{index}"
       bind:value={option.nextDialogueId} 
       class="input select"
     >
@@ -92,10 +94,11 @@
     
     <div class="form-row">
       <div class="form-group">
-        <label>Тип условия</label>
+        <label for="condition-type-{index}">Тип условия</label>
         <select 
+          id="condition-type-{index}"
           value={getCondition().type}
-          on:change={(e) => {
+          onchange={(e) => {
             const type = e.target.value as Condition['type'];
             updateCondition({ type });
           }}
@@ -109,10 +112,11 @@
       
       {#if getCondition().type === 'has_item'}
         <div class="form-group full-width">
-          <label>Предмет</label>
+          <label for="condition-item-{index}">Предмет</label>
           <select 
+            id="condition-item-{index}"
             value={getCondition().itemId || ''}
-            on:change={(e) => updateCondition({ itemId: e.target.value })}
+            onchange={(e) => updateCondition({ itemId: e.target.value })}
             class="input select"
           >
             <option value="">-- Выберите предмет --</option>
@@ -125,21 +129,23 @@
       
       {#if getCondition().type === 'stat_greater'}
         <div class="form-group">
-          <label>Стата</label>
+          <label for="condition-stat-{index}">Стата</label>
           <input 
+            id="condition-stat-{index}"
             type="text" 
             value={getCondition().statName || ''}
-            on:input={(e) => updateCondition({ statName: e.target.value })}
+            oninput={(e) => updateCondition({ statName: e.target.value })}
             class="input" 
             placeholder="knowledge" 
           />
         </div>
         <div class="form-group">
-          <label>Значение ></label>
+          <label for="condition-value-{index}">Значение ></label>
           <input 
+            id="condition-value-{index}"
             type="number" 
             value={getCondition().statValue || ''}
-            on:input={(e) => updateCondition({ statValue: parseInt(e.target.value) || 0 })}
+            oninput={(e) => updateCondition({ statValue: parseInt(e.target.value) || 0 })}
             class="input" 
           />
         </div>
@@ -147,11 +153,12 @@
 
       {#if getCondition().type === 'flag_true'}
         <div class="form-group full-width">
-          <label>Имя флага</label>
+          <label for="condition-flag-{index}">Имя флага</label>
           <input 
+            id="condition-flag-{index}"
             type="text" 
             value={getCondition().flagName || ''}
-            on:input={(e) => updateCondition({ flagName: e.target.value })}
+            oninput={(e) => updateCondition({ flagName: e.target.value })}
             class="input" 
             placeholder="metDracula" 
           />

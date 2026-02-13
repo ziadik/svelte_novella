@@ -1,4 +1,3 @@
-import { currentStory } from "./storyStore.svelte";
 import { StoryService } from "../services/storyService";
 import type {
   StoryData,
@@ -9,47 +8,42 @@ import type {
 } from "../types";
 
 // Внутреннее состояние игры
-const playerState = $state<PlayerState>({
-  inventory: [],
-  stats: { knowledge: 0, courage: 0, charisma: 0 },
-  flags: {},
-  progress: {
-    currentChapter: "",
-    completedDialogues: [],
-    score: 0,
-  },
+const gameStateInternal = $state({
+  player: {
+    inventory: [],
+    stats: { knowledge: 0, courage: 0, charisma: 0 },
+    flags: {},
+    progress: {
+      currentChapter: "",
+      completedDialogues: [],
+      score: 0,
+    },
+  } as PlayerState,
+  storyData: null as StoryData | null,
+  currentDialogueId: "start",
+  isLoading: true,
+  error: "",
 });
-
-const storyDataState = $state<StoryData | null>(null);
-const currentDialogueIdState = $state<string>("start");
-const isLoadingState = $state(true);
-const errorState = $state<string>("");
 
 // Геттеры для состояния
-export const gameState = () => ({
-  player: playerState,
-  storyData: storyDataState,
-  currentDialogueId: currentDialogueIdState,
-  isLoading: isLoadingState,
-  error: errorState,
-});
+export const gameState = () => gameStateInternal;
 
 // Computed значения
 let currentDialogueValue = $derived(() => {
-  if (!storyDataState) return null;
+  if (!gameStateInternal.storyData) return null;
   return (
-    storyDataState.dialogues.find((d) => d.id === currentDialogueIdState) || null
+    gameStateInternal.storyData.dialogues.find((d) => d.id === gameStateInternal.currentDialogueId) || null
   );
 });
 
 let playerItemsValue = $derived(() => {
-  if (!storyDataState?.items) return [];
-  return playerState.inventory
-    .map((itemId) => storyDataState!.items!.find((item) => item.id === itemId))
+  if (!gameStateInternal.storyData?.items) return [];
+  return gameStateInternal.player.inventory
+    .map((itemId) => gameStateInternal.storyData!.items!.find((item) => item.id === itemId))
     .filter(Boolean);
 });
 
-let progressValue = $derived(() => playerState.progress);
+let progressValue = $derived(() => gameStateInternal.player.progress);
 
 // Геттеры для computed значений
 export const currentDialogue = () => currentDialogueValue;
@@ -202,9 +196,9 @@ export const gameActions = {
     gameStateInternal.currentDialogueId = session.currentDialogueId || "start";
 
     // Загружаем историю если нужно
-    const currentStoryValue = currentStory();
-    if (currentStoryValue && currentStoryValue.id === session.storyId) {
-      this.loadStory(currentStoryValue.bucket, currentStoryValue.defaultFile);
+    // Примечание: текущая история должна быть загружена отдельно через loadStory
+    if (session.bucket && session.fileName) {
+      this.loadStory(session.bucket, session.fileName);
     }
   },
 

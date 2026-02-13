@@ -13,7 +13,18 @@
   }
 
   // Получаем текущую главу
-  $: currentChapter = editorData().chapters?.find(ch => ch.id === selectedChapterId());
+  const currentChapter = $derived(
+    editorData().chapters?.find(ch => ch.id === selectedChapterId())
+  );
+
+  // Получаем текущий диалог
+  const dialog = $derived(currentDialogue());
+
+  // Отладка
+  $effect(() => {
+    console.log('PreviewPanel: selectedDialogueId changed', selectedDialogueId());
+    console.log('PreviewPanel: currentDialogue', dialog);
+  });
 </script>
 
 <aside class="preview-panel">
@@ -28,10 +39,10 @@
   </div>
   
   <div class="preview-wrapper">
-    {#if currentDialogue()}
+    {#if dialog}
       <div class="preview-container">
         <DialogueCard 
-          dialogue={currentDialogue()}
+          dialogue={dialog}
           index={0} 
         />
         
@@ -39,7 +50,7 @@
         <div class="preview-info">
           <div class="info-row">
             <span class="info-label">ID:</span>
-            <span class="info-value">{currentDialogue()?.id}</span>
+            <span class="info-value">{dialog.id}</span>
           </div>
           
           <div class="info-row">
@@ -47,29 +58,29 @@
             <span class="info-value">{currentChapter?.title || 'Без главы'}</span>
           </div>
           
-          {#if currentDialogue()?.backgroundImage}
+          {#if dialog.backgroundImage}
             <div class="info-row">
               <span class="info-label">Фон:</span>
-              <span class="info-value">{currentDialogue()?.backgroundImage}</span>
+              <span class="info-value">{dialog.backgroundImage}</span>
             </div>
           {/if}
           
-          {#if currentDialogue()?.characterImage}
+          {#if dialog.characterImage}
             <div class="info-row">
               <span class="info-label">Персонаж:</span>
-              <span class="info-value">{currentDialogue()?.characterImage}</span>
+              <span class="info-value">{dialog.characterImage}</span>
             </div>
           {/if}
         </div>
         
         <!-- Предупреждения -->
-        {#if !currentDialogue()?.options || currentDialogue()?.options.length === 0}
+        {#if !dialog.options || dialog.options.length === 0}
           <div class="preview-warning">
             ⚠️ Нет вариантов ответов
           </div>
         {/if}
         
-        {#if currentDialogue()?.options?.some(o => !o.nextDialogueId)}
+        {#if dialog.options?.some(o => !o.nextDialogueId)}
           <div class="preview-warning">
             ⚠️ Некоторые варианты не ведут дальше
           </div>

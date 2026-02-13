@@ -251,8 +251,9 @@
 <!-- Оверлей -->
 <div 
   class="modal-overlay"
-  on:click={handleBackdropClick}
-  on:keydown={handleKeyDown}
+  role="presentation"
+  onclick={handleBackdropClick}
+  onkeydown={handleKeyDown}
 >
   <!-- Модальное окно -->
   <div class="modal" role="dialog" aria-labelledby="modal-title">
@@ -261,7 +262,7 @@
       <h2 id="modal-title" class="modal-title">Создать новую историю</h2>
       <button 
         class="close-button"
-        on:click={onClose}
+        onclick={onClose}
         aria-label="Закрыть"
         disabled={isLoading}
       >
@@ -310,7 +311,7 @@
             rows={3}
             disabled={isLoading}
             maxlength={500}
-          />
+          ></textarea>
           <div class="input-help">
             Опционально, максимум 500 символов
           </div>
@@ -341,96 +342,100 @@
         
         <!-- Тип истории -->
         <div class="form-group">
-          <label class="required">Тип истории</label>
-          <div class="type-grid">
-            {#each storyTypes as type}
-              <label 
-                class:selected={storyType === type.id}
-                class="type-option"
-              >
-                <input
-                  type="radio"
-                  name="story-type"
-                  value={type.id}
-                  bind:group={storyType}
-                  disabled={isLoading}
-                  class="visually-hidden"
-                />
-                <div class="type-icon">{type.label.split(' ')[0]}</div>
-                <div class="type-content">
-                  <div class="type-title">{type.label.split(' ').slice(1).join(' ')}</div>
-                  <div class="type-description">{type.description}</div>
-                </div>
-              </label>
-            {/each}
-          </div>
+          <fieldset class="type-fieldset">
+            <legend class="required">Тип истории</legend>
+            <div class="type-grid">
+              {#each storyTypes as type}
+                <label
+                  class:selected={storyType === type.id}
+                  class="type-option"
+                >
+                  <input
+                    type="radio"
+                    name="story-type"
+                    value={type.id}
+                    bind:group={storyType}
+                    disabled={isLoading}
+                    class="visually-hidden"
+                  />
+                  <div class="type-icon">{type.label.split(' ')[0]}</div>
+                  <div class="type-content">
+                    <div class="type-title">{type.label.split(' ').slice(1).join(' ')}</div>
+                    <div class="type-description">{type.description}</div>
+                  </div>
+                </label>
+              {/each}
+            </div>
+          </fieldset>
         </div>
-        
+
         <!-- Теги -->
         <div class="form-group">
-          <label>Теги</label>
-          
-          <!-- Поле добавления тега -->
-          <div class="tag-input">
-            <input
-              type="text"
-              bind:value={currentTag}
-              placeholder="Добавить тег"
-              class="input"
-              disabled={isLoading}
-              on:keydown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault()
-                  addTag()
-                }
-              }}
-            />
-            <button
-              type="button"
-              class="btn tag-add"
-              on:click={addTag}
-              disabled={isLoading || !currentTag.trim()}
-            >
-              +
-            </button>
-          </div>
-          
-          <!-- Популярные теги -->
-          <div class="popular-tags">
-            <div class="popular-tags-label">Популярные теги:</div>
-            <div class="popular-tags-list">
-              {#each popularTags as tag}
-                <button
-                  type="button"
-                  class="btn tag-popular"
-                  on:click={() => addPopularTag(tag)}
-                  disabled={isLoading || tags.includes(tag)}
-                >
-                  {tag}
-                </button>
-              {/each}
+          <fieldset class="tags-fieldset">
+            <legend>Теги</legend>
+
+            <!-- Поле добавления тега -->
+            <div class="tag-input">
+              <input
+                type="text"
+                bind:value={currentTag}
+                placeholder="Добавить тег"
+                class="input"
+                disabled={isLoading}
+                onkeydown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    addTag()
+                  }
+                }}
+              />
+              <button
+                type="button"
+                class="btn tag-add"
+                onclick={addTag}
+                disabled={isLoading || !currentTag.trim()}
+              >
+                +
+              </button>
             </div>
-          </div>
-          
-          <!-- Выбранные теги -->
-          {#if tags.length > 0}
-            <div class="selected-tags">
-              {#each tags as tag}
-                <div class="selected-tag">
-                  {tag}
+
+            <!-- Популярные теги -->
+            <div class="popular-tags">
+              <div class="popular-tags-label">Популярные теги:</div>
+              <div class="popular-tags-list">
+                {#each popularTags as tag}
                   <button
                     type="button"
-                    class="tag-remove"
-                    on:click={() => removeTag(tag)}
-                    disabled={isLoading}
-                    aria-label={`Удалить тег ${tag}`}
+                    class="btn tag-popular"
+                    onclick={() => addPopularTag(tag)}
+                    disabled={isLoading || tags.includes(tag)}
                   >
-                    ×
+                    {tag}
                   </button>
-                </div>
-              {/each}
+                {/each}
+              </div>
             </div>
-          {/if}
+
+            <!-- Выбранные теги -->
+            {#if tags.length > 0}
+              <div class="selected-tags">
+                {#each tags as tag}
+                  <div class="selected-tag">
+                    {tag}
+                    <button
+                      type="button"
+                      class="tag-remove"
+                      onclick={() => removeTag(tag)}
+                      disabled={isLoading}
+                      aria-label={`Удалить тег ${tag}`}
+                    >
+                      ×
+                    </button>
+                  </div>
+                {/each}
+              </div>
+            {/if}
+          </fieldset>
         </div>
       </div>
     </div>
@@ -440,7 +445,7 @@
       <button
         type="button"
         class="btn secondary"
-        on:click={onClose}
+        onclick={onClose}
         disabled={isLoading}
       >
         Отмена
@@ -448,7 +453,7 @@
       <button
         type="button"
         class="btn primary"
-        on:click={createStory}
+        onclick={createStory}
         disabled={isLoading || !storyName.trim()}
       >
         {#if isLoading}
@@ -623,6 +628,19 @@
     border-radius: 0;
   }
   
+  .type-fieldset,
+  .tags-fieldset {
+    border: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .type-fieldset legend,
+  .tags-fieldset legend {
+    padding: 0;
+    margin-bottom: var(--space-sm);
+  }
+
   /* Стили для выбора типа */
   .type-grid {
     display: grid;
