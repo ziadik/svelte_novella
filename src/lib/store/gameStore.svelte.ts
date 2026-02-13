@@ -41,79 +41,161 @@ export interface GameData {
   // ... мини-игры и активности можно добавить позже
 }
 
+// Типы для статистики игрока
+export type StatName = 'knowledge' | 'courage' | 'charisma';
+
+// Тип для действий
+export type ActionType = 'add_item' | 'stat_change' | 'remove_item' | 'set_flag';
+
+export interface Action {
+  type: ActionType;
+  id?: string;
+  stat?: StatName;
+  value?: number;
+  flagName?: string;
+}
+
+// Класс состояния игры с использованием Svelte 5 runes
 class GameState {
   // Состояние игрока
   player = $state({
     inventory: [] as string[], // Храним только ID предметов
-    stats: { knowledge: 0, courage: 0, charisma: 0 },
+    stats: {
+      knowledge: 0,
+      courage: 0,
+      charisma: 0
+    } as Record<StatName, number>,
   });
 
   // Данные истории
   storyData = $state<GameData | null>(null);
 
   // Текущий прогресс
-  currentDialogueId = $state("0");
-  isLoading = $state(true);
-  error = $state("");
+  currentDialogueId = $state<string>("0");
+  isLoading = $state<boolean>(true);
+  error = $state<string>("");
 
-  // Методы
-  async loadStory(url: string) {
+  // Компьютерное свойство для получения текущего диалога
+  get currentDialogue(): Dialogue | undefined {
+    return this.findDialogue(this.currentDialogueId);
+  }
+
+  // Загрузка истории из URL
+  async loadStory(url: string): Promise<void> {
     this.isLoading = true;
+    this.error = "";
     try {
       const res = await fetch(url);
-      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-      this.storyData = await res.json();
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      const data = await res.json();
+      this.storyData = data;
       this.currentDialogueId = this.storyData.dialogues[0]?.id || "0";
-    } catch (err: any) {
-      this.error = "Ошибка загрузки: " + err.message;
-      console.error(err);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Неизвестная ошибка';
+      this.error = `Ошибка загрузки: ${message}`;
+      console.error('Ошибка загрузки истории:', err);
     } finally {
       this.isLoading = false;
     }
   }
 
+  // Поиск диалога по ID
   findDialogue(id: string): Dialogue | undefined {
     return this.storyData?.dialogues.find((d) => d.id === id);
   }
 
   // Получить объект предмета по ID
-  getItem(id: string) {
+  getItem(id: string): Item | undefined {
     return this.storyData?.items.find((i) => i.id === id);
   }
 
   // Проверить наличие предмета
-  hasItem(id: string) {
+  hasItem(id: string): boolean {
     return this.player.inventory.includes(id);
   }
 
-  // Добавить предмет
-  addItem(id: string) {
+  // Добавить предмет в инвентарь
+  addItem(id: string): void {
     if (!this.player.inventory.includes(id)) {
       this.player.inventory = [...this.player.inventory, id];
     }
   }
 
+  // Удалить предмет из инвентаря
+  removeItem(id: string): void {
+    this.player.inventory = this.player.inventory.filter(itemId => itemId !== id);
+  }
+
+  // Изменить значение стата
+  changeStat(statName: StatName, value: number): void {
+    if (statName in this.player.stats) {
+      this.player.stats[statName] += value;
+    }
+  }
+
+  // Получить значение стата
+  getStat(statName: StatName): number {
+    return this.player.stats[statName] ?? 0;
+  }
+
+  // Проверить условие видимости опции
+  checkVisibilityCondition(option: Option): boolean {
+    if (!option.visibleIf) return true;
+    
+    if (option.visibleIf.hasItem) {
+      return this.hasItem(option.visibleIf.hasItem);
+    }
+    
+    return true;
+  }
+
   // Выполнить действия (дать предмет, изменить статы)
-  runActions(actions: Array<any>) {
+  runActions(actions: Action[] | undefined): void {
     if (!actions) return;
+    
     actions.forEach((action) => {
-      if (action.type === "add_item" && action.id) {
-        this.addItem(action.id);
-      }
-      if (
-        action.type === "stat_change" &&
-        action.stat &&
-        action.value !== undefined
-      ) {
-        // @ts-ignore
-        this.player.stats[action.stat] += action.value;
+      switch (action.type) {
+        case 'add_item':
+          if (action.id) this.addItem(action.id);
+          break;
+        case 'remove_item':
+          if (action.id) this.removeItem(action.id);
+          break;
+        case 'stat_change':
+          if (action.stat && action.value !== undefined) {
+            this.changeStat(action.stat, action.value);
+          }
+          break;
+        case 'set_flag':
+          // Заглушка для будущей системы флагов
+          console.log(`Set flag: ${action.flagName} = ${action.value}`);
+          break;
+        default:
+          console.warn('Неизвестный тип действия:', action.type);
       }
     });
   }
 
   // Переход к диалогу
-  goToDialogue(id: string) {
+  goToDialogue(id: string): void {
     this.currentDialogueId = id;
+  }
+
+  // Сброс состояния игры
+  reset(): void {
+    this.player.inventory = [];
+    this.player.stats = { knowledge: 0, courage: 0, charisma: 0 };
+    this.currentDialogueId = this.storyData?.dialogues[0]?.id || "0";
+    this.error = "";
+  }
+
+  // Получить все предметы в инвентаре
+  getInventoryItems(): Item[] {
+    return this.player.inventory
+      .map(id => this.getItem(id))
+      .filter((item): item is Item => item !== undefined);
   }
 }
 

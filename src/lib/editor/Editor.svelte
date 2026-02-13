@@ -5,7 +5,7 @@
   import ItemsManager from './components/ItemsManager.svelte';
   import InfographicPanel from './components/InfographicPanel.svelte';
   import PreviewPanel from './components/PreviewPanel.svelte';
-  import { editor } from './stores/editorStore.svelte';
+  import { editor, editorDerived } from './stores/editorStore.svelte';
   import { resourceActions } from './stores/resourceStore';
   import { storyActions } from './stores/storyStore';
 
@@ -56,7 +56,7 @@
       <ItemsManager />
       
       <!-- Редактор диалогов -->
-      {#if editor.currentDialogue}
+      {#if editorDerived.currentDialogue}
         <DialogueForm 
           {editor}
           {storyActions}

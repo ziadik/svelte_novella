@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Dialogue } from '../types';
-  import { editor } from '../stores/editorStore.svelte';
+  import { editor, editorDerived } from '../stores/editorStore.svelte';
   import { storyActions } from '../stores/storyStore';
   import { resourceActions } from '../stores/resourceStore';
   import { createNewOption } from '../utils/migration';
@@ -21,7 +21,7 @@
     } else {
       editor.editingOptionIndex = index;
       // Проверяем структуру опции
-      const option = editor.currentDialogue?.options?.[index];
+      const option = editorDerived.currentDialogue?.options?.[index];
       if (option && !option.visibilityCondition) {
         option.visibilityCondition = { type: 'always' };
       }
@@ -40,14 +40,14 @@
   }
 </script>
 
-{#if editor.currentDialogue}
+{#if editorDerived.currentDialogue}
   <div class="dialogue-form">
     <!-- Основные поля -->
     <div class="form-group">
       <label>ID диалога</label>
       <input 
         type="text" 
-        bind:value={editor.currentDialogue.id} 
+        bind:value={editorDerived.currentDialogue.id} 
         class="input" 
       />
     </div>
@@ -55,7 +55,7 @@
     <div class="form-group">
       <label>Текст</label>
       <textarea 
-        bind:value={editor.currentDialogue.text} 
+        bind:value={editorDerived.currentDialogue.text} 
         class="textarea" 
         rows="3"
       ></textarea>
@@ -69,14 +69,14 @@
         <label>Фон</label>
         <div class="input-group">
           <select 
-            bind:value={editor.currentDialogue.backgroundImage} 
+            bind:value={editorDerived.currentDialogue.backgroundImage} 
             class="input select"
           >
             <option value="">-- Нет --</option>
-            {#each editor.imageResources as img}
+            {#each editorDerived.imageResources as img}
               <option value={img.name}>{img.name}</option>
             {/each}
-            {#each editor.rivResources as riv}
+            {#each editorDerived.riveResources as riv}
               <option value={riv.name}>{riv.name} (Rive)</option>
             {/each}
           </select>
@@ -96,14 +96,14 @@
         <label>Персонаж</label>
         <div class="input-group">
           <select 
-            bind:value={editor.currentDialogue.characterImage} 
+            bind:value={editorDerived.currentDialogue.characterImage} 
             class="input select"
           >
             <option value="">-- Нет --</option>
-            {#each editor.imageResources as img}
+            {#each editorDerived.imageResources as img}
               <option value={img.name}>{img.name}</option>
             {/each}
-            {#each editor.rivResources as riv}
+            {#each editorDerived.riveResources as riv}
               <option value={riv.name}>{riv.name} (Rive)</option>
             {/each}
           </select>
@@ -116,14 +116,14 @@
       <div class="section-header">
         <h4>Варианты ответов</h4>
         <button 
-          onclick={() => addOption(editor.currentDialogue!)} 
+          onclick={() => addOption(editorDerived.currentDialogue!)} 
           class="btn small"
         >
           + Добавить
         </button>
       </div>
       
-      {#each editor.currentDialogue.options || [] as option, index (index)}
+      {#each editorDerived.currentDialogue.options || [] as option, index (index)}
         <div class:editing={editor.editingOptionIndex === index} class="option-card">
           <div class="option-header" onclick={() => handleEditOption(index)}>
             <span class="status-icons">
@@ -133,7 +133,7 @@
             </span>
             <span>#{index + 1} {option.text}</span>
             <button 
-              onclick={() => deleteOption(editor.currentDialogue!, index)} 
+              onclick={() => deleteOption(editorDerived.currentDialogue!, index)} 
               class="btn-icon danger"
             >
               ×
@@ -145,7 +145,7 @@
               {option} 
               {index} 
               dialogues={editor.data.dialogues}
-              availableItems={editor.availableItems}
+              availableItems={editorDerived.availableItems}
               {conditionTypes}
             />
           {/if}
@@ -157,7 +157,7 @@
     <div class="links-section">
       <h4>Авто-переход</h4>
       <select 
-        bind:value={editor.currentDialogue.nextDialogueId} 
+        bind:value={editorDerived.currentDialogue.nextDialogueId} 
         class="input select"
       >
         <option value="">-- Нет --</option>
@@ -172,7 +172,7 @@
     <!-- Кнопка удаления -->
     <div class="form-actions">
       <button 
-        onclick={() => storyActions.deleteDialogue(editor.currentDialogue!.id)} 
+        onclick={() => storyActions.deleteDialogue(editorDerived.currentDialogue!.id)} 
         class="btn danger"
       >
         Удалить сцену
