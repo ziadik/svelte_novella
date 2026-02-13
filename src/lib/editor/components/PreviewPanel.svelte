@@ -24,6 +24,7 @@
         <DialogueCard 
           dialogue={editorDerived.currentDialogue} 
           index={0} 
+          bucketName={editor.selectedBucket || undefined}
         />
         
         <!-- Дополнительная информация -->

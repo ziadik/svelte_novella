@@ -1,9 +1,9 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import * as rive from "@rive-app/canvas";
-  import { bucketName, supabaseUrlFile } from '../store/store.svelte';
+  import { bucketName as defaultBucketName, supabaseUrlFile } from '../store/store.svelte';
 
-  let { fileName } = $props();
+  let { fileName, bucketName = defaultBucketName } = $props();
   let canvas = $state();
 
   onMount(() => {
