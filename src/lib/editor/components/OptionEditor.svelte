@@ -65,6 +65,92 @@
     </select>
   </div>
 
+  <!-- Мини-игра -->
+  <div class="minigame-section">
+    <div class="section-header">
+      <label class="checkbox-row">
+        <input 
+          type="checkbox" 
+          bind:checked={option.miniGame} 
+          onchange={(e) => {
+            if (e.target.checked && !option.miniGame) {
+              option.miniGame = {
+                id: '',
+                onWinDialogueId: '',
+                onLoseDialogueId: ''
+              };
+            }
+          }}
+        /> 
+        Запустить мини-игру
+      </label>
+    </div>
+
+    {#if option.miniGame}
+      <div class="minigame-details">
+        <div class="form-group">
+          <label for="option-mg-id-{index}">ID игры</label>
+          <select 
+            id="option-mg-id-{index}"
+            bind:value={option.miniGame.id} 
+            class="input select"
+          >
+            <option value="">-- Выберите игру --</option>
+            <option value="onet_monsters">Onet: Monsters (поиск пар)</option>
+          </select>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="option-mg-win-{index}">Диалог при победе</label>
+            <select 
+              id="option-mg-win-{index}"
+              bind:value={option.miniGame.onWinDialogueId} 
+              class="input select"
+            >
+              <option value="">-- Выберите --</option>
+              {#each dialogues as d}
+                <option value={d.id}>
+                  {d.id}: {d.text.substring(0, 30)}...
+                </option>
+              {/each}
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="option-mg-lose-{index}">Диалог при поражении</label>
+            <select 
+              id="option-mg-lose-{index}"
+              bind:value={option.miniGame.onLoseDialogueId} 
+              class="input select"
+            >
+              <option value="">-- Выберите --</option>
+              {#each dialogues as d}
+                <option value={d.id}>
+                  {d.id}: {d.text.substring(0, 30)}...
+                </option>
+              {/each}
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="option-mg-reward-{index}">Награда (предмет)</label>
+          <select 
+            id="option-mg-reward-{index}"
+            bind:value={option.miniGame.rewardItem} 
+            class="input select"
+          >
+            <option value="">-- Без награды --</option>
+            {#each availableItems as item}
+              <option value={item.id}>{item.name}</option>
+            {/each}
+          </select>
+        </div>
+      </div>
+    {/if}
+  </div>
+
   <!-- Настройки включения/видимости -->
   <div class="options-settings-grid">
     <div class="setting-col">
@@ -231,5 +317,33 @@
 
   .form-row .full-width {
     flex: 2;
+  }
+
+  .minigame-section {
+    margin-top: 15px;
+    padding: 10px;
+    background: #1a1a2e;
+    border: 1px solid #e94560;
+    border-radius: 4px;
+  }
+
+  .minigame-section .section-header {
+    margin-bottom: 10px;
+  }
+
+  .minigame-details {
+    margin-top: 10px;
+    padding: 10px;
+    background: #16213e;
+    border-radius: 4px;
+    border: 1px dashed #e94560;
+  }
+
+  .minigame-details .form-group {
+    margin-bottom: 10px;
+  }
+
+  .minigame-details .form-group:last-child {
+    margin-bottom: 0;
   }
 </style>
