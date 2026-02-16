@@ -2,12 +2,21 @@
   import { onMount, onDestroy } from "svelte";
   import { gameState } from "../store/gameStore.svelte";
   import Rive from "./Rive.svelte";
+  import MinigameLauncher from "./MinigameLauncher.svelte";
   import { bucketName as defaultBucketName, supabaseUrlFile } from "../store/store.svelte";
 
   let { index, dialogue: propDialogue, bucketName = defaultBucketName } = $props(); // bucketName может быть передан из редактора
 
 // Если пропс dialogue не передан, берем из стора (режим игры)
 const currentDialogue = $derived(propDialogue || gameState.findDialogue(gameState.currentDialogueId));
+
+  // Состояние мини-игры
+  let activeMinigame = $state<{
+    gameId: string;
+    onWinDialogueId: string;
+    onLoseDialogueId: string;
+    rewardItem?: string;
+  } | null>(null);
 
   // Обработка входа в диалог (выполнение actions)
   $effect(() => {
@@ -30,12 +39,15 @@ const currentDialogue = $derived(propDialogue || gameState.findDialogue(gameStat
       gameState.runActions(option.actions);
     }
 
-    // Если это запуск мини-игры (заглушка логики)
+    // Если это запуск мини-игры
     if (option.miniGame) {
       console.log("Запуск мини-игры:", option.miniGame.id);
-      // Здесь должна быть логика запуска мини-игры
-      // Пока для примера идем на Win диалог
-      gameState.goToDialogue(option.miniGame.onWinDialogueId);
+      activeMinigame = {
+        gameId: option.miniGame.id,
+        onWinDialogueId: option.miniGame.onWinDialogueId,
+        onLoseDialogueId: option.miniGame.onLoseDialogueId,
+        rewardItem: option.miniGame.rewardItem
+      };
       return;
     }
 
@@ -43,6 +55,25 @@ const currentDialogue = $derived(propDialogue || gameState.findDialogue(gameStat
     if (option.nextDialogueId) {
       gameState.goToDialogue(option.nextDialogueId);
     }
+  }
+
+  function handleMinigameWin() {
+    console.log('[DialogueCard] Mini-game won!');
+    if (activeMinigame?.rewardItem) {
+      gameState.addItem(activeMinigame.rewardItem);
+    }
+    if (activeMinigame?.onWinDialogueId) {
+      gameState.goToDialogue(activeMinigame.onWinDialogueId);
+    }
+    activeMinigame = null;
+  }
+
+  function handleMinigameLose() {
+    console.log('[DialogueCard] Mini-game lost!');
+    if (activeMinigame?.onLoseDialogueId) {
+      gameState.goToDialogue(activeMinigame.onLoseDialogueId);
+    }
+    activeMinigame = null;
   }
 
   // Вспомогательная функция проверки условий
@@ -57,6 +88,14 @@ const currentDialogue = $derived(propDialogue || gameState.findDialogue(gameStat
 
 {#if currentDialogue}
   <div class="dialogue-container">
+    <!-- Мини-игра (показывается поверх диалога) -->
+    {#if activeMinigame}
+      <MinigameLauncher
+        gameId={activeMinigame.gameId}
+        onWin={handleMinigameWin}
+        onLose={handleMinigameLose}
+      />
+    {/if}
     <!-- Фон -->
     {#if currentDialogue.backgroundImage}
       <div class="background-media">

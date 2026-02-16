@@ -14,6 +14,8 @@ export interface Option {
     id: string;
     onWinDialogueId: string;
     onLoseDialogueId: string;
+    rewardItem?: string; // ID предмета, который получит игрок при победе
+    rewardStat?: { name: string; value: number }; // Стат, который изменится при победе
   };
   actions?: Array<{ type: string; id?: string; value?: any }>;
   enabled: boolean;

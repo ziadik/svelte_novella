@@ -2,7 +2,7 @@ import { editor, editorActions } from "./editorStore.svelte";
 import type { BucketInfo } from "../types";
 
 // Фиксированный список историй
-const AVAILABLE_STORIES = ['dracula', 'zombie', 'fairy_tale'];
+const AVAILABLE_STORIES = ['dracula', 'zombie', 'fairy_tale', "minigames"];
 
 /**
  * Получить фиксированный список историй

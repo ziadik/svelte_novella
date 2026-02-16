@@ -75,6 +75,12 @@ class GameState {
   isLoading = $state<boolean>(true);
   error = $state<string>("");
 
+  // Выбранная история (bucket name)
+  selectedStory = $state<string | null>(null);
+
+  // Доступные истории
+  availableStories = $state<string[]>(['dracula', 'zombie', 'fairy_tale', 'minigames']);
+
   // Компьютерное свойство для получения текущего диалога
   get currentDialogue(): Dialogue | undefined {
     return this.findDialogue(this.currentDialogueId);
