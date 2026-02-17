@@ -49,6 +49,7 @@
         type="text" 
         id="dialogue-id"
         bind:value={editorDerived.currentDialogue.id} 
+        onchange={(event) => editor.selectedDialogueId = event.target?.value}
         class="input" 
       />
     </div>
