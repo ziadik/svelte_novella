@@ -14,8 +14,8 @@
     const dispatch = createEventDispatcher();
 
     // --- Настройки ---
-    const ROWS = 8;      // ← ИЗМЕНЕНО: было 6, стало 8
-    const COLS = 6;      // ← ИЗМЕНЕНО: было 8, стало 6
+    const ROWS = 6;
+    const COLS = 8;
     const ICONS = [
         '🧛', '🦇', '👻', '💀', '🔥', '🕷️', '🕸️', 
         '🧟', '🧙‍♀️', '⚰️', '🪦', '🦴', '🔮', '🧪', 
@@ -430,7 +430,7 @@
 </script>
 
 <div class="body-wrapper">
-    <!-- <h1>Onet: Monsters</h1> -->
+    <h1>Onet: Monsters</h1>
     
     <div id="game-info">
         <div class="info-item">
@@ -540,16 +540,14 @@
     }
 
     #game-info {
-        margin-left: 10px;
-        margin-right: 10px;
-        margin-bottom: 45px;
-        font-size: 1rem;
+        margin-bottom: 15px;
+        font-size: 1.1rem;
         display: flex;
         gap: 15px;
         align-items: center;
         background: rgba(255, 255, 255, 0.05);
-        padding: 5px 10px;
-        border-radius: 30px;
+        padding: 10px 20px;
+        border-radius: 50px;
         border: 1px solid rgba(255, 255, 255, 0.1);
         backdrop-filter: blur(5px);
         z-index: 10;
@@ -560,14 +558,13 @@
     .info-item {
         display: flex;
         align-items: center;
-        gap: 5px;
-        
+        gap: 8px;
     }
 
     #game-container {
         position: relative;
         background-color: rgba(0, 0, 0, 0.5);
-        padding: 5px;
+        padding: 15px;
         border-radius: 15px;
         box-shadow: 0 0 50px rgba(0, 0, 0, 0.8);
         border: 1px solid rgba(255, 255, 255, 0.1);
@@ -609,12 +606,6 @@
         .cell {
             width: 60px;
             height: 60px;
-        }
-    }
-    @media (max-width: 390px) {
-        .cell {
-            width: 45px;
-            height: 45px;
         }
     }
 
