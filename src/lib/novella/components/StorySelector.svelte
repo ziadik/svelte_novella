@@ -82,7 +82,7 @@
     align-items: center;
     justify-content: center;
     min-height: 100vh;
-    padding: 20px;
+    padding: 10px;
     background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
     color: white;
     font-family: sans-serif;
@@ -90,11 +90,11 @@
 
   .selector-header {
     text-align: center;
-    margin-bottom: 40px;
+    margin-bottom: 20px;
   }
 
   .selector-header h1 {
-    font-size: 48px;
+    font-size: 34px;
     margin: 0 0 12px 0;
     background: linear-gradient(90deg, #e94560, #ff6b6b);
     -webkit-background-clip: text;
@@ -103,7 +103,7 @@
   }
 
   .selector-header p {
-    font-size: 18px;
+    font-size: 14px;
     color: #aaa;
     margin: 0;
   }
@@ -121,7 +121,7 @@
     display: flex;
     align-items: center;
     gap: 16px;
-    padding: 20px;
+    padding: 10px;
     background: rgba(255, 255, 255, 0.05);
     border: 2px solid rgba(255, 255, 255, 0.1);
     border-radius: 16px;
@@ -146,7 +146,7 @@
   }
 
   .story-icon {
-    font-size: 48px;
+    font-size: 34px;
     flex-shrink: 0;
   }
 
@@ -155,14 +155,14 @@
   }
 
   .story-title {
-    font-size: 20px;
+    font-size: 18px;
     font-weight: 600;
     margin: 0 0 8px 0;
     color: #fff;
   }
 
   .story-description {
-    font-size: 14px;
+    font-size: 12px;
     color: #aaa;
     margin: 0;
     line-height: 1.4;
@@ -191,7 +191,7 @@
     margin: 0;
   }
 
-  @media (max-width: 600px) {
+  @media (max-width: 400px) {
     .selector-header h1 {
       font-size: 32px;
     }
