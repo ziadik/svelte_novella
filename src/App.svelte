@@ -13,11 +13,16 @@
   </button>
   <Editor />
 {:else}
-  <button 
+  
+<button 
     onclick={editorActions.toggleEditor}
+    id="content"
     style="position:fixed; bottom:10px; right:10px; z-index:9999;"
   >
     Редактор
   </button>
   <Main />
 {/if}
+<style>
+  @media (max-width: 768px) { #content { display: none; } }
+</style>
