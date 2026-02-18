@@ -5,6 +5,31 @@
   import { storyActions } from '../stores/storyStore';
   import { resourceActions } from '../stores/resourceStore';
 
+
+    // Информация об историях
+  const storiesInfo = {
+    dracula: {
+      title: 'Дракула',
+      description: 'Тёмная готическая история о вампире и его жертве',
+      icon: '🧛'
+    },
+    zombie: {
+      title: 'Выживание',
+      description: 'Постапокалиптическая история о зомби',
+      icon: '🧟'
+    },
+    fairy_tale: {
+      title: 'Сказка',
+      description: 'Волшебная история с феями и драконами',
+      icon: '🧚'
+    },
+    minigames: {
+      title: 'Мини-игры',
+      description: 'Демонстрация мини-игр в визуальной новелле',
+      icon: '🎮'
+    }
+  };
+
   onMount(() => {
     loadBuckets();
   });
@@ -35,14 +60,23 @@
   </div>
 
   <div class="buckets-list">
-    {#each editor.availableBuckets as bucket}
+    {#each editor.availableBuckets as bucket (bucket)}
+     {@const info = storiesInfo[bucket.id as keyof typeof storiesInfo] || {
+        title: bucket,
+        description: 'Интерактивная история',
+        icon: '📖'
+      }}
       <div 
         class:selected={editor.selectedBucket === bucket.name}
         class="bucket-card"
       >
         <div class="bucket-info">
-          <div class="bucket-name">{bucket.name}</div>
-          <div class="bucket-meta">📖 Интерактивная история</div>
+          <div class="story-icon">{info.icon}</div>
+        <div class="story-content">
+          <h3 class="story-title">{info.title}</h3>
+          <p class="story-description">{info.description}</p>
+        </div>
+        <div class="story-arrow">→</div>
         </div>
         
         <div class="bucket-actions">
@@ -63,42 +97,64 @@
 </div>
 
 <style>
+   .story-icon {
+    font-size: 34px;
+    flex-shrink: 0;
+  }
   .story-selector {
-    padding: 20px;
-    max-width: 800px;
-    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 10px;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    color: white;
+    font-family: sans-serif;
   }
 
-  .selector-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+ .selector-header {
+    text-align: center;
     margin-bottom: 20px;
   }
 
   .selector-header h2 {
-    margin: 0;
-    font-size: 24px;
+      font-size: 34px;
+    margin: 0 0 12px 0;
+    background: linear-gradient(90deg, #e94560, #ff6b6b);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
 
   .buckets-list {
-    display: grid;
-    gap: 12px;
+     display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+    max-width: 900px;
+    width: 100%;
+    margin-bottom: 40px;
   }
 
   .bucket-card {
-    display: flex;
-    justify-content: space-between;
+  display: flex;
     align-items: center;
-    padding: 16px;
-    background: #f5f5f5;
-    border: 2px solid transparent;
-    border-radius: 8px;
-    transition: all 0.2s;
+    gap: 16px;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
   }
 
   .bucket-card:hover {
-    background: #e8e8e8;
+      background: rgba(255, 255, 255, 0.1);
+    border-color: #e94560;
+    transform: translateY(-4px);
+    box-shadow: 0 8px 32px rgba(233, 69, 96, 0.3);
+    outline: none;
   }
 
   .bucket-card.selected {
