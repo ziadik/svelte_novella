@@ -5,9 +5,11 @@
     gameId: string;
     onWin: () => void;
     onLose: () => void;
+    rewardItem?: any;
+    items?: any[];
   }
 
-  let { gameId, onWin, onLose }: Props = $props();
+  let { gameId, onWin, onLose, rewardItem, items }: Props = $props();
 
   function handleWin() {
     console.log('[MinigameLauncher] Game won!');
@@ -26,6 +28,9 @@
       onWin={handleWin}
       onLose={handleLose}
       integrated={true}
+      rewardItem={rewardItem}
+      items={items}
+      bucketName="minigames"
     />
   {:else}
     <div class="loading">Загрузка игры...</div>
