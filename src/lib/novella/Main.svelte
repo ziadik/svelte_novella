@@ -81,7 +81,7 @@
     display: flex;
     justify-content: center;
     min-height: 100vh;
-    padding: 20px;
+    padding: 0px;
   }
 
   .btn-change-story {

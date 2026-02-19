@@ -197,8 +197,9 @@ const currentDialogue = $derived(propDialogue || gameState.findDialogue(gameStat
     position: absolute;
     bottom: 0; left: 0; right: 0;
     z-index: 3;
-    background: linear-gradient(transparent, rgba(0,0,0,0.95));
-    padding: 20px;
+    background: linear-gradient(rgba(29, 43, 56, 1), rgba(0,0,0,0.65));
+
+    padding: 5px;
     min-height: 150px;
     box-sizing: border-box;
   }
