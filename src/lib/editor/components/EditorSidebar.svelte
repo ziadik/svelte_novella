@@ -1,7 +1,12 @@
 <script lang="ts">
-  import { editor, editorDerived } from '../stores/editorStore.svelte';
+  import { editor, editorDerived, editorActions } from '../stores/editorStore.svelte';
   import { storyActions } from '../stores/storyStore';
   import { resourceActions } from '../stores/resourceStore';
+  import ChapterForm from './ChapterForm.svelte';
+
+  function handleEditChapter(chapterId: string) {
+    editorActions.selectEditingChapter(chapterId);
+  }
 </script>
 
 <aside class="sidebar">
@@ -13,15 +18,30 @@
     </div>
     <div class="chapter-list">
       {#each editor.data?.chapters || [] as chapter (chapter.id)}
-        <button
-          type="button"
-          class:active={editor.selectedChapterId === chapter.id}
-          class="chapter-item" 
-          onclick={() => editor.selectedChapterId = chapter.id}
-          aria-pressed={editor.selectedChapterId === chapter.id}
-        >
-          {chapter.title}
-        </button>
+        <div class="chapter-row">
+          <button
+            type="button"
+            class:active={editor.selectedChapterId === chapter.id}
+            class="chapter-item"
+            onclick={() => editor.selectedChapterId = chapter.id}
+            aria-pressed={editor.selectedChapterId === chapter.id}
+          >
+            <span class="chapter-title">{chapter.title}</span>
+          </button>
+          <button
+            type="button"
+            class="edit-chapter-btn"
+            onclick={() => handleEditChapter(chapter.id)}
+            title="Редактировать главу"
+          >
+            ✏️
+          </button>
+        </div>
+        {#if editor.editingChapterId === chapter.id}
+          <div class="chapter-form-container">
+            <ChapterForm />
+          </div>
+        {/if}
       {/each}
     </div>
   </div>
@@ -89,11 +109,16 @@
     max-height: 150px;
   }
   
+  .chapter-row {
+    display: flex;
+    align-items: stretch;
+    border-bottom: 1px solid #333;
+  }
+
   .chapter-item {
-    width: 100%;
+    flex: 1;
     padding: 10px;
     cursor: pointer;
-    border-bottom: 1px solid #333;
     font-size: 13px;
     background: none;
     border: none;
@@ -102,10 +127,39 @@
     border-left: 3px solid transparent;
   }
   
+  .chapter-title {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  .edit-chapter-btn {
+    width: 32px;
+    background: #2a2d2e;
+    border: none;
+    color: #888;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    transition: all 0.2s;
+  }
+
+  .edit-chapter-btn:hover {
+    background: #3d4042;
+    color: #fff;
+  }
+
   .chapter-item:hover { background: #2a2d2e; }
-  .chapter-item.active { 
-    background: #37373d; 
-    border-left: 3px solid #ff5555; 
+  .chapter-item.active {
+    background: #37373d;
+    border-left: 3px solid #ff5555;
+  }
+
+  .chapter-form-container {
+    background: #1e1e1e;
+    border-left: 3px solid #ff5555;
   }
   
   .dialogue-list { flex: 1; overflow-y: auto; }

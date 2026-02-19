@@ -37,7 +37,7 @@ export function migrateStoryData(data: any): StoryData {
 
   // 2. Миграция глав (если их нет, создаем основную)
   if (!data.chapters) {
-    data.chapters = [{ id: "main", title: "Основная история" }];
+    data.chapters = [{ id: "main", title: "Основная история", description: "" }];
     if (data.dialogues) {
       data.dialogues.forEach((dialogue: any) => {
         if (!dialogue.chapterId) {
@@ -45,6 +45,15 @@ export function migrateStoryData(data: any): StoryData {
         }
       });
     }
+  }
+
+  // Обеспечиваем наличие описания у всех глав
+  if (data.chapters) {
+    data.chapters.forEach((chapter: any) => {
+      if (typeof chapter.description === "undefined") {
+        chapter.description = "";
+      }
+    });
   }
 
   // 3. Миграция предметов (если нет, создаем пустой массив)

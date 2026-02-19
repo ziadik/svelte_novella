@@ -33,7 +33,7 @@ export const storyActions = {
 
     const newTemplate: StoryData = {
       meta: { version: "3.1", title: "New Story" },
-      chapters: [{ id: "ch1", title: "Глава 1" }],
+      chapters: [{ id: "ch1", title: "Глава 1", description: "" }],
       dialogues: [
         {
           id: "start",
@@ -219,7 +219,7 @@ export const storyActions = {
     if (!editor.data || !editor.data.chapters) return;
 
     const id = "ch_" + Date.now();
-    editor.data.chapters.push({ id, title: "Новая глава" });
+    editor.data.chapters.push({ id, title: "Новая глава", description: "" });
     editor.selectedChapterId = id;
   },
 
