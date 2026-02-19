@@ -10,6 +10,7 @@ interface EditorState {
   showItems: boolean;
   editingOptionIndex: number | null;
   editingItemIndex: number | null;
+  editingChapterId: string | null;
 
   // Выбранные элементы
   selectedChapterId: string | null;
@@ -37,6 +38,7 @@ export const editor = $state<EditorState>({
   showItems: false,
   editingOptionIndex: null,
   editingItemIndex: null,
+  editingChapterId: null,
 
   // Выбранные элементы
   selectedChapterId: null,
@@ -70,6 +72,10 @@ export const editorDerived = {
 
   get currentChapter() {
     return editor.data?.chapters?.find((c) => c.id === editor.selectedChapterId);
+  },
+
+  get currentEditingChapter() {
+    return editor.data?.chapters?.find((c) => c.id === editor.editingChapterId);
   },
 
   get currentEditingOption(): Option | undefined {
@@ -231,10 +237,15 @@ export const editorActions = {
   },
 
   // Обновление главы
-  updateChapter(chapterId: string, updates: { title: string }): void {
+  updateChapter(chapterId: string, updates: { title?: string; description?: string }): void {
     editor.data.chapters = editor.data.chapters.map(c =>
       c.id === chapterId ? { ...c, ...updates } : c
     );
+  },
+
+  // Выбор главы для редактирования
+  selectEditingChapter(chapterId: string | null): void {
+    editor.editingChapterId = chapterId;
   },
 
   // Удаление главы

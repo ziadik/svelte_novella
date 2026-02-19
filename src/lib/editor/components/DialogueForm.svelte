@@ -55,6 +55,26 @@
     </div>
 
     <div class="form-group">
+      <label for="dialogue-chapter">Глава</label>
+      <select 
+        id="dialogue-chapter"
+        bind:value={editorDerived.currentDialogue.chapterId}
+        onchange={(event) => editor.selectedChapterId = event.target?.value}
+        class="input select"
+      >
+        <option value="">-- Не выбрано --</option>
+        {#each editor.data.chapters || [] as chapter}
+          <option value={chapter.id}>
+            {chapter.title}
+            {#if chapter.description}
+              - {chapter.description.substring(0, 30)}...
+            {/if}
+          </option>
+        {/each}
+      </select>
+    </div>
+
+    <div class="form-group">
       <label for="dialogue-text">Текст</label>
       <textarea 
         id="dialogue-text"
