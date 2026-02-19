@@ -97,6 +97,7 @@
           >
             <option value="">-- Выберите игру --</option>
             <option value="onet_monsters">Onet: Monsters (поиск пар)</option>
+            <option value="memo_monsters">Memo: Monsters (поиск пар)</option>
           </select>
         </div>
 
