@@ -536,41 +536,12 @@
 <div class="body-wrapper">
   <div id="game-header">
 
-    {#if rewardItemData}
-      <div id="reward-panel">
-        {#if rewardItemData.icon}
-          <div class="item-icon reward-glow">
-            <img
-              src={`${import.meta.env.VITE_SUPABASE_URL_FILE}/storage/v1/object/public/${bucketName}/${rewardItemData.icon}`}
-              alt={rewardItemData.name}
-              class="icon-preview"
-              height="64px"
-            />
-          </div>
-        {/if}
-        <div class="reward-info">
-          <div class="reward-label">Награда:</div>
-          <div class="reward-name">{rewardItemData.name}</div>
-        </div>
-      </div>
+    <button class="btn btn-secondary" onclick={initGame}>🔄 Новая игра</button>
+    {#if integrated}
+    <button class="btn btn-danger" onclick={handleGiveUp}>🏳️ Сдаться</button>
     {/if}
-
-    <span class="tiles-counter"
-      >Осталось: <strong>{remainingCount}</strong></span
-    >
-    <button
-      class="btn btn-secondary"
-      class:disabled={!isHintAvailable}
-      class:cooldown-active={hintCooldown > 0}
-      onclick={showHint}
-      disabled={!isHintAvailable}
-    >
-      💡
-      {#if hintCooldown > 0}
-        <span class="cooldown-timer">({hintCooldown})</span>
-      {/if}
-    </button>
-  </div>
+</div>
+  
 
   <div id="game-container" bind:this={gridContainer}>
     <div
@@ -609,6 +580,44 @@
       {/key}
     </svg>
   </div>
+
+  <div id="game-header">
+
+    {#if rewardItemData}
+      <div id="reward-panel">
+        {#if rewardItemData.icon}
+          <div class="item-icon reward-glow">
+            <img
+              src={`${import.meta.env.VITE_SUPABASE_URL_FILE}/storage/v1/object/public/${bucketName}/${rewardItemData.icon}`}
+              alt={rewardItemData.name}
+              class="icon-preview"
+              height="64px"
+            />
+          </div>
+        {/if}
+        <div class="reward-info">
+          <div class="reward-label">Награда:</div>
+          <div class="reward-name">{rewardItemData.name}</div>
+        </div>
+      </div>
+    {/if}
+
+    <span class="tiles-counter"
+      >Осталось: <strong>{remainingCount}</strong></span
+    >
+    <button
+      class="btn btn-secondary"
+      class:disabled={!isHintAvailable}
+      class:cooldown-active={hintCooldown > 0}
+      onclick={showHint}
+      disabled={!isHintAvailable}
+    >
+      💡
+      {#if hintCooldown > 0}
+        <span class="cooldown-timer">({hintCooldown})</span>
+      {/if}
+    </button>
+  </div>
 </div>
 
 <!-- Модальное окно -->
@@ -631,13 +640,7 @@
     </div>
   </div>
 {/if}
-<div id="game-header">
 
-    <button class="btn btn-secondary" onclick={initGame}>🔄 Новая игра</button>
-    {#if integrated}
-    <button class="btn btn-danger" onclick={handleGiveUp}>🏳️ Сдаться</button>
-    {/if}
-</div>
 <style>
   :global(body) {
     margin: 0;
