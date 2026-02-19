@@ -1,33 +1,15 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import OnetMonsters from '../minigames/OnetMonsters.svelte';
 
   interface Props {
     gameId: string;
     onWin: () => void;
     onLose: () => void;
+    rewardItem?: any;
+    items?: any[];
   }
 
-  let { gameId, onWin, onLose }: Props = $props();
-
-  let activeComponent: any = $state(null);
-  let container: HTMLElement;
-
-  onMount(() => {
-    loadGame();
-  });
-
-  function loadGame() {
-    console.log(gameId);
-    switch (gameId) {
-      case 'onet_monsters':
-        activeComponent = OnetMonsters;
-        break;
-      default:
-        console.error(`Unknown game ID: ${gameId}`);
-        onLose();
-    }
-  }
+  let { gameId, onWin, onLose, rewardItem, items }: Props = $props();
 
   function handleWin() {
     console.log('[MinigameLauncher] Game won!');
@@ -38,23 +20,17 @@
     console.log('[MinigameLauncher] Game lost!');
     onLose();
   }
-
-  function handleExit() {
-    // Выход из игры без результата (например, нажали "назад")
-    onLose();
-  }
 </script>
 
-<div class="minigame-container" bind:this={container}>
-  <!-- Кнопка выхода -->
-  <button class="exit-btn" onclick={handleExit}>✕ Выйти из игры</button>
-
-  <!-- Загрузка игры -->
-  {#if activeComponent}
-    <svelte:component 
-      this={activeComponent} 
-      onwin={handleWin}
-      onlose={handleLose}
+<div class="minigame-container">
+  {#if gameId === 'onet_monsters'}
+    <OnetMonsters
+      onWin={handleWin}
+      onLose={handleLose}
+      integrated={true}
+      rewardItem={rewardItem}
+      items={items}
+      bucketName="minigames"
     />
   {:else}
     <div class="loading">Загрузка игры...</div>
@@ -72,26 +48,6 @@
     z-index: 1000;
     display: flex;
     flex-direction: column;
-  }
-
-  .exit-btn {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    padding: 8px 16px;
-    background: rgba(233, 69, 96, 0.9);
-    color: white;
-    border: none;
-    border-radius: 20px;
-    cursor: pointer;
-    font-weight: bold;
-    z-index: 1001;
-    transition: transform 0.2s, background 0.2s;
-  }
-
-  .exit-btn:hover {
-    transform: scale(1.05);
-    background: rgba(233, 69, 96, 1);
   }
 
   .loading {
