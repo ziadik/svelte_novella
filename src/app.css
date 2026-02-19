@@ -59,7 +59,7 @@
 }
 
 .dialogues-container {
-    padding: 20px;
+    padding: 0px;
     min-height: calc(100vh - 120px);
     display: flex;
     flex-direction: column;
