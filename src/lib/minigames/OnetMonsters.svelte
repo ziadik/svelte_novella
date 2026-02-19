@@ -17,10 +17,10 @@
     const ROWS = 8;      // ← ИЗМЕНЕНО: было 6, стало 8
     const COLS = 6;      // ← ИЗМЕНЕНО: было 8, стало 6
     const ICONS = [
-        '🧛', '🦇', '👻', '💀', '🔥', '🕷️', '🕸️', 
-        '🧟', '🧙‍♀️', '⚰️', '🪦', '🦴', '🔮', '🧪', 
-        '👹', '🌜', '👽', '🤡', '🌛', '🖤', '🗡️', 
-        '🧛‍♀️', '🗝️', '🕯️', '🌑', '☠️', '🧿', '👁️'
+        '🦄', '🦇', '👻', '💀', '🔥', '🕷️', '🕸️', 
+        '🧟', '🧙‍♀️', '⚰️', '🐸', '🦴', '🔮', '🧪', 
+        '👹', '🌜', '🍭', '💗', '🌛', '🖤', '🗡️', 
+        '🧛‍♀️', '🗝️', '🕯️', '🌑', '☠️', '🧿', '🌞'
     ];
 
     // --- State (Runes) ---
@@ -35,6 +35,10 @@
     
     let linePath = $state([]); // Координаты для SVG линии
     let lineKey = $state(0); // Ключ для перерисовки SVG и рестарта анимации
+
+    // Cooldown для подсказки (в секундах)
+    let hintCooldown = $state(0); // Оставшееся время cooldown
+    const HINT_COOLDOWN_TIME = 5; // 5 секунд cooldown
 
     // Modal State
     let modal = $state({
@@ -67,6 +71,9 @@
 
     let remainingCount = $derived(getRemainingCount());
 
+    // Проверка доступности подсказки
+    let isHintAvailable = $derived(hintCooldown === 0);
+
     // --- Инициализация ---
     function initGame() {
         board = [];
@@ -77,6 +84,7 @@
         shuffling = {};
         hintCells = [];
         linePath = [];
+        hintCooldown = 0;
         hideModal();
 
         // Подготовка колоды
@@ -137,6 +145,8 @@
                 matched[r][c] = true;
                 firstSelected = null;
                 isProcessing = false;
+                // Запускаем cooldown для подсказки после успешного хода
+                startHintCooldown();
                 checkGameStatus();
                 return;
             }
@@ -154,8 +164,18 @@
     }
 
     // --- Подсказки ---
+    function startHintCooldown() {
+        hintCooldown = HINT_COOLDOWN_TIME;
+        const timer = setInterval(() => {
+            hintCooldown--;
+            if (hintCooldown <= 0) {
+                clearInterval(timer);
+            }
+        }, 1000);
+    }
+
     function showHint() {
-        if (isProcessing || isGameOver) return;
+        if (isProcessing || isGameOver || !isHintAvailable) return;
 
         // Логика поиска такая же, как в hasAvailableMoves, но возвращаем пару
         let remainingTiles = [];
@@ -430,23 +450,30 @@
 </script>
 
 <div class="body-wrapper">
-    <!-- <h1>Onet: Monsters</h1> -->
-    
-    <div id="game-info">
-        <div class="info-item">
-            <span>Осталось: <strong id="tiles-count">{remainingCount}</strong></span>
-        </div>
-        <div class="info-item">
-            <button class="btn btn-secondary" onclick={showHint}>💡 Подсказка</button>
-        </div>
-        <div class="info-item">
-            <button class="btn btn-secondary" onclick={initGame}>Новая игра</button>
-        </div>
+    <div id="game-header">
+    <!-- <div class="header-left"> -->
+        <button class="btn btn-secondary" onclick={initGame}>🔄 Новая игра</button>
         {#if integrated}
-            <div class="info-item">
-                <button class="btn btn-danger" onclick={handleGiveUp}>🏳️ Сдаться</button>
-            </div>
+            <button class="btn btn-danger" onclick={handleGiveUp}>🏳️ Сдаться</button>
         {/if}
+    <!-- </div>-->
+     </div> 
+    <div id="game-header">
+        <!-- <div class="header-left"> -->
+            <span class="tiles-counter">Осталось: <strong>{remainingCount}</strong></span>
+            <button
+                class="btn btn-secondary"
+                class:disabled={!isHintAvailable}
+                class:cooldown-active={hintCooldown > 0}
+                onclick={showHint}
+                disabled={!isHintAvailable}
+            >
+                💡 Подсказка
+                {#if hintCooldown > 0}
+                    <span class="cooldown-timer">({hintCooldown})</span>
+                {/if}
+            </button>
+        <!-- </div> -->
     </div>
 
     <div id="game-container" bind:this={gridContainer}>
@@ -529,40 +556,42 @@
         user-select: none;
     }
 
-    h1 {
-        margin: 10px 0 20px;
-        font-weight: 700;
-        letter-spacing: 3px;
-        text-transform: uppercase;
-        text-shadow: 0 0 15px rgba(233, 69, 96, 0.6);
-        font-size: 2rem;
-        text-align: center;
-    }
-
-    #game-info {
-        margin-left: 10px;
-        margin-right: 10px;
-        margin-bottom: 45px;
-        font-size: 1rem;
+    #game-header {
+        margin-bottom: 20px;
+        width: 100%;
+        max-width: 400px;
         display: flex;
-        gap: 15px;
+        justify-content: space-around;
         align-items: center;
+        padding: 10px 15px;
+        margin-bottom: 20px;
         background: rgba(255, 255, 255, 0.05);
-        padding: 5px 10px;
         border-radius: 30px;
         border: 1px solid rgba(255, 255, 255, 0.1);
         backdrop-filter: blur(5px);
         z-index: 10;
-        flex-wrap: wrap;
-        justify-content: center;
     }
 
-    .info-item {
-        display: flex;
-        align-items: center;
-        gap: 5px;
-        
+    .header-left {
+        /* display: flex; */
+        /* align-items: center; */
+        /* gap: 20px; */
     }
+
+    .tiles-counter {
+        font-size: 1rem;
+        color: #ececec;
+    }
+
+    .tiles-counter strong {
+        color: #ff9f43;
+        font-size: 1.2rem;
+    }
+
+    /* .header-right {
+        display: flex;
+        gap: 8px;
+    } */
 
     #game-container {
         position: relative;
@@ -733,6 +762,29 @@
 
     .btn-danger:hover {
         box-shadow: 0 6px 15px rgba(192, 57, 43, 0.6);
+    }
+
+    .btn.disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none !important;
+        filter: grayscale(0.5);
+    }
+
+    .btn.disabled:hover {
+        transform: none !important;
+        box-shadow: 0 4px 10px rgba(233, 69, 96, 0.4);
+    }
+
+    .cooldown-active {
+        position: relative;
+    }
+
+    .cooldown-timer {
+        font-size: 0.9em;
+        margin-left: 5px;
+        color: #ffd700;
+        font-weight: bold;
     }
 
     #modal-overlay {
