@@ -101,8 +101,8 @@
   let remainingCount = $derived(getRemainingCount());
 
   // Проверка доступности подсказки
-  let isHintAvailable = $derived(hintCooldown === 0);
-
+  let isHintAvailable = $derived(hintCooldown < 1);
+ 
   // Получение данных о награде
   function getRewardItemData() {
     if (!rewardItem || !items || items.length === 0) return null;
@@ -535,39 +535,26 @@
 
 <div class="body-wrapper">
   <div id="game-header">
-    <!-- <div class="header-left"> -->
-    <button class="btn btn-secondary" onclick={initGame}>🔄 Новая игра</button>
-    {#if integrated}
-      <button class="btn btn-danger" onclick={handleGiveUp}>🏳️ Сдаться</button>
-    {/if}
-    <!-- </div>-->
-  </div>
 
-  <!-- Панель награды -->
-  {#if rewardItemData}
-    <div id="reward-panel">
-      {#if rewardItemData.icon}
-        
-         <div class="item-icon">
-                  
-                      <img 
-                         src={`${import.meta.env.VITE_SUPABASE_URL_FILE}/storage/v1/object/public/${bucketName}/${rewardItemData.icon}`}
-                        alt={rewardItemData.name}
-                        class="icon-preview"
-                       height="64px"
-                      />
-                   
-                  </div>
-      {/if}
-      <div class="reward-info">
-        <div class="reward-label">Награда:</div>
-        <div class="reward-name">{rewardItemData.name}</div>
+    {#if rewardItemData}
+      <div id="reward-panel">
+        {#if rewardItemData.icon}
+          <div class="item-icon reward-glow">
+            <img
+              src={`${import.meta.env.VITE_SUPABASE_URL_FILE}/storage/v1/object/public/${bucketName}/${rewardItemData.icon}`}
+              alt={rewardItemData.name}
+              class="icon-preview"
+              height="64px"
+            />
+          </div>
+        {/if}
+        <div class="reward-info">
+          <div class="reward-label">Награда:</div>
+          <div class="reward-name">{rewardItemData.name}</div>
+        </div>
       </div>
-    </div>
-  {/if}
+    {/if}
 
-  <div id="game-header">
-    <!-- <div class="header-left"> -->
     <span class="tiles-counter"
       >Осталось: <strong>{remainingCount}</strong></span
     >
@@ -578,12 +565,11 @@
       onclick={showHint}
       disabled={!isHintAvailable}
     >
-      💡 Подсказка
+      💡
       {#if hintCooldown > 0}
         <span class="cooldown-timer">({hintCooldown})</span>
       {/if}
     </button>
-    <!-- </div> -->
   </div>
 
   <div id="game-container" bind:this={gridContainer}>
@@ -645,7 +631,13 @@
     </div>
   </div>
 {/if}
+<div id="game-header">
 
+    <button class="btn btn-secondary" onclick={initGame}>🔄 Новая игра</button>
+    {#if integrated}
+    <button class="btn btn-danger" onclick={handleGiveUp}>🏳️ Сдаться</button>
+    {/if}
+</div>
 <style>
   :global(body) {
     margin: 0;
@@ -657,11 +649,22 @@
     );
     font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
     color: #ececec;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
     height: 100vh;
     display: flex;
     flex-direction: column;
     align-items: center;
+  }
+
+  @media (max-width: 380px) {
+    :global(body) {
+      align-items: stretch;
+    }
+
+    .body-wrapper {
+      align-items: center;
+    }
   }
   .item-icon {
     width: 40px;
@@ -680,119 +683,194 @@
     height: 100%;
     object-fit: cover;
   }
-  
+
   
   .body-wrapper {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     width: 100%;
     height: 100%;
     user-select: none;
+    padding: 10px;
+    box-sizing: border-box;
+    overflow-y: auto;
   }
 
   #game-header {
-    margin-bottom: 20px;
+    margin-bottom: 15px;
     width: 100%;
-    max-width: 400px;
+    max-width: 390px;
     display: flex;
-    justify-content: space-around;
+    justify-content: space-between;
     align-items: center;
-    padding: 10px 15px;
-    margin-bottom: 20px;
+    gap: 6px;
+    padding: 8px 10px;
     background: rgba(255, 255, 255, 0.05);
-    border-radius: 30px;
+    border-radius: 20px;
     border: 1px solid rgba(255, 255, 255, 0.1);
     backdrop-filter: blur(5px);
     z-index: 10;
-  }
-
-  .header-left {
-    /* display: flex; */
-    /* align-items: center; */
-    /* gap: 20px; */
+    box-sizing: border-box;
   }
 
   .tiles-counter {
-    font-size: 1rem;
+    font-size: 0.9rem;
     color: #ececec;
   }
 
   .tiles-counter strong {
     color: #ff9f43;
-    font-size: 1.2rem;
+    font-size: 1.1rem;
   }
-
-  /* .header-right {
-        display: flex;
-        gap: 8px;
-    } */
 
   #reward-panel {
-    margin-bottom: 15px;
     display: flex;
-    width: 100%;
-    max-width: 400px;
     align-items: center;
-    gap: 12px;
-    padding: 10px 20px;
-    background: linear-gradient(
-      135deg,
-      rgba(255, 215, 0, 0.1),
-      rgba(255, 159, 67, 0.1)
-    );
-    border: 2px solid rgba(255, 215, 0, 0.3);
-    border-radius: 25px;
-    box-shadow: 0 4px 15px rgba(255, 215, 0, 0.2);
-    animation: glow 2s ease-in-out infinite;
+    gap: 8px;
+    padding: 6px 12px;
+    background: rgba(255, 215, 0, 0.05);
+    border-radius: 15px;
   }
 
-  @keyframes glow {
+  .item-icon {
+    width: 36px;
+    height: 36px;
+    background: #2d2d2d;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border: 1px solid #444;
+  }
+
+  .icon-preview {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .reward-glow {
+    animation: icon-glow 2s ease-in-out infinite;
+    border-color: rgba(255, 215, 0, 0.5);
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
+  }
+
+  @keyframes icon-glow {
     0%,
     100% {
-      box-shadow: 0 4px 15px rgba(255, 215, 0, 0.2);
-      border-color: rgba(255, 215, 0, 0.3);
+      box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+      border-color: rgba(255, 215, 0, 0.4);
     }
     50% {
-      box-shadow: 0 4px 20px rgba(255, 215, 0, 0.4);
-      border-color: rgba(255, 215, 0, 0.5);
-    }
-  }
-
-  .reward-icon {
-    font-size: 2.5rem;
-    animation: bounce 2s ease-in-out infinite;
-  }
-
-  @keyframes bounce {
-    0%,
-    100% {
-      transform: translateY(0);
-    }
-    50% {
-      transform: translateY(-5px);
+      box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+      border-color: rgba(255, 215, 0, 0.7);
     }
   }
 
   .reward-info {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 1px;
   }
 
   .reward-label {
-    font-size: 0.75rem;
+    font-size: 0.65rem;
     color: rgba(255, 255, 255, 0.6);
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 0.5px;
+  }
+
+  @media (max-width: 340px) {
+    .reward-label {
+      display: none;
+    }
+  }
+
+  @media (max-width: 380px) {
+    #game-header {
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+      padding: 8px;
+    }
+
+    #reward-panel {
+      order: 1;
+      width: 100%;
+      justify-content: center;
+    }
+
+    .tiles-counter {
+      order: 2;
+    }
+
+    .btn {
+      order: 3;
+    }
   }
 
   .reward-name {
-    font-size: 1.1rem;
+    font-size: 0.85rem;
     color: #ffd700;
     font-weight: bold;
-    text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+    text-shadow: 0 0 8px rgba(255, 215, 0, 0.5);
+  }
+
+  @media (max-width: 360px) {
+    .body-wrapper {
+      padding: 5px;
+    }
+
+    #game-header {
+      gap: 4px;
+      padding: 6px 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .btn {
+      padding: 5px 10px;
+      min-width: 32px;
+      height: 32px;
+      font-size: 1rem;
+    }
+
+    .item-icon {
+      width: 32px;
+      height: 32px;
+    }
+
+    .reward-label {
+      font-size: 0.6rem;
+    }
+
+    .reward-name {
+      font-size: 0.75rem;
+    }
+
+    .tiles-counter {
+      font-size: 0.8rem;
+    }
+
+    .tiles-counter strong {
+      font-size: 1rem;
+    }
+
+    .cooldown-timer {
+      font-size: 0.65rem;
+    }
+
+    #reward-panel {
+      width: 100%;
+      justify-content: center;
+    }
+
+    #game-container {
+      padding: 3px;
+    }
   }
 
   #game-container {
@@ -805,6 +883,9 @@
     display: flex;
     justify-content: center;
     align-items: center;
+    max-width: 100%;
+    overflow: hidden;
+    box-sizing: border-box;
   }
 
   #grid {
@@ -814,6 +895,7 @@
     z-index: 1;
     width: fit-content;
     height: fit-content;
+    max-width: 100%;
   }
 
   .cell {
@@ -847,6 +929,19 @@
     .cell {
       width: 45px;
       height: 45px;
+      font-size: 24px;
+    }
+  }
+
+  @media (max-width: 340px) {
+    .cell {
+      width: 38px;
+      height: 38px;
+      font-size: 20px;
+    }
+
+    #grid {
+      gap: 3px;
     }
   }
 
@@ -947,27 +1042,29 @@
   }
 
   .btn {
-    padding: 8px 20px;
-    font-size: 13px;
+    padding: 6px 12px;
+    font-size: 1.2rem;
     background: linear-gradient(135deg, #e94560, #c0394d);
     color: white;
     border: none;
-    border-radius: 25px;
+    border-radius: 12px;
     cursor: pointer;
     transition:
       transform 0.1s,
       box-shadow 0.2s,
       filter 0.2s;
-    font-weight: bold;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    box-shadow: 0 4px 10px rgba(233, 69, 96, 0.4);
+    box-shadow: 0 3px 8px rgba(233, 69, 96, 0.4);
     white-space: nowrap;
+    min-width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 15px rgba(233, 69, 96, 0.6);
+    box-shadow: 0 5px 12px rgba(233, 69, 96, 0.6);
     filter: brightness(1.1);
   }
 
@@ -977,16 +1074,7 @@
 
   .btn-secondary {
     background: linear-gradient(135deg, #4e4c75, #3d3b5c);
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
-  }
-
-  .btn-danger {
-    background: linear-gradient(135deg, #c0392b, #e74c3c);
-    box-shadow: 0 4px 10px rgba(192, 57, 43, 0.4);
-  }
-
-  .btn-danger:hover {
-    box-shadow: 0 6px 15px rgba(192, 57, 43, 0.6);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
   }
 
   .btn.disabled {
@@ -998,7 +1086,7 @@
 
   .btn.disabled:hover {
     transform: none !important;
-    box-shadow: 0 4px 10px rgba(233, 69, 96, 0.4);
+    box-shadow: 0 3px 8px rgba(233, 69, 96, 0.4);
   }
 
   .cooldown-active {
@@ -1006,8 +1094,8 @@
   }
 
   .cooldown-timer {
-    font-size: 0.9em;
-    margin-left: 5px;
+    font-size: 0.7rem;
+    margin-left: 2px;
     color: #ffd700;
     font-weight: bold;
   }
@@ -1041,9 +1129,35 @@
     border: 2px solid #5e5c8a;
     box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
     max-width: 90%;
-    width: 400px;
+    width: 390px;
     transform: scale(0.8);
     transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    box-sizing: border-box;
+  }
+
+  @media (max-width: 400px) {
+    .modal-content {
+      padding: 25px;
+      width: 95%;
+    }
+
+    .modal-title {
+      font-size: 1.5rem;
+    }
+
+    .modal-text {
+      font-size: 1rem;
+      margin-bottom: 20px;
+    }
+
+    .modal-buttons {
+      gap: 10px;
+    }
+
+    .btn {
+      padding: 8px 16px;
+      font-size: 1rem;
+    }
   }
 
   #modal-overlay.active .modal-content {
