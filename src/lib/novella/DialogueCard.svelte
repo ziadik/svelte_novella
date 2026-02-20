@@ -96,6 +96,7 @@ const currentDialogue = $derived(propDialogue || gameState.findDialogue(gameStat
         onLose={handleMinigameLose}
         rewardItem={activeMinigame.rewardItem}
         items={gameState.storyData?.items}
+        bucketName={bucketName} 
       />
     {/if}
     <!-- Фон -->

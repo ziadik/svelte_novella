@@ -19,8 +19,8 @@
   const dispatch = createEventDispatcher();
 
   // --- Настройки ---
-  const ROWS = 8; 
-  const COLS = 6; 
+  const ROWS = 4; 
+  const COLS = 4; 
   const ICONS = [
     "🦄",
     "🧙",
