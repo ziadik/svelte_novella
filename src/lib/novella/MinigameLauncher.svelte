@@ -1,5 +1,6 @@
 <script lang="ts">
   import OnetMonsters from '../minigames/OnetMonsters.svelte';
+  import MemoMonsters from '../minigames/MemoMonsters.svelte';
 
   interface Props {
     gameId: string;
@@ -25,6 +26,15 @@
 <div class="minigame-container">
   {#if gameId === 'onet_monsters'}
     <OnetMonsters
+      onWin={handleWin}
+      onLose={handleLose}
+      integrated={true}
+      rewardItem={rewardItem}
+      items={items}
+      bucketName="minigames"
+    />
+  {:else if gameId === 'memo_monsters'}
+    <MemoMonsters
       onWin={handleWin}
       onLose={handleLose}
       integrated={true}
