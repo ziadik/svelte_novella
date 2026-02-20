@@ -4,6 +4,9 @@
   import LightOut from '../minigames/LightOut.svelte';
   import FloodIt from '../minigames/FloodIt.svelte';
   import BrokenMirror from '../minigames/BrokenMirror.svelte';
+  import Evolution2048 from '../minigames/Evolution2048.svelte';
+  import CursedCrypts from '../minigames/CursedCrypts.svelte';
+  import TowerOfSouls from '../minigames/TowerOfSouls.svelte';
 
   interface Props {
     gameId: string;
@@ -65,6 +68,33 @@
     />
   {:else if gameId === 'broken_mirror'}
     <BrokenMirror
+      onWin={handleWin}
+      onLose={handleLose}
+      integrated={true}
+      rewardItem={rewardItem}
+      items={items}
+      bucketName={bucketName}
+    />
+  {:else if gameId === 'evolution2048'}
+    <Evolution2048
+      onWin={handleWin}
+      onLose={handleLose}
+      integrated={true}
+      rewardItem={rewardItem}
+      items={items}
+      bucketName={bucketName}
+    />
+  {:else if gameId === 'cursed_crypts'}
+    <CursedCrypts
+      onWin={handleWin}
+      onLose={handleLose}
+      integrated={true}
+      rewardItem={rewardItem}
+      items={items}
+      bucketName={bucketName}
+    />
+  {:else if gameId === 'tower_of_souls'}
+    <TowerOfSouls
       onWin={handleWin}
       onLose={handleLose}
       integrated={true}

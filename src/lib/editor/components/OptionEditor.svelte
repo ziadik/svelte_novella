@@ -160,6 +160,9 @@
             <option value="light_out">LightOut: Свечи в склепе (Выключи свет)</option>
             <option value="flood_it">Flood It: Мора Красной Смерти</option>
             <option value="broken_mirror">Boken Mirror: Пятнашки</option>
+            <option value="evolution2048">Evolution 2048</option>
+            <option value="cursed_crypts">Проклятый Сапер</option>
+            <option value="tower_of_souls">Три пика</option>
           </select>
         </div>
 
