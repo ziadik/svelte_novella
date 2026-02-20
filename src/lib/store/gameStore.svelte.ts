@@ -15,10 +15,22 @@ export interface Option {
     id: string;
     onWinDialogueId: string;
     onLoseDialogueId: string;
+    rewardItem?: string;
   };
   // Действия при клике
   actions?: Array<{ type: string; id?: string; value?: any }>;
-  // Условие видимости (например, наличие предмета)
+  // Настройки опции
+  enabled?: boolean;
+  visible?: boolean;
+  // Условие видимости (новый формат)
+  visibilityCondition?: {
+    type: 'always' | 'has_item' | 'stat_greater' | 'flag_true';
+    itemId?: string;
+    statName?: string;
+    statValue?: number;
+    flagName?: string;
+  };
+  // Устаревший формат (для совместимости)
   visibleIf?: { hasItem?: string };
 }
 
@@ -148,12 +160,34 @@ class GameState {
 
   // Проверить условие видимости опции
   checkVisibilityCondition(option: Option): boolean {
-    if (!option.visibleIf) return true;
-    
-    if (option.visibleIf.hasItem) {
-      return this.hasItem(option.visibleIf.hasItem);
+    // Проверка устаревшего формата (для совместимости)
+    if (option.visibleIf) {
+      if (option.visibleIf.hasItem) {
+        return this.hasItem(option.visibleIf.hasItem);
+      }
     }
     
+    // Проверка нового формата
+    if (option.visibilityCondition) {
+      switch (option.visibilityCondition.type) {
+        case 'always':
+          return true;
+        case 'has_item':
+          return option.visibilityCondition.itemId
+            ? this.hasItem(option.visibilityCondition.itemId)
+            : true;
+        case 'stat_greater':
+          return option.visibilityCondition.statName && option.visibilityCondition.statValue !== undefined
+            ? this.getStat(option.visibilityCondition.statName as StatName) > option.visibilityCondition.statValue
+            : true;
+        case 'flag_true':
+          // Заглушка для будущей системы флагов
+          return true;
+        default:
+          return true;
+      }
+    }
+
     return true;
   }
 
