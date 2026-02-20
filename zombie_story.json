@@ -3,15 +3,9 @@
     "version": "1",
     "title": "Zombie Quiz"
   },
-  "items": [
-   
-  ],
-  "miniGames": [
-   
-  ],
-  "activities": [
-    
-  ],
+  "items": [],
+  "miniGames": [],
+  "activities": [],
   "chapters": [
     {
       "id": "ch_intro",
@@ -21,11 +15,43 @@
   ],
   "dialogues": [
     {
-      "id": "0",
+      "id": "01",
       "chapterId": "ch_intro",
-      "text": "",
+      "text": "Знал я одну вампиршу… Не ту, о которых поют баллады. \nЕё главный ужас был в том, что она отчаянно боялась собственной тени. \nА ещё — тишины, пустого замка и мысли, что она… плохо справляется.",
       "backgroundImage": "back_full.png",
       "nextDialogueId": "1",
+      "options": [],
+      "characterImage": ""
+    },
+    {
+      "id": "02",
+      "chapterId": "ch_intro",
+      "text": "Новый текст...",
       "options": []
-    }  ]
+    },
+    {
+      "id": "03",
+      "chapterId": "ch_intro",
+      "text": "Всё началось с дождя. Как и многие хорошие и плохие вещи. Конец этой истории мне не очень нравится, и думаю вы сможете ее изменить.\n",
+      "options": []
+    },
+    {
+      "id": "narrator_45",
+      "chapterId": "ch_intro",
+      "text": "Всё началось с дождя. Как и многие хорошие и плохие вещи. Конец этой истории мне не очень нравится, и думаю вы сможете ее изменить.\n",
+      "options": [],
+      "backgroundImage": "",
+      "characterImage": "",
+      "nextDialogueId": ""
+    },
+    {
+      "id": "gamer_1",
+      "chapterId": "ch_intro",
+      "text": "\"Не знаю, что бы я мог тут исправить, но кидать сразу в слякоть и холод не слишком гостеприимно... \"",
+      "options": [],
+      "backgroundImage": "",
+      "characterImage": "",
+      "nextDialogueId": ""
+    }
+  ]
 }

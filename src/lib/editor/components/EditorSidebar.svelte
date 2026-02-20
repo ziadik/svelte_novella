@@ -25,6 +25,7 @@
             class="chapter-item"
             onclick={() => editor.selectedChapterId = chapter.id}
             aria-pressed={editor.selectedChapterId === chapter.id}
+            title={chapter.description || 'Без описания'}
           >
             <span class="chapter-title">{chapter.title}</span>
           </button>

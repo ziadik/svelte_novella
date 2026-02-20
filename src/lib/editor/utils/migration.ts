@@ -6,6 +6,19 @@ export function migrateStoryData(data: any): StoryData {
     data.dialogues.forEach((dialogue: Dialogue) => {
       if (dialogue.options) {
         dialogue.options.forEach((option: any) => {
+          // Миграция булевого miniGame в объект
+          if (typeof option.miniGame === 'boolean') {
+            if (option.miniGame === true) {
+              option.miniGame = {
+                id: '',
+                onWinDialogueId: '',
+                onLoseDialogueId: ''
+              };
+            } else {
+              delete option.miniGame;
+            }
+          }
+
           // Обеспечиваем наличие новых полей
           if (typeof option.enabled === "undefined") {
             option.enabled = true;

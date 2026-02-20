@@ -34,6 +34,38 @@
     initConditionIfNeeded();
     option.visibilityCondition = { ...option.visibilityCondition!, ...updates };
   }
+
+  // Проверяем, включена ли мини-игра
+  const hasMiniGame = $derived(!!option.miniGame);
+
+  // Обработчик изменения чекбокса мини-игры
+  function handleMiniGameToggle(checked: boolean) {
+    if (checked) {
+      option.miniGame = {
+        id: '',
+        onWinDialogueId: '',
+        onLoseDialogueId: ''
+      };
+    } else {
+      delete option.miniGame;
+    }
+  }
+
+  // Получаем объект мини-игры с защитой от булевого значения
+  function getMiniGame() {
+    if (!option.miniGame || typeof option.miniGame === 'boolean') {
+      return null;
+    }
+    return option.miniGame;
+  }
+
+  // Обработчики изменения полей мини-игры
+  function updateMiniGameField(field: string, value: string) {
+    const mg = getMiniGame();
+    if (mg) {
+      (mg as any)[field] = value;
+    }
+  }
 </script>
 
 <div class="option-details">
@@ -57,7 +89,7 @@
       class="input select"
     >
       <option value="">-- Конец ветки --</option>
-      {#each dialogues as d}
+      {#each dialogues as d (d.id)}
         <option value={d.id}>
           {d.id}: {d.text.substring(0, 30)}...
         </option>
@@ -71,28 +103,21 @@
       <label class="checkbox-row">
         <input 
           type="checkbox" 
-          bind:checked={option.miniGame} 
-          onchange={(e) => {
-            if (e.target.checked && !option.miniGame) {
-              option.miniGame = {
-                id: '',
-                onWinDialogueId: '',
-                onLoseDialogueId: ''
-              };
-            }
-          }}
+          checked={hasMiniGame}
+          onchange={(e) => handleMiniGameToggle(e.target.checked)}
         /> 
         Запустить мини-игру
       </label>
     </div>
 
-    {#if option.miniGame}
+    {#if getMiniGame()}
       <div class="minigame-details">
         <div class="form-group">
           <label for="option-mg-id-{index}">ID игры</label>
           <select 
             id="option-mg-id-{index}"
-            bind:value={option.miniGame.id} 
+            value={getMiniGame()!.id}
+            onchange={(e) => updateMiniGameField('id', e.target.value)}
             class="input select"
           >
             <option value="">-- Выберите игру --</option>
@@ -106,11 +131,12 @@
             <label for="option-mg-win-{index}">Диалог при победе</label>
             <select 
               id="option-mg-win-{index}"
-              bind:value={option.miniGame.onWinDialogueId} 
+              value={getMiniGame()!.onWinDialogueId}
+              onchange={(e) => updateMiniGameField('onWinDialogueId', e.target.value)}
               class="input select"
             >
               <option value="">-- Выберите --</option>
-              {#each dialogues as d}
+              {#each dialogues as d (d.id)}
                 <option value={d.id}>
                   {d.id}: {d.text.substring(0, 30)}...
                 </option>
@@ -122,11 +148,12 @@
             <label for="option-mg-lose-{index}">Диалог при поражении</label>
             <select 
               id="option-mg-lose-{index}"
-              bind:value={option.miniGame.onLoseDialogueId} 
+              value={getMiniGame()!.onLoseDialogueId}
+              onchange={(e) => updateMiniGameField('onLoseDialogueId', e.target.value)}
               class="input select"
             >
               <option value="">-- Выберите --</option>
-              {#each dialogues as d}
+              {#each dialogues as d (d.id)}
                 <option value={d.id}>
                   {d.id}: {d.text.substring(0, 30)}...
                 </option>
@@ -139,11 +166,12 @@
           <label for="option-mg-reward-{index}">Награда (предмет)</label>
           <select 
             id="option-mg-reward-{index}"
-            bind:value={option.miniGame.rewardItem} 
+            value={getMiniGame()!.rewardItem || ''}
+            onchange={(e) => updateMiniGameField('rewardItem', e.target.value)}
             class="input select"
           >
             <option value="">-- Без награды --</option>
-            {#each availableItems as item}
+            {#each availableItems as item (item.id)}
               <option value={item.id}>{item.name}</option>
             {/each}
           </select>
@@ -191,7 +219,7 @@
           }}
           class="input select"
         >
-          {#each conditionTypes as type}
+          {#each conditionTypes as type (type)}
             <option value={type}>{type}</option>
           {/each}
         </select>
@@ -207,7 +235,7 @@
             class="input select"
           >
             <option value="">-- Выберите предмет --</option>
-            {#each availableItems as item}
+            {#each availableItems as item (item.id)}
               <option value={item.id}>{item.name}</option>
             {/each}
           </select>

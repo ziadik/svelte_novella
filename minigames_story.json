@@ -10,6 +10,13 @@
       "description": "Потерянные клыки Дракулы.",
       "icon": "fangs_icon.png",
       "type": "key"
+    },
+    {
+      "id": "key_master",
+      "name": "Мастер ключ",
+      "description": "",
+      "icon": "masterKey.png",
+      "type": "key"
     }
   ],
   "chapters": [
@@ -34,16 +41,22 @@
           "nextDialogueId": "game_intro",
           "enabled": true,
           "visible": true,
-          "visibilityCondition": { "type": "always" }
+          "visibilityCondition": {
+            "type": "always"
+          },
+          "miniGame": false
         },
         {
           "text": "Не сегодня, я устал",
           "nextDialogueId": "decline",
           "enabled": true,
           "visible": true,
-          "visibilityCondition": { "type": "always" }
+          "visibilityCondition": {
+            "type": "always"
+          }
         }
-      ]
+      ],
+      "nextDialogueId": ""
     },
     {
       "id": "game_intro",
@@ -58,20 +71,41 @@
           "text": "Начать игру!",
           "enabled": true,
           "visible": true,
-          "visibilityCondition": { "type": "always" },
+          "visibilityCondition": {
+            "type": "always"
+          },
           "miniGame": {
             "id": "onet_monsters",
             "onWinDialogueId": "game_win",
             "onLoseDialogueId": "game_lose",
             "rewardItem": "vampire_fangs"
-          }
+          },
+          "nextDialogueId": ""
         },
         {
           "text": "Сложно! Может, попозже?",
           "nextDialogueId": "decline",
           "enabled": true,
           "visible": true,
-          "visibilityCondition": { "type": "always" }
+          "visibilityCondition": {
+            "type": "always"
+          },
+          "miniGame": false
+        },
+        {
+          "text": "Новый вариант",
+          "enabled": true,
+          "visible": true,
+          "visibilityCondition": {
+            "type": "always"
+          },
+          "nextDialogueId": "game_win",
+          "miniGame": {
+            "id": "memo_monsters",
+            "onWinDialogueId": "game_win",
+            "onLoseDialogueId": "game_lose",
+            "rewardItem": "vampire_fangs"
+          }
         }
       ]
     },
@@ -83,9 +117,25 @@
       "stateMachineCharacterRive": "SM1",
       "backgroundImage": "dracula_back_room_3.riv",
       "stateMachineBackgroundRive": "SM1",
-      "onEnter": [{ "type": "add_item", "id": "vampire_fangs" }],
-      "nextDialogueId": "after_win",
-      "options": []
+      "onEnter": [
+        {
+          "type": "add_item",
+          "id": "vampire_fangs"
+        }
+      ],
+      "nextDialogueId": "",
+      "options": [
+        {
+          "text": "Игра Мемо",
+          "enabled": true,
+          "visible": true,
+          "visibilityCondition": {
+            "type": "always"
+          },
+          "nextDialogueId": "",
+          "miniGame": true
+        }
+      ]
     },
     {
       "id": "after_win",
@@ -111,7 +161,9 @@
           "text": "Попробовать снова!",
           "enabled": true,
           "visible": true,
-          "visibilityCondition": { "type": "always" },
+          "visibilityCondition": {
+            "type": "always"
+          },
           "miniGame": {
             "id": "onet_monsters",
             "onWinDialogueId": "game_win",
@@ -124,7 +176,9 @@
           "nextDialogueId": "0",
           "enabled": true,
           "visible": true,
-          "visibilityCondition": { "type": "always" }
+          "visibilityCondition": {
+            "type": "always"
+          }
         }
       ]
     },

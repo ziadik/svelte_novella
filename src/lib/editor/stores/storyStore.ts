@@ -221,6 +221,7 @@ export const storyActions = {
     const id = "ch_" + Date.now();
     editor.data.chapters.push({ id, title: "Новая глава", description: "" });
     editor.selectedChapterId = id;
+    console.log(`[StoryStore] Создана новая глава: ${id}`);
   },
 
   addDialogue() {
