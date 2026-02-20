@@ -117,7 +117,6 @@
 
     const cell = board[r][c];
 
-    // Если ячейка уже открыта, но мы хотим "chord" (открыть соседей если флагов хватает) - упростим, не делаем
     if (cell.isRevealed) return;
 
     // ПКМ или Долгое нажатие -> Флаг
@@ -130,7 +129,7 @@
     }
 
     // ЛКМ -> Открытие
-    if (cell.isFlagged) return; // Нельзя открыть под флагом
+    if (cell.isFlagged) return;
 
     if (firstClick) {
       generateMines(r, c);
@@ -148,7 +147,6 @@
     cell.isRevealed = true;
 
     if (cell.isMine) {
-      // Проигрыш
       isGameOver = true;
       revealAllMines();
       if (integrated) {
@@ -161,7 +159,6 @@
       return;
     }
 
-    // Если пусто (0 соседей), открываем соседей
     if (cell.count === 0) {
       for (let i = -1; i <= 1; i++) {
         for (let j = -1; j <= 1; j++) {
@@ -186,7 +183,6 @@
   function checkGameStatus() {
     if (isGameOver) return;
 
-    // Проверка победы: все НЕ мины открыты
     let allSafeRevealed = true;
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
@@ -211,11 +207,14 @@
     }
   }
 
-  // --- Event Handlers ---
+  // --- Event Handlers (Svelte 5 Syntax) ---
 
-  // Обработка клика
+  // Блокируем стандартное меню браузера
+  function handleGlobalContextMenu(e) {
+    e.preventDefault();
+  }
+
   function handleClick(r, c) {
-    // Если это был длинный клик, обычный клик не срабатывает
     if (isLongPress) {
       isLongPress = false;
       return;
@@ -223,19 +222,17 @@
     handleInteraction(r, c, false);
   }
 
-  // Контекстное меню (ПКМ)
   function handleContextMenu(e, r, c) {
-    e.preventDefault();
+    e.preventDefault(); // Замена |preventDefault
     handleInteraction(r, c, true);
   }
 
-  // Touch Logic
   function handleTouchStart(e, r, c) {
     isLongPress = false;
     longPressTimer = setTimeout(() => {
       isLongPress = true;
-      handleInteraction(r, c, true); // Ставим флаг
-    }, 500); // 500ms для длинного нажатия
+      handleInteraction(r, c, true);
+    }, 500);
   }
 
   function handleTouchEnd() {
@@ -250,7 +247,7 @@
   function hideModal() { modal.show = false; }
 </script>
 
-<svelte:window on:contextmenu={(e) => e.preventDefault()} />
+<svelte:window oncontextmenu={handleGlobalContextMenu} />
 
 <div class="body-wrapper">
   <div id="game-header">
@@ -273,10 +270,10 @@
             class:mine={cell.isRevealed && cell.isMine}
             class:flagged={cell.isFlagged}
             class:exploded={cell.isRevealed && cell.isMine && isGameOver && !isWin}
-            on:click={() => handleClick(r, c)}
-            on:contextmenu|preventDefault={(e) => handleContextMenu(e, r, c)}
-            on:touchstart={(e) => handleTouchStart(e, r, c)}
-            on:touchend={handleTouchEnd}
+            onclick={() => handleClick(r, c)}
+            oncontextmenu={(e) => handleContextMenu(e, r, c)}
+            ontouchstart={(e) => handleTouchStart(e, r, c)}
+            ontouchend={handleTouchEnd}
             disabled={isGameOver && !isWin}
           >
             {#if cell.isRevealed}
@@ -287,8 +284,6 @@
               {/if}
             {:else if cell.isFlagged}
               <span class="flag">🕯️</span>
-            {:else}
-              <!-- Мгла -->
             {/if}
           </button>
         {/each}
@@ -436,14 +431,14 @@
     text-shadow: 0 0 5px currentColor;
   }
   
-  .count-1 { color: #3498db; } /* Синий */
-  .count-2 { color: #2ecc71; } /* Зеленый */
-  .count-3 { color: #e74c3c; } /* Красный */
-  .count-4 { color: #9b59b6; } /* Фиолетовый */
-  .count-5 { color: #e67e22; } /* Оранжевый */
-  .count-6 { color: #1abc9c; } /* Бирюзовый */
-  .count-7 { color: #34495e; } /* Темный */
-  .count-8 { color: #95a5a6; } /* Серый */
+  .count-1 { color: #3498db; } 
+  .count-2 { color: #2ecc71; } 
+  .count-3 { color: #e74c3c; } 
+  .count-4 { color: #9b59b6; } 
+  .count-5 { color: #e67e22; } 
+  .count-6 { color: #1abc9c; } 
+  .count-7 { color: #34495e; } 
+  .count-8 { color: #95a5a6; } 
 
   .monster, .flag {
     font-size: 24px;
@@ -486,7 +481,6 @@
   .modal-text { margin-bottom: 20px; color: #ccc; }
   .modal-buttons { display: flex; gap: 10px; justify-content: center; }
 
-  /* Mobile adjustments */
   @media (max-width: 380px) {
     .cell { width: 35px; height: 35px; font-size: 18px; }
     .monster, .flag { font-size: 20px; }
