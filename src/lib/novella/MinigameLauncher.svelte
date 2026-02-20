@@ -1,6 +1,8 @@
 <script lang="ts">
   import OnetMonsters from '../minigames/OnetMonsters.svelte';
   import MemoMonsters from '../minigames/MemoMonsters.svelte';
+  import LightOut from '../minigames/LightOut.svelte';
+  import FloodIt from '../minigames/FloodIt.svelte';
 
   interface Props {
     gameId: string;
@@ -35,6 +37,24 @@
     />
   {:else if gameId === 'memo_monsters'}
     <MemoMonsters
+      onWin={handleWin}
+      onLose={handleLose}
+      integrated={true}
+      rewardItem={rewardItem}
+      items={items}
+      bucketName={bucketName}
+    />
+  {:else if gameId === 'light_out'}
+    <LightOut
+      onWin={handleWin}
+      onLose={handleLose}
+      integrated={true}
+      rewardItem={rewardItem}
+      items={items}
+      bucketName={bucketName}
+    />
+  {:else if gameId === 'flood_it'}
+    <FloodIt
       onWin={handleWin}
       onLose={handleLose}
       integrated={true}

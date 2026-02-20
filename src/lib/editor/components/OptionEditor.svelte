@@ -157,6 +157,8 @@
             <option value="">-- Выберите игру --</option>
             <option value="onet_monsters">Onet: Monsters (поиск пар)</option>
             <option value="memo_monsters">Memo: Monsters (поиск пар)</option>
+            <option value="light_out">LightOut: Свечи в склепе (Выключи свет)</option>
+            <option value="flood_it">Flood It: Мора Красной Смерти</option>
           </select>
         </div>
 
