@@ -3,6 +3,7 @@
   import MemoMonsters from '../minigames/MemoMonsters.svelte';
   import LightOut from '../minigames/LightOut.svelte';
   import FloodIt from '../minigames/FloodIt.svelte';
+  import BrokenMirror from '../minigames/BrokenMirror.svelte';
 
   interface Props {
     gameId: string;
@@ -55,6 +56,15 @@
     />
   {:else if gameId === 'flood_it'}
     <FloodIt
+      onWin={handleWin}
+      onLose={handleLose}
+      integrated={true}
+      rewardItem={rewardItem}
+      items={items}
+      bucketName={bucketName}
+    />
+  {:else if gameId === 'broken_mirror'}
+    <BrokenMirror
       onWin={handleWin}
       onLose={handleLose}
       integrated={true}
