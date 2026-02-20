@@ -31,7 +31,7 @@
       integrated={true}
       rewardItem={rewardItem}
       items={items}
-      bucketName=bucketName
+      bucketName={bucketName}
     />
   {:else if gameId === 'memo_monsters'}
     <MemoMonsters
@@ -40,7 +40,7 @@
       integrated={true}
       rewardItem={rewardItem}
       items={items}
-      bucketName=bucketName
+      bucketName={bucketName}
     />
   {:else}
     <div class="loading">Загрузка игры...</div>
