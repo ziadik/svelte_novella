@@ -265,8 +265,8 @@
 
   <div 
     id="game-container" 
-    on:touchstart={handleTouchStart}
-    on:touchend={handleTouchEnd}
+    ontouchstart={handleTouchStart}
+    ontouchend={handleTouchEnd}
   >
     <div id="grid">
       {#each board as row, r (r)}
