@@ -73,6 +73,6 @@ export interface BucketInfo {
 }
 
 export interface StatusMessage {
-  type: "success" | "error" | "loading" | "";
+  type: "success" | "error" | "loading" | "info" | "warning" | "";
   text: string;
 }

@@ -1,7 +1,7 @@
 import type { StoryData, StoredFile, StatusMessage, Dialogue, Option, Item, BucketInfo } from "../types";
 
-// Тип для типа сообщения статуса
-export type StatusMessageType = 'success' | 'error' | 'info' | 'warning' | '';
+// Тип для типа сообщения статуса (экспортируем для использования в actions)
+export type StatusMessageType = StatusMessage["type"];
 
 // Интерфейс для состояния редактора
 interface EditorState {
@@ -233,11 +233,12 @@ export const editorActions = {
 
   // Добавление новой главы
   addChapter(chapter: { id: string; title: string }): void {
-    editor.data.chapters = [...editor.data.chapters, chapter];
+    editor.data.chapters = [...(editor.data.chapters || []), chapter];
   },
 
   // Обновление главы
   updateChapter(chapterId: string, updates: { title?: string; description?: string }): void {
+    if (!editor.data.chapters) return;
     editor.data.chapters = editor.data.chapters.map(c =>
       c.id === chapterId ? { ...c, ...updates } : c
     );
@@ -250,6 +251,7 @@ export const editorActions = {
 
   // Удаление главы
   deleteChapter(chapterId: string): void {
+    if (!editor.data.chapters) return;
     editor.data.chapters = editor.data.chapters.filter(c => c.id !== chapterId);
     
     // Сброс выбора, если удалена текущая глава

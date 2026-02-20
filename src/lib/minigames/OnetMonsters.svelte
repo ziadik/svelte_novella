@@ -1,881 +1,227 @@
-<script>
-  import { tick, onMount } from "svelte";
-  import { createEventDispatcher } from "svelte";
+<script lang="ts">
+  import { onMount } from "svelte";
+  import BodyWrapper from './components/BodyWrapper.svelte';
+  import GameHeader from './components/GameHeader.svelte';
+  import GameFooter from './components/GameFooter.svelte';
+  import MinigameModal from './components/MinigameModal.svelte';
+  import type { MinigameProps, ModalState } from './types';
 
-  // --- Props ---
   let {
-    // Режим интеграции с визуальной новеллой
     integrated = false,
-    // События для отправки результата
     onWin,
     onLose,
-    // Награда за победу
     rewardItem = null,
-    // Массив всех предметов для поиска описания
     items = [],
     bucketName = "dracula",
-  } = $props();
+  } = $props<MinigameProps>();
 
-  const dispatch = createEventDispatcher();
+  // Настройки
+  const ROWS = 6;
+  const COLS = 6;
+  const HINT_COOLDOWN_TIME = 5;
 
-  // --- Настройки ---
-  const ROWS = 8; // ← ИЗМЕНЕНО: было 6, стало 8
-  const COLS = 6; // ← ИЗМЕНЕНО: было 8, стало 6
-  const ICONS = [
-    "🦄",
-    "🧙",
-    "👻",
-    "💀",
-    "🔥",
-    "🕷️",
-    "🕸️",
-    "🧟",
-    "‍♀️",
-    "⚰️",
-    "🐸",
-    "🦴",
-    "🔮",
-    "🧪",
-    "👹",
-    "🌜",
-    "🍭",
-    "💗",
-    "🌛",
-    "🖤",
-    "🗡️",
-    "🧛‍♀️",
-    "🗝️",
-    "🕯️",
-    "🌑",
-    "☠️",
-    "🧿",
-    "🌞",
-  ];
+  const ICONS = ["🦄", "🧙", "👻", "💀", "🔥", "🕷️", "🕸️", "🧟", "⚰️", "🐸", "🦴", "🔮", "🧪", "👹", "🌜", "🍭", "💗"];
 
-  // --- State (Runes) ---
-  let board = $state([]); // 2D массив иконок
-  let matched = $state([]); // 2D массив булевых (удалена ли плитка)
-  let shuffling = $state({}); // Объект для отслеживания анимации тряски {"r,c": true}
-  let hintCells = $state([]); // Массив координат для подсказки [{r, c}, {r, c}]
-
-  let firstSelected = $state(null); // {r, c}
+  // State
+  let board = $state<(string | null)[][]>([]);
+  let selectedCell = $state<{ r: number; c: number } | null>(null);
+  let matchedCells = $state<Array<{ r: number; c: number }>>([]);
+  let hintCells = $state<Array<{ r: number; c: number }>>([]);
   let isProcessing = $state(false);
   let isGameOver = $state(false);
+  let hintCooldown = $state(0);
 
-  let linePath = $state([]); // Координаты для SVG линии
-  let lineKey = $state(0); // Ключ для перерисовки SVG и рестарта анимации
+  let modal = $state<ModalState>({ show: false, title: "", text: "", actions: [] });
 
-  // Cooldown для подсказки (в секундах)
-  let hintCooldown = $state(0); // Оставшееся время cooldown
-  const HINT_COOLDOWN_TIME = 5; // 5 секунд cooldown
+  onMount(() => initGame());
 
-  // Modal State
-  let modal = $state({
-    show: false,
-    title: "",
-    text: "",
-    actions: [],
-  });
-
-  // Refs
-  let gridContainer;
-  let gridEl;
-
-  // Инициализация при монтировании
-  onMount(() => {
-    initGame();
-  });
-
-  // --- Вычисляемые свойства ---
-  function getRemainingCount() {
-    if (!matched || matched.length === 0) return 0;
+  let remainingCount = $derived(() => {
     let count = 0;
-    for (let r = 0; r < ROWS; r++) {
-      for (let c = 0; c < COLS; c++) {
-        if (matched[r] && !matched[r][c]) count++;
+    for (let r = 1; r <= ROWS; r++) {
+      for (let c = 1; c <= COLS; c++) {
+        if (board[r]?.[c]) count++;
       }
     }
     return count;
-  }
+  });
 
-  let remainingCount = $derived(getRemainingCount());
-
-  // Проверка доступности подсказки
   let isHintAvailable = $derived(hintCooldown < 1);
- 
-  // Получение данных о награде
-  function getRewardItemData() {
-    if (!rewardItem || !items || items.length === 0) return null;
-    const itemId = typeof rewardItem === "string" ? rewardItem : rewardItem.id;
-    return items.find((item) => item.id === itemId);
-  }
 
-  let rewardItemData = $derived(getRewardItemData());
-
-  // --- Инициализация ---
-  function initGame() {
+  function initGame(): void {
     board = [];
-    matched = [];
-    firstSelected = null;
+    selectedCell = null;
+    matchedCells = [];
+    hintCells = [];
     isProcessing = false;
     isGameOver = false;
-    shuffling = {};
-    hintCells = [];
-    linePath = [];
     hintCooldown = 0;
     hideModal();
 
-    // Подготовка колоды
     let uniqueIcons = [...new Set(ICONS)];
     while (uniqueIcons.length < (ROWS * COLS) / 2) {
       uniqueIcons = [...uniqueIcons, ...uniqueIcons];
     }
 
-    let selectedIcons = uniqueIcons
-      .sort(() => 0.5 - Math.random())
-      .slice(0, (ROWS * COLS) / 2);
-    let deck = [];
+    let selectedIcons = uniqueIcons.sort(() => 0.5 - Math.random()).slice(0, (ROWS * COLS) / 2);
+    let deck: string[] = [];
     selectedIcons.forEach((icon) => deck.push(icon, icon));
     deck.sort(() => Math.random() - 0.5);
 
-    // Заполнение сетки
-    let index = 0;
-    for (let r = 0; r < ROWS; r++) {
-      let rowBoard = [];
-      let rowMatched = [];
-      for (let c = 0; c < COLS; c++) {
-        rowBoard.push(deck[index++]);
-        rowMatched.push(false);
+    for (let r = 0; r < ROWS + 2; r++) {
+      let row: (string | null)[] = [];
+      for (let c = 0; c < COLS + 2; c++) {
+        if (r === 0 || r === ROWS + 1 || c === 0 || c === COLS + 1) {
+          row.push(null);
+        } else {
+          row.push(deck.shift() || null);
+        }
       }
-      board.push(rowBoard);
-      matched.push(rowMatched);
+      board.push(row);
     }
-
-    // Проверка ходов с небольшой задержкой
-    setTimeout(checkGameStatus, 500);
   }
 
-  // --- Логика игры ---
-  async function handleCellClick(r, c) {
-    if (isProcessing || matched[r][c] || isGameOver) return;
-
-    // Сброс подсказки при клике
+  function handleCellClick(r: number, c: number): void {
+    if (isProcessing || isGameOver) return;
+    if (!board[r]?.[c]) return;
     if (hintCells.length > 0) hintCells = [];
 
-    if (!firstSelected) {
-      firstSelected = { r, c };
-      return;
-    }
-
-    if (firstSelected.r === r && firstSelected.c === c) {
-      firstSelected = null;
-      return;
-    }
-
-    const icon1 = board[firstSelected.r][firstSelected.c];
-    const icon2 = board[r][c];
-
-    if (icon1 === icon2) {
-      const path = findPath(firstSelected.r, firstSelected.c, r, c);
-      if (path) {
-        isProcessing = true;
-        await drawLine(path);
-        // Анимация завершена, удаляем плитки
-        matched[firstSelected.r][firstSelected.c] = true;
-        matched[r][c] = true;
-        firstSelected = null;
-        isProcessing = false;
-        // Запускаем cooldown для подсказки после успешного хода
-        startHintCooldown();
-        checkGameStatus();
+    if (!selectedCell) {
+      selectedCell = { r, c };
+    } else {
+      const { r: sr, c: sc } = selectedCell;
+      if (sr === r && sc === c) {
+        selectedCell = null;
         return;
       }
-    }
 
-    // Неправильный выбор
-    firstSelected = { r, c };
+      if (board[sr][sc] === board[r][c] && canConnect(sr, sc, r, c)) {
+        isProcessing = true;
+        matchedCells = [{ r: sr, c: sc }, { r, c }];
+        setTimeout(() => {
+          board[sr][sc] = null;
+          board[r][c] = null;
+          selectedCell = null;
+          matchedCells = [];
+          isProcessing = false;
+          startHintCooldown();
+          checkGameStatus();
+        }, 300);
+      } else {
+        selectedCell = { r, c };
+      }
+    }
   }
 
-  async function handleCellKeyDown(r, c, event) {
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      await handleCellClick(r, c);
-    }
+  function canConnect(r1: number, c1: number, r2: number, c2: number): boolean {
+    return findPath(r1, c1, r2, c2) !== null;
   }
 
-  // --- Подсказки ---
-  function startHintCooldown() {
+  function findPath(r1: number, c1: number, r2: number, c2: number): Array<{ r: number; c: number }> | null {
+    if (r1 === r2) {
+      let minC = Math.min(c1, c2), maxC = Math.max(c1, c2);
+      for (let c = minC + 1; c < maxC; c++) if (board[r1][c]) return null;
+      return [{ r: r1, c: c1 }, { r: r2, c: c2 }];
+    }
+    if (c1 === c2) {
+      let minR = Math.min(r1, r2), maxR = Math.max(r1, r2);
+      for (let r = minR + 1; r < maxR; r++) if (board[r][c1]) return null;
+      return [{ r: r1, c: c1 }, { r: r2, c: c2 }];
+    }
+    return null;
+  }
+
+  function startHintCooldown(): void {
     hintCooldown = HINT_COOLDOWN_TIME;
     const timer = setInterval(() => {
       hintCooldown--;
-      if (hintCooldown <= 0) {
-        clearInterval(timer);
-      }
+      if (hintCooldown <= 0) clearInterval(timer);
     }, 1000);
   }
 
-  function showHint() {
+  function showHint(): void {
     if (isProcessing || isGameOver || !isHintAvailable) return;
-
-    // Логика поиска такая же, как в hasAvailableMoves, но возвращаем пару
-    let remainingTiles = [];
-    for (let r = 0; r < ROWS; r++) {
-      for (let c = 0; c < COLS; c++) {
-        if (!matched[r][c]) {
-          remainingTiles.push({ r, c, icon: board[r][c] });
-        }
-      }
-    }
-
-    let groups = {};
-    remainingTiles.forEach((tile) => {
-      if (!groups[tile.icon]) groups[tile.icon] = [];
-      groups[tile.icon].push(tile);
-    });
-
-    for (let icon in groups) {
-      let tiles = groups[icon];
-      if (tiles.length < 2) continue;
-
-      for (let i = 0; i < tiles.length; i++) {
-        for (let j = i + 1; j < tiles.length; j++) {
-          let t1 = tiles[i];
-          let t2 = tiles[j];
-          if (findPath(t1.r, t1.c, t2.r, t2.c)) {
-            hintCells = [t1, t2];
-            setTimeout(() => (hintCells = []), 1500);
-            return;
+    for (let r = 1; r <= ROWS; r++) {
+      for (let c = 1; c <= COLS; c++) {
+        if (!board[r][c]) continue;
+        for (let r2 = 1; r2 <= ROWS; r2++) {
+          for (let c2 = 1; c2 <= COLS; c2++) {
+            if (r === r2 && c === c2) continue;
+            if (!board[r2][c2]) continue;
+            if (board[r][c] === board[r2][c2] && canConnect(r, c, r2, c2)) {
+              hintCells = [{ r, c }, { r: r2, c: c2 }];
+              setTimeout(() => (hintCells = []), 1500);
+              return;
+            }
           }
         }
       }
     }
-    showModal("Нет ходов", "Не нашлось пар для соединения.", [
-      { text: "ОК", action: hideModal },
-    ]);
   }
 
-  // --- Статус игры ---
-  function checkGameStatus() {
+  function checkGameStatus(): void {
     if (remainingCount === 0) {
       isGameOver = true;
-
       if (integrated) {
-        // В интегрированном режиме отправляем событие победы
-        if (onWin) {
-          onWin();
-        } else {
-          dispatch("win");
-        }
+        onWin?.();
       } else {
-        // В автономном режиме показываем модальное окно
-        showModal("🎉 Победа!", "Все монстры пойманы!", [
-          { text: "Играть снова", action: initGame },
-        ]);
-      }
-      return;
-    }
-
-    if (!hasAvailableMoves()) {
-      if (integrated) {
-        // В интегрированном режиме автоматически перемешиваем
-        setTimeout(() => shuffleBoard(), 1000);
-      } else {
-        showModal("😨 Тупик!", "Ходов больше нет. Перемешать?", [
-          {
-            text: "Перемешать",
-            action: () => {
-              hideModal();
-              shuffleBoard();
-            },
-          },
-          {
-            text: "Сдаться",
-            action: () => {
-              showModal("Конец", "Попытайте удачу снова!", [
-                { text: "ОК", action: initGame },
-              ]);
-            },
-          },
-        ]);
+        showModal("🎉 Победа!", "Все монстры соединены!", [{ text: "Играть снова", action: initGame }]);
       }
     }
   }
 
-  function hasAvailableMoves() {
-    let remainingTiles = [];
-    for (let r = 0; r < ROWS; r++) {
-      for (let c = 0; c < COLS; c++) {
-        if (!matched[r][c]) remainingTiles.push({ r, c, icon: board[r][c] });
-      }
-    }
-
-    let groups = {};
-    remainingTiles.forEach((tile) => {
-      if (!groups[tile.icon]) groups[tile.icon] = [];
-      groups[tile.icon].push(tile);
-    });
-
-    for (let icon in groups) {
-      let tiles = groups[icon];
-      if (tiles.length < 2) continue;
-      for (let i = 0; i < tiles.length; i++) {
-        for (let j = i + 1; j < tiles.length; j++) {
-          if (findPath(tiles[i].r, tiles[i].c, tiles[j].r, tiles[j].c))
-            return true;
-        }
-      }
-    }
-    return false;
-  }
-
-  // --- Перемешивание ---
-  function shuffleBoard() {
-    let remainingIcons = [];
-    let remainingPositions = [];
-
-    for (let r = 0; r < ROWS; r++) {
-      for (let c = 0; c < COLS; c++) {
-        if (!matched[r][c]) {
-          remainingIcons.push(board[r][c]);
-          remainingPositions.push({ r, c });
-        }
-      }
-    }
-
-    if (remainingIcons.length === 0) return;
-    remainingIcons.sort(() => Math.random() - 0.5);
-
-    // Обновляем доску
-    remainingPositions.forEach((pos, index) => {
-      board[pos.r][pos.c] = remainingIcons[index];
-      // Запускаем анимацию тряски
-      shuffling[`${pos.r},${pos.c}`] = true;
-    });
-
-    // Убираем класс тряски через 500мс
-    setTimeout(() => {
-      shuffling = {};
-
-      // Рекурсивная проверка
-      if (!hasAvailableMoves()) {
-        shuffleBoard();
-      } else {
-        isGameOver = false;
-      }
-    }, 500);
-  }
-
-  // --- Pathfinding (Логика пути) ---
-  function isEmpty(r, c) {
-    if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return true;
-    return matched[r][c];
-  }
-
-  function checkLine(r1, c1, r2, c2) {
-    if (r1 !== r2 && c1 !== c2) return false;
-    if (r1 === r2) {
-      const minC = Math.min(c1, c2);
-      const maxC = Math.max(c1, c2);
-      for (let c = minC + 1; c < maxC; c++) {
-        if (!isEmpty(r1, c)) return false;
-      }
+  function handleGiveUp(): void {
+    if (integrated) {
+      onLose?.();
     } else {
-      const minR = Math.min(r1, r2);
-      const maxR = Math.max(r1, r2);
-      for (let r = minR + 1; r < maxR; r++) {
-        if (!isEmpty(r, c1)) return false;
-      }
+      showModal("Конец", "Попробуйте ещё раз!", [{ text: "Новая игра", action: initGame }]);
     }
-    return true;
   }
 
-  function findPath(r1, c1, r2, c2) {
-    // 0 поворотов
-    if (checkLine(r1, c1, r2, c2))
-      return [
-        { r: r1, c: c1 },
-        { r: r2, c: c2 },
-      ];
-
-    // 1 поворот
-    let c1_r1_c2 = { r: r1, c: c2 };
-    if (
-      isEmpty(c1_r1_c2.r, c1_r1_c2.c) &&
-      checkLine(r1, c1, c1_r1_c2.r, c1_r1_c2.c) &&
-      checkLine(c1_r1_c2.r, c1_r1_c2.c, r2, c2)
-    ) {
-      return [{ r: r1, c: c1 }, c1_r1_c2, { r: r2, c: c2 }];
-    }
-
-    let c1_r2_c1 = { r: r2, c: c1 };
-    if (
-      isEmpty(c1_r2_c1.r, c1_r2_c1.c) &&
-      checkLine(r1, c1, c1_r2_c1.r, c1_r2_c1.c) &&
-      checkLine(c1_r2_c1.r, c1_r2_c1.c, r2, c2)
-    ) {
-      return [{ r: r1, c: c1 }, c1_r2_c1, { r: r2, c: c2 }];
-    }
-
-    // 2 поворота
-    for (let r = -1; r <= ROWS; r++) {
-      if (r === r1 || r === r2) continue;
-      let p1 = { r: r, c: c1 };
-      let p2 = { r: r, c: c2 };
-      if (
-        isEmpty(p1.r, p1.c) &&
-        isEmpty(p2.r, p2.c) &&
-        checkLine(r1, c1, p1.r, p1.c) &&
-        checkLine(p1.r, p1.c, p2.r, p2.c) &&
-        checkLine(p2.r, p2.c, r2, c2)
-      ) {
-        return [{ r: r1, c: c1 }, p1, p2, { r: r2, c: c2 }];
-      }
-    }
-
-    for (let c = -1; c <= COLS; c++) {
-      if (c === c1 || c === c2) continue;
-      let p1 = { r: r1, c: c };
-      let p2 = { r: r2, c: c };
-      if (
-        isEmpty(p1.r, p1.c) &&
-        isEmpty(p2.r, p2.c) &&
-        checkLine(r1, c1, p1.r, p1.c) &&
-        checkLine(p1.r, p1.c, p2.r, p2.c) &&
-        checkLine(p2.r, p2.c, r2, c2)
-      ) {
-        return [{ r: r1, c: c1 }, p1, p2, { r: r2, c: c2 }];
-      }
-    }
-
-    return null;
-  }
-
-  // --- Отрисовка линии ---
-  async function drawLine(path) {
-    // Ждем обновления DOM перед измерением координат
-    await tick();
-
-    if (!gridContainer || !gridEl) return;
-
-    const containerRect = gridContainer.getBoundingClientRect();
-    const gridRect = gridEl.getBoundingClientRect();
-
-    // Для вычисления "виртуальных" точек (за пределами сетки)
-    const baseCell = gridEl.querySelector(".cell"); // Первая доступная ячейка для замера размеров
-    if (!baseCell) return;
-
-    const cellW = baseCell.offsetWidth;
-    const cellH = baseCell.offsetHeight;
-    const style = window.getComputedStyle(gridEl);
-    const gap = parseFloat(style.gap) || 4;
-
-    const offsetX = gridRect.left - containerRect.left;
-    const offsetY = gridRect.top - containerRect.top;
-
-    const points = path
-      .map((p) => {
-        let x, y;
-        if (p.r >= 0 && p.r < ROWS && p.c >= 0 && p.c < COLS) {
-          // Реальная ячейка
-          // Используем nth-child или querySelector для поиска конкретной ячейки
-          // В Svelte структура DOM стабильна, но безопаснее найти по data-атрибутам или индексам
-          // Но querySelector внутри gridEl с селектором по nth-child сложен для 2D.
-          // Проще: gridEl.children[p.r * COLS + p.c]
-          const cell = gridEl.children[p.r * COLS + p.c];
-          const rect = cell.getBoundingClientRect();
-          x = rect.left - containerRect.left + rect.width / 2;
-          y = rect.top - containerRect.top + rect.height / 2;
-        } else {
-          // Виртуальная точка
-          const xRel = p.c * (cellW + gap) + cellW / 2;
-          const yRel = p.r * (cellH + gap) + cellH / 2;
-          x = offsetX + xRel;
-          y = offsetY + yRel;
-        }
-        return `${x.toFixed(1)},${y.toFixed(1)}`;
-      })
-      .join(" ");
-
-    linePath = points;
-    lineKey++; // Изменяем ключ, чтобы пересоздать элемент и запустить CSS анимацию
-
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        linePath = [];
-        resolve();
-      }, 350);
-    });
-  }
-
-  // --- Modal Helpers ---
-  function showModal(title, text, actions) {
-    // В интегрированном режиме не показываем модальные окна
+  function showModal(title: string, text: string, actions: Array<{ text: string; action: () => void; class?: string }>): void {
     if (integrated) return;
     modal = { show: true, title, text, actions };
   }
 
-  function hideModal() {
+  function hideModal(): void {
     modal.show = false;
-  }
-
-  function handleGiveUp() {
-    if (integrated) {
-      if (onLose) {
-        onLose();
-      } else {
-        dispatch("lose");
-      }
-    } else {
-      showModal("Конец", "Попытайте удачу снова!", [
-        { text: "ОК", action: initGame },
-      ]);
-    }
   }
 </script>
 
-<div class="body-wrapper">
-  <div id="game-header">
-
-    <button class="btn btn-secondary" onclick={initGame}>🔄 Новая игра</button>
-    {#if integrated}
-    <button class="btn btn-danger" onclick={handleGiveUp}>🏳️ Сдаться</button>
-    {/if}
-</div>
-  
-
-  <div id="game-container" bind:this={gridContainer}>
-    <div
-      id="grid"
-      bind:this={gridEl}
-      style="grid-template-columns: repeat({COLS}, 1fr); grid-template-rows: repeat({ROWS}, 1fr);"
-    >
+<BodyWrapper>
+  <GameHeader onRestart={initGame} onGiveUp={integrated ? handleGiveUp : undefined} showGiveUp={integrated} />
+  <div id="game-container">
+    <div id="grid" style="grid-template-columns: repeat({COLS + 2}, 1fr); grid-template-rows: repeat({ROWS + 2}, 1fr);">
       {#each board as row, r (r)}
         {#each row as icon, c (c)}
-          <div
-            class="cell"
-            class:selected={firstSelected?.r === r && firstSelected?.c === c}
-            class:matched={matched[r][c]}
-            class:shuffling={shuffling[`${r},${c}`]}
-            class:hint-glow={hintCells.some((h) => h.r === r && h.c === c)}
-            onclick={() => handleCellClick(r, c)}
-            onkeydown={(e) => handleCellKeyDown(r, c, e)}
-            role="button"
-            tabindex="0"
-          >
-            {icon}
-          </div>
+          {#if icon}
+            <div
+              class="cell"
+              class:selected={selectedCell?.r === r && selectedCell?.c === c}
+              class:matched={matchedCells.some(m => m.r === r && m.c === c)}
+              class:hint-glow={hintCells.some(h => h.r === r && h.c === c)}
+              onclick={() => handleCellClick(r, c)}
+              role="button"
+              tabindex="0"
+            >{icon}</div>
+          {:else}
+            <div class="cell empty"></div>
+          {/if}
         {/each}
       {/each}
     </div>
-
-    <svg id="line-layer">
-      {#key lineKey}
-        {#if linePath}
-          <polyline
-            points={linePath}
-            class="connection-line"
-            vector-effect="non-scaling-stroke"
-          />
-        {/if}
-      {/key}
-    </svg>
   </div>
-
-  <div id="game-header">
-
-    {#if rewardItemData}
-      <div id="reward-panel">
-        {#if rewardItemData.icon}
-          <div class="item-icon reward-glow">
-            <img
-              src={`${import.meta.env.VITE_SUPABASE_URL_FILE}/storage/v1/object/public/${bucketName}/${rewardItemData.icon}`}
-              alt={rewardItemData.name}
-              class="icon-preview"
-              height="64px"
-            />
-          </div>
-        {/if}
-        <div class="reward-info">
-          <div class="reward-label">Награда:</div>
-          <div class="reward-name">{rewardItemData.name}</div>
-        </div>
-      </div>
-    {/if}
-
-    <span class="tiles-counter"
-      >Осталось: <strong>{remainingCount}</strong></span
-    >
-    <button
-      class="btn btn-secondary"
-      class:disabled={!isHintAvailable}
-      class:cooldown-active={hintCooldown > 0}
-      onclick={showHint}
-      disabled={!isHintAvailable}
-    >
-      💡
-      {#if hintCooldown > 0}
-        <span class="cooldown-timer">({hintCooldown})</span>
-      {/if}
-    </button>
-  </div>
-</div>
-
-<!-- Модальное окно -->
-{#if modal.show}
-  <div id="modal-overlay" class:active={modal.show}>
-    <div class="modal-content">
-      <div class="modal-title">{modal.title}</div>
-      <div class="modal-text">{modal.text}</div>
-      <div class="modal-buttons">
-        {#each modal.actions as action (action.text)}
-          <button
-            class="btn"
-            class:btn-secondary={action.class === "btn-secondary"}
-            onclick={action.action}
-          >
-            {action.text}
-          </button>
-        {/each}
-      </div>
+  <GameFooter {rewardItem} {items} {bucketName}>
+    <div class="footer-stats">
+      <span class="tiles-counter">Осталось: <strong>{remainingCount}</strong></span>
+      <button class="btn btn-secondary" class:disabled={!isHintAvailable} onclick={showHint} disabled={!isHintAvailable}>
+        💡
+      </button>
     </div>
-  </div>
-{/if}
+  </GameFooter>
+  <MinigameModal {modal} />
+</BodyWrapper>
 
 <style>
-  :global(body) {
-    margin: 0;
-    background-color: #120f1a;
-    background-image: radial-gradient(
-      circle at center,
-      #2a2a40 0%,
-      #120f1a 100%
-    );
-    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-    color: #ececec;
-    overflow-x: hidden;
-    overflow-y: auto;
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-
-  @media (max-width: 380px) {
-    :global(body) {
-      align-items: stretch;
-    }
-
-    .body-wrapper {
-      align-items: center;
-    }
-  }
-  .item-icon {
-    width: 40px;
-    height: 40px;
-    background: #2d2d2d;
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-    border: 1px solid #444;
-  }
-  
-  .icon-preview {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  
-  .body-wrapper {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: flex-start;
-    width: 100%;
-    height: 100%;
-    user-select: none;
-    padding: 10px;
-    box-sizing: border-box;
-    overflow-y: auto;
-  }
-
-  #game-header {
-    margin-bottom: 15px;
-    width: 100%;
-    max-width: 390px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 10px;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 20px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(5px);
-    z-index: 10;
-    box-sizing: border-box;
-  }
-
-  .tiles-counter {
-    font-size: 0.9rem;
-    color: #ececec;
-  }
-
-  .tiles-counter strong {
-    color: #ff9f43;
-    font-size: 1.1rem;
-  }
-
-  #reward-panel {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 12px;
-    background: rgba(255, 215, 0, 0.05);
-    border-radius: 15px;
-  }
-
-  .item-icon {
-    width: 36px;
-    height: 36px;
-    background: #2d2d2d;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-    border: 1px solid #444;
-  }
-
-  .icon-preview {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .reward-glow {
-    animation: icon-glow 2s ease-in-out infinite;
-    border-color: rgba(255, 215, 0, 0.5);
-    box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
-  }
-
-  @keyframes icon-glow {
-    0%,
-    100% {
-      box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
-      border-color: rgba(255, 215, 0, 0.4);
-    }
-    50% {
-      box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
-      border-color: rgba(255, 215, 0, 0.7);
-    }
-  }
-
-  .reward-info {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-  }
-
-  .reward-label {
-    font-size: 0.65rem;
-    color: rgba(255, 255, 255, 0.6);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-
-  @media (max-width: 340px) {
-    .reward-label {
-      display: none;
-    }
-  }
-
-  @media (max-width: 380px) {
-    #game-header {
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 8px;
-      padding: 8px;
-    }
-
-    #reward-panel {
-      order: 1;
-      width: 100%;
-      justify-content: center;
-    }
-
-    .tiles-counter {
-      order: 2;
-    }
-
-    .btn {
-      order: 3;
-    }
-  }
-
-  .reward-name {
-    font-size: 0.85rem;
-    color: #ffd700;
-    font-weight: bold;
-    text-shadow: 0 0 8px rgba(255, 215, 0, 0.5);
-  }
-
-  @media (max-width: 360px) {
-    .body-wrapper {
-      padding: 5px;
-    }
-
-    #game-header {
-      gap: 4px;
-      padding: 6px 8px;
-      flex-wrap: wrap;
-      justify-content: center;
-    }
-
-    .btn {
-      padding: 5px 10px;
-      min-width: 32px;
-      height: 32px;
-      font-size: 1rem;
-    }
-
-    .item-icon {
-      width: 32px;
-      height: 32px;
-    }
-
-    .reward-label {
-      font-size: 0.6rem;
-    }
-
-    .reward-name {
-      font-size: 0.75rem;
-    }
-
-    .tiles-counter {
-      font-size: 0.8rem;
-    }
-
-    .tiles-counter strong {
-      font-size: 1rem;
-    }
-
-    .cooldown-timer {
-      font-size: 0.65rem;
-    }
-
-    #reward-panel {
-      width: 100%;
-      justify-content: center;
-    }
-
-    #game-container {
-      padding: 3px;
-    }
-  }
-
   #game-container {
     position: relative;
     background-color: rgba(0, 0, 0, 0.5);
@@ -886,304 +232,37 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    max-width: 100%;
-    overflow: hidden;
-    box-sizing: border-box;
+    margin-bottom: 15px;
   }
-
   #grid {
     display: grid;
-    gap: 4px;
-    position: relative;
-    z-index: 1;
-    width: fit-content;
-    height: fit-content;
-    max-width: 100%;
+    gap: 3px;
   }
-
   .cell {
-    width: 11vmin;
-    height: 11vmin;
-    max-width: 60px;
-    max-height: 60px;
-    background-color: #3d3b5c;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: clamp(20px, 5vmin, 32px);
-    cursor: pointer;
-    border: 2px solid transparent;
-    box-shadow: 0 4px 0 rgba(0, 0, 0, 0.3);
-    transition:
-      transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275),
-      background-color 0.2s,
-      box-shadow 0.2s;
-    position: relative;
-  }
-
-  @media (min-width: 800px) {
-    .cell {
-      width: 60px;
-      height: 60px;
-    }
-  }
-  @media (max-width: 390px) {
-    .cell {
-      width: 45px;
-      height: 45px;
-      font-size: 24px;
-    }
-  }
-
-  @media (max-width: 340px) {
-    .cell {
-      width: 38px;
-      height: 38px;
-      font-size: 20px;
-    }
-
-    #grid {
-      gap: 3px;
-    }
-  }
-
-  .cell:hover {
-    transform: translateY(-4px);
-    background-color: #4e4c75;
-    z-index: 10;
-    box-shadow: 0 8px 0 rgba(0, 0, 0, 0.4);
-  }
-
-  .cell.selected {
-    background-color: #e94560;
-    color: white;
-    transform: scale(1.1) translateY(-2px);
-    box-shadow: 0 0 20px rgba(233, 69, 96, 0.8);
-    z-index: 20;
-    border-color: #fff;
-  }
-
-  .cell.matched {
-    visibility: hidden;
-    opacity: 0;
-    pointer-events: none;
-  }
-
-  .cell.shuffling {
-    animation: shake 0.4s ease-in-out;
-    filter: brightness(1.5);
-    border-color: rgba(255, 255, 255, 0.5);
-    /* Фон остается темным (#3d3b5c), цвет меняется только через filter */
-  }
-
-  .cell.hint-glow {
-    animation: pulse-hint 1s infinite;
-    border-color: #ffd700;
-    box-shadow:
-      0 0 15px #ffd700,
-      inset 0 0 10px #ffd700;
-    z-index: 15;
-    filter: brightness(1.3);
-  }
-
-  @keyframes shake {
-    0%,
-    100% {
-      transform: translate(0, 0) rotate(0);
-    }
-    25% {
-      transform: translate(-3px, 3px) rotate(-3deg);
-    }
-    50% {
-      transform: translate(3px, -3px) rotate(3deg);
-    }
-    75% {
-      transform: translate(-3px, -3px) rotate(-3deg);
-    }
-  }
-
-  @keyframes pulse-hint {
-    0% {
-      transform: scale(1);
-    }
-    50% {
-      transform: scale(1.15);
-    }
-    100% {
-      transform: scale(1);
-    }
-  }
-
-  #line-layer {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    z-index: 5;
-    overflow: visible;
-  }
-
-  .connection-line {
-    stroke: #ff9f43;
-    stroke-width: 6px;
-    fill: none;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-    filter: drop-shadow(0 0 5px #ff9f43);
-    stroke-dasharray: 1000;
-    stroke-dashoffset: 1000;
-    animation: dash 0.3s ease-out forwards;
-  }
-
-  @keyframes dash {
-    to {
-      stroke-dashoffset: 0;
-    }
-  }
-
-  .btn {
-    padding: 6px 12px;
-    font-size: 1.2rem;
-    background: linear-gradient(135deg, #e94560, #c0394d);
-    color: white;
-    border: none;
-    border-radius: 12px;
-    cursor: pointer;
-    transition:
-      transform 0.1s,
-      box-shadow 0.2s,
-      filter 0.2s;
-    box-shadow: 0 3px 8px rgba(233, 69, 96, 0.4);
-    white-space: nowrap;
-    min-width: 36px;
-    height: 36px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 5px 12px rgba(233, 69, 96, 0.6);
-    filter: brightness(1.1);
-  }
-
-  .btn:active {
-    transform: translateY(1px);
-  }
-
-  .btn-secondary {
+    width: 45px;
+    height: 45px;
     background: linear-gradient(135deg, #4e4c75, #3d3b5c);
-    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
-  }
-
-  .btn.disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    transform: none !important;
-    filter: grayscale(0.5);
-  }
-
-  .btn.disabled:hover {
-    transform: none !important;
-    box-shadow: 0 3px 8px rgba(233, 69, 96, 0.4);
-  }
-
-  .cooldown-active {
-    position: relative;
-  }
-
-  .cooldown-timer {
-    font-size: 0.7rem;
-    margin-left: 2px;
-    color: #ffd700;
-    font-weight: bold;
-  }
-
-  #modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.85);
+    border-radius: 6px;
     display: flex;
-    justify-content: center;
     align-items: center;
-    z-index: 100;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.3s;
-  }
-
-  #modal-overlay.active {
-    opacity: 1;
-    pointer-events: all;
-  }
-
-  .modal-content {
-    background: #252338;
-    padding: 40px;
-    border-radius: 20px;
-    text-align: center;
-    border: 2px solid #5e5c8a;
-    box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
-    max-width: 90%;
-    width: 390px;
-    transform: scale(0.8);
-    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    box-sizing: border-box;
-  }
-
-  @media (max-width: 400px) {
-    .modal-content {
-      padding: 25px;
-      width: 95%;
-    }
-
-    .modal-title {
-      font-size: 1.5rem;
-    }
-
-    .modal-text {
-      font-size: 1rem;
-      margin-bottom: 20px;
-    }
-
-    .modal-buttons {
-      gap: 10px;
-    }
-
-    .btn {
-      padding: 8px 16px;
-      font-size: 1rem;
-    }
-  }
-
-  #modal-overlay.active .modal-content {
-    transform: scale(1);
-  }
-
-  .modal-title {
-    font-size: 2rem;
-    margin-bottom: 10px;
-    color: #ff9f43;
-  }
-
-  .modal-text {
-    margin-bottom: 30px;
-    font-size: 1.1rem;
-    line-height: 1.5;
-    color: #ccc;
-  }
-
-  .modal-buttons {
-    display: flex;
-    gap: 15px;
     justify-content: center;
-    flex-wrap: wrap;
+    font-size: 1.5rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 2px solid #5e5c8a;
   }
+  .cell.empty { background: transparent; border: none; cursor: default; }
+  .cell:hover:not(.empty) { transform: scale(1.1); box-shadow: 0 0 10px rgba(255, 255, 255, 0.3); }
+  .cell.selected { background: linear-gradient(135deg, #e94560, #c0394d); border-color: #ff9f43; box-shadow: 0 0 15px rgba(233, 69, 96, 0.8); }
+  .cell.matched { opacity: 0.5; transform: scale(0.8); }
+  .cell.hint-glow { animation: pulse-hint 1s infinite; box-shadow: 0 0 15px #ffd700; border: 1px solid #ffd700; }
+  @keyframes pulse-hint { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.15); } }
+  .footer-stats { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 10px; background: rgba(255, 255, 255, 0.05); border-radius: 15px; border: 1px solid rgba(255, 255, 255, 0.1); }
+  .tiles-counter { font-size: 0.9rem; color: #ececec; }
+  .tiles-counter strong { color: #ff9f43; font-size: 1.1rem; }
+  .btn { padding: 6px 12px; font-size: 1rem; background: linear-gradient(135deg, #e94560, #c0394d); color: white; border: none; border-radius: 12px; cursor: pointer; transition: transform 0.1s, box-shadow 0.2s, filter 0.2s; box-shadow: 0 3px 8px rgba(233, 69, 96, 0.4); white-space: nowrap; min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; }
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 5px 12px rgba(233, 69, 96, 0.6); filter: brightness(1.1); }
+  .btn:active { transform: translateY(1px); }
+  .btn-secondary { background: linear-gradient(135deg, #4e4c75, #3d3b5c); box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4); }
+  .btn.disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; filter: grayscale(0.5); }
 </style>

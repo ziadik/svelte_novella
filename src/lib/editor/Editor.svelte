@@ -22,17 +22,19 @@
   });
 
   // Реагируем на изменение выбранного bucket
-  $effect(async () => {
+  $effect(() => {
     if (editor.selectedBucket) {
       console.log(`[Editor] Bucket выбран: ${editor.selectedBucket}`);
 
       // Загружаем ресурсы
-      await resourceActions.loadStoredResources();
-
-      // Формируем имя файла и загружаем историю напрямую
-      const storyFileName = `${editor.selectedBucket}_story.json`;
-      editor.currentFileName = storyFileName;
-      await storyActions.loadStory(storyFileName);
+      resourceActions.loadStoredResources().then(() => {
+        // Формируем имя файла и загружаем историю напрямую
+        const storyFileName = `${editor.selectedBucket}_story.json`;
+        editor.currentFileName = storyFileName;
+        return storyActions.loadStory(storyFileName);
+      }).catch((err) => {
+        console.error('[Editor] Ошибка загрузки истории:', err);
+      });
     }
   });
 </script>

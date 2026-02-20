@@ -30,7 +30,7 @@
     {
       "id": "0",
       "chapterId": "ch_minigame",
-      "text": "Dracúla\nПривет! Я нашла интересную игру! Хочешь сыграть?",
+      "text": "Хочешь сыграть?",
       "characterImage": "dracula_hehe.riv",
       "stateMachineCharacterRive": "SM1",
       "backgroundImage": "dracula_back_room_3.riv",
@@ -43,8 +43,7 @@
           "visible": true,
           "visibilityCondition": {
             "type": "always"
-          },
-          "miniGame": false
+          }
         },
         {
           "text": "Не сегодня, я устал",
@@ -53,6 +52,111 @@
           "visible": true,
           "visibilityCondition": {
             "type": "always"
+          }
+        },
+        {
+          "text": "Игра Мемо",
+          "enabled": true,
+          "visible": true,
+          "visibilityCondition": {
+            "type": "always"
+          },
+          "nextDialogueId": "",
+          "miniGame": {
+            "id": "memo_monsters",
+            "onWinDialogueId": "game_win",
+            "onLoseDialogueId": "game_lose",
+            "rewardItem": "key_master"
+          }
+        },
+        {
+          "text": "Игра Выключи свет",
+          "enabled": true,
+          "visible": true,
+          "visibilityCondition": {
+            "type": "always"
+          },
+          "nextDialogueId": "",
+          "miniGame": {
+            "id": "light_out",
+            "onWinDialogueId": "game_win",
+            "onLoseDialogueId": "game_lose",
+            "rewardItem": "vampire_fangs"
+          }
+        },
+        {
+          "text": "Игра Мора Красной Смерти",
+          "enabled": true,
+          "visible": true,
+          "visibilityCondition": {
+            "type": "always"
+          },
+          "nextDialogueId": "",
+          "miniGame": {
+            "id": "flood_it",
+            "onWinDialogueId": "game_win",
+            "onLoseDialogueId": "game_lose",
+            "rewardItem": "vampire_fangs"
+          }
+        },
+        {
+          "text": "Пятнашки",
+          "enabled": true,
+          "visible": true,
+          "visibilityCondition": {
+            "type": "always"
+          },
+          "nextDialogueId": "",
+          "miniGame": {
+            "id": "broken_mirror",
+            "onWinDialogueId": "game_win",
+            "onLoseDialogueId": "game_lose",
+            "rewardItem": "vampire_fangs"
+          }
+        },
+        {
+          "text": "Игра 2048",
+          "enabled": true,
+          "visible": true,
+          "visibilityCondition": {
+            "type": "always"
+          },
+          "nextDialogueId": "",
+          "miniGame": {
+            "id": "evolution2048",
+            "onWinDialogueId": "game_win",
+            "onLoseDialogueId": "game_lose",
+            "rewardItem": "vampire_fangs"
+          }
+        },
+        {
+          "text": "Игра Проклятый сапер",
+          "enabled": true,
+          "visible": true,
+          "visibilityCondition": {
+            "type": "always"
+          },
+          "nextDialogueId": "",
+          "miniGame": {
+            "id": "cursed_crypts",
+            "onWinDialogueId": "game_win",
+            "onLoseDialogueId": "game_lose",
+            "rewardItem": "vampire_fangs"
+          }
+        },
+        {
+          "text": "Игра Три пика",
+          "enabled": true,
+          "visible": true,
+          "visibilityCondition": {
+            "type": "always"
+          },
+          "nextDialogueId": "",
+          "miniGame": {
+            "id": "tower_of_souls",
+            "onWinDialogueId": "game_win",
+            "onLoseDialogueId": "game_lose",
+            "rewardItem": "key_master"
           }
         }
       ],
@@ -89,8 +193,7 @@
           "visible": true,
           "visibilityCondition": {
             "type": "always"
-          },
-          "miniGame": false
+          }
         },
         {
           "text": "Новый вариант",
@@ -104,7 +207,7 @@
             "id": "memo_monsters",
             "onWinDialogueId": "game_win",
             "onLoseDialogueId": "game_lose",
-            "rewardItem": "vampire_fangs"
+            "rewardItem": "key_master"
           }
         }
       ]
@@ -133,7 +236,11 @@
             "type": "always"
           },
           "nextDialogueId": "",
-          "miniGame": true
+          "miniGame": {
+            "id": "memo_monsters",
+            "onWinDialogueId": "game_intro",
+            "onLoseDialogueId": "game_lose"
+          }
         }
       ]
     },

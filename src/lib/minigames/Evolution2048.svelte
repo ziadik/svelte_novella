@@ -1,6 +1,10 @@
-<script>
+<script lang="ts">
   import { onMount } from "svelte";
-  import { createEventDispatcher } from "svelte";
+  import BodyWrapper from './components/BodyWrapper.svelte';
+  import GameHeader from './components/GameHeader.svelte';
+  import GameFooter from './components/GameFooter.svelte';
+  import MinigameModal from './components/MinigameModal.svelte';
+  import type { MinigameProps, ModalState } from './types';
 
   // --- Props ---
   let {
@@ -10,359 +14,318 @@
     rewardItem = null,
     items = [],
     bucketName = "dracula",
-  } = $props();
-
-  const dispatch = createEventDispatcher();
+  } = $props<MinigameProps>();
 
   // --- Настройки ---
   const SIZE = 4;
-  
-  // Цепочка эволюции: Индекс массива = уровень плитки (значение в ячейке)
-  // 0 = пусто, 1 = кость, 2 = череп и т.д.
-  const EVOLUTION_CHAIN = [
-    "",      // 0 - placeholder for empty
-    "🦴",    // 1 - Кость
-    "💀",    // 2 - Череп
-    "👻",    // 3 - Призрак
-    "🧟",    // 4 - Зомби
-    "🧛",    // 5 - Вампир
-    "👹",    // 6 - Демон
-    "😈",    // 7 - Архидемон
-    "🐉",    // 8 - Дракон нежити (Финальная форма)
-  ];
+  const WIN_TARGET = 2048;
 
-  const WIN_LEVEL = 8; // Уровень победы (Дракон)
+  // Эволюция монстров
+  const EVOLUTION: Record<number, string> = {
+    2: "🦇",
+    4: "👻",
+    8: "💀",
+    16: "🧟",
+    32: "🧛",
+    64: "🧙",
+    128: "👹",
+    256: "🐉",
+    512: "🔥",
+    1024: "⚡",
+    2048: "👑",
+  };
 
-  // --- State (Runes) ---
-  let board = $state([]); // 2D массив чисел (0 = пусто)
+  const COLORS: Record<number, string> = {
+    2: "#3d3b5c",
+    4: "#4e4c75",
+    8: "#e94560",
+    16: "#6c5ce7",
+    32: "#a29bfe",
+    64: "#fdcb6e",
+    128: "#00b894",
+    256: "#e17055",
+    512: "#fd79a8",
+    1024: "#00cec9",
+    2048: "#ffd700",
+  };
+
+  // --- State ---
+  let board = $state<number[][]>([]);
   let score = $state(0);
   let isGameOver = $state(false);
-  let isWin = $state(false);
+  let hasWon = $state(false);
 
-  // Для свайпов
-  let touchStartX = 0;
-  let touchStartY = 0;
-
-  // Modal State
-  let modal = $state({ show: false, title: "", text: "", actions: [] });
+  let modal = $state<ModalState>({
+    show: false,
+    title: "",
+    text: "",
+    actions: [],
+  });
 
   onMount(() => {
     initGame();
-    window.addEventListener("keydown", handleKeydown);
-    return () => window.removeEventListener("keydown", handleKeydown);
+    window.addEventListener('keydown', handleKeydown);
+    return () => window.removeEventListener('keydown', handleKeydown);
   });
 
-  // --- Вычисляемые свойства ---
-  function getRewardItemData() {
-    if (!rewardItem || !items || items.length === 0) return null;
-    const itemId = typeof rewardItem === "string" ? rewardItem : rewardItem.id;
-    return items.find((item) => item.id === itemId);
-  }
-  let rewardItemData = $derived(getRewardItemData());
-
   // --- Инициализация ---
-  function initGame() {
+  function initGame(): void {
     board = Array(SIZE).fill(null).map(() => Array(SIZE).fill(0));
     score = 0;
     isGameOver = false;
-    isWin = false;
+    hasWon = false;
     hideModal();
-    
-    addRandomTile();
-    addRandomTile();
+    addNewTile();
+    addNewTile();
   }
 
-  // --- Логика игры ---
-
-  function addRandomTile() {
-    let emptyCells = [];
+  function addNewTile(): void {
+    let emptyCells: Array<{ r: number; c: number }> = [];
     for (let r = 0; r < SIZE; r++) {
       for (let c = 0; c < SIZE; c++) {
         if (board[r][c] === 0) emptyCells.push({ r, c });
       }
     }
-    
-    if (emptyCells.length === 0) return false;
-
-    const { r, c } = emptyCells[Math.floor(Math.random() * emptyCells.length)];
-    // 90% шанс уровня 1 (Кость), 10% шанс уровня 2 (Череп)
-    board[r][c] = Math.random() < 0.9 ? 1 : 2;
-    return true;
+    if (emptyCells.length > 0) {
+      const { r, c } = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+      board[r][c] = Math.random() < 0.9 ? 2 : 4;
+    }
   }
 
-  // Обработка нажатий клавиш
-  function handleKeydown(e) {
+  // --- Логика игры ---
+  function handleKeydown(e: KeyboardEvent): void {
     if (isGameOver) return;
-    
-    const map = {
-      ArrowUp: "up",
-      ArrowDown: "down",
-      ArrowLeft: "left",
-      ArrowRight: "right",
-    };
-    
-    if (map[e.key]) {
+
+    let moved = false;
+    switch (e.key) {
+      case "ArrowUp":
+        moved = moveUp();
+        break;
+      case "ArrowDown":
+        moved = moveDown();
+        break;
+      case "ArrowLeft":
+        moved = moveLeft();
+        break;
+      case "ArrowRight":
+        moved = moveRight();
+        break;
+    }
+
+    if (moved) {
       e.preventDefault();
-      move(map[e.key]);
-    }
-  }
-
-  // Обработка свайпов
-  function handleTouchStart(e) {
-    touchStartX = e.touches[0].clientX;
-    touchStartY = e.touches[0].clientY;
-  }
-
-  function handleTouchEnd(e) {
-    if (isGameOver) return;
-    const touchEndX = e.changedTouches[0].clientX;
-    const touchEndY = e.changedTouches[0].clientY;
-
-    const dx = touchEndX - touchStartX;
-    const dy = touchEndY - touchStartY;
-    const absDx = Math.abs(dx);
-    const absDy = Math.abs(dy);
-
-    // Минимальная длина свайпа
-    if (Math.max(absDx, absDy) < 30) return;
-
-    if (absDx > absDy) {
-      move(dx > 0 ? "right" : "left");
-    } else {
-      move(dy > 0 ? "down" : "up");
-    }
-  }
-
-  // Главная логика движения
-  function move(direction) {
-    // Копируем доску для сравнения
-    const prevBoard = board.map(row => [...row]);
-    
-    if (direction === "left") board = board.map(row => slide(row));
-    else if (direction === "right") board = board.map(row => slide(row.reverse()).reverse());
-    else if (direction === "up") {
-      board = transpose(board);
-      board = board.map(row => slide(row));
-      board = transpose(board);
-    } 
-    else if (direction === "down") {
-      board = transpose(board);
-      board = board.map(row => slide(row.reverse()).reverse());
-      board = transpose(board);
-    }
-
-    // Если доска изменилась, добавляем новый тайл
-    if (JSON.stringify(prevBoard) !== JSON.stringify(board)) {
-      addRandomTile();
+      addNewTile();
       checkGameStatus();
     }
   }
 
-  // Транспонирование (поворот на 90 градусов для Up/Down)
-  function transpose(matrix) {
-    return matrix[0].map((_, i) => matrix.map(row => row[i]));
-  }
-
-  // Логика слияния одной строки/столбца (слева направо)
-  function slide(row) {
-    let arr = row.filter(val => val); // Убираем нули
-    let missing = SIZE - arr.length;
-    let zeros = Array(missing).fill(0);
-    
-    // Слияние
-    for (let i = 0; i < arr.length - 1; i++) {
-      if (arr[i] === arr[i+1]) {
-        arr[i]++; // Повышаем уровень
-        score += Math.pow(2, arr[i]); // Очки
-        arr.splice(i+1, 1); // Удаляем слитый элемент
-        arr.push(0); // Добавляем ноль в конец для сохранения длины
+  function slideRow(row: number[]): { newRow: number[]; moved: boolean } {
+    let newRow = row.filter((val) => val !== 0);
+    let moved = false;
+    for (let i = 0; i < newRow.length - 1; i++) {
+      if (newRow[i] === newRow[i + 1]) {
+        newRow[i] *= 2;
+        score += newRow[i];
+        newRow.splice(i + 1, 1);
+        moved = true;
       }
     }
-    
-    return zeros.concat(arr); // Возвращаем с нулями слева (для движения влево)
-    // Для движения вправо логика инвертируется в функции move
-    // Но в slide мы формируем массив: [0, 0, val, val], если это "left"
-    // Стандартный 2048 слайд: нули в начале.
-    // arr = row.filter(v => v);
-    // missing = SIZE - arr.length;
-    // zeros = Array(missing).fill(0);
-    // return zeros.concat(arr);
+    while (newRow.length < SIZE) newRow.push(0);
+    return { newRow, moved: moved || row.join(",") !== newRow.join(",") };
   }
-  
-  // Коррекция логики slide для стандартного 2048 (нули слева для движения влево)
-  // В моем коде выше `zeros.concat(arr)` ставит нули ПЕРЕД значениями. Это правильно для "Left".
-  // Для "Right" мы вызываем reverse() внутри move.
-  // Итого функция slide правильная.
+
+  function moveLeft(): boolean {
+    let moved = false;
+    for (let r = 0; r < SIZE; r++) {
+      const { newRow, moved: rowMoved } = slideRow(board[r]);
+      board[r] = newRow;
+      if (rowMoved) moved = true;
+    }
+    return moved;
+  }
+
+  function moveRight(): boolean {
+    let moved = false;
+    for (let r = 0; r < SIZE; r++) {
+      const { newRow, moved: rowMoved } = slideRow([...board[r]].reverse());
+      board[r] = newRow.reverse();
+      if (rowMoved) moved = true;
+    }
+    return moved;
+  }
+
+  function moveUp(): boolean {
+    let moved = false;
+    for (let c = 0; c < SIZE; c++) {
+      let col = [];
+      for (let r = 0; r < SIZE; r++) col.push(board[r][c]);
+      const { newRow, moved: colMoved } = slideRow(col);
+      for (let r = 0; r < SIZE; r++) board[r][c] = newRow[r];
+      if (colMoved) moved = true;
+    }
+    return moved;
+  }
+
+  function moveDown(): boolean {
+    let moved = false;
+    for (let c = 0; c < SIZE; c++) {
+      let col = [];
+      for (let r = 0; r < SIZE; r++) col.push(board[r][c]);
+      const { newRow, moved: colMoved } = slideRow(col.reverse());
+      col = newRow.reverse();
+      for (let r = 0; r < SIZE; r++) board[r][c] = col[r];
+      if (colMoved) moved = true;
+    }
+    return moved;
+  }
+
+  // --- Touch events ---
+  let touchStartX = $state(0);
+  let touchStartY = $state(0);
+
+  function handleTouchStart(e: TouchEvent): void {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+  }
+
+  function handleTouchEnd(e: TouchEvent): void {
+    if (isGameOver) return;
+
+    const touchEndX = e.changedTouches[0].clientX;
+    const touchEndY = e.changedTouches[0].clientY;
+    const dx = touchEndX - touchStartX;
+    const dy = touchEndY - touchStartY;
+
+    if (Math.abs(dx) < 30 && Math.abs(dy) < 30) return;
+
+    let moved = false;
+    if (Math.abs(dx) > Math.abs(dy)) {
+      moved = dx > 0 ? moveRight() : moveLeft();
+    } else {
+      moved = dy > 0 ? moveDown() : moveUp();
+    }
+
+    if (moved) {
+      e.preventDefault();
+      addNewTile();
+      checkGameStatus();
+    }
+  }
 
   // --- Статус игры ---
-  function checkGameStatus() {
-    // Проверка победы
-    if (board.flat().includes(WIN_LEVEL)) {
-      isGameOver = true;
-      isWin = true;
-      if (integrated) {
-        if (onWin) onWin(); else dispatch("win");
-      } else {
-        showModal("🐉 Абсолютная Эволюция!", `Вы создали Повелителя Нежити! Счет: ${score}`, [
-          { text: "Играть снова", action: initGame },
-        ]);
+  function checkGameStatus(): void {
+    if (!hasWon) {
+      for (let r = 0; r < SIZE; r++) {
+        for (let c = 0; c < SIZE; c++) {
+          if (board[r][c] >= WIN_TARGET) {
+            hasWon = true;
+            if (integrated) {
+              onWin?.();
+            } else {
+              showModal("👑 Победа!", "Вы создали короля монстров!", [
+                { text: "Продолжить", action: hideModal },
+                { text: "Новая игра", action: initGame, class: "btn-secondary" },
+              ]);
+            }
+            return;
+          }
+        }
       }
-      return;
     }
 
-    // Проверка проигрыша (нет пустых и нет ходов)
-    if (!board.flat().includes(0) && !canMove()) {
+    if (isBoardFull() && !hasAvailableMoves()) {
       isGameOver = true;
       if (integrated) {
-        if (onLose) onLose(); else dispatch("lose");
+        onLose?.();
       } else {
-        showModal("💀 Ритуал провалился", "Некромантия истощила силы. Ходов нет.", [
-          { text: "Заново", action: initGame },
+        showModal("💀 Конец", `Игра окончена. Очки: ${score}`, [
+          { text: "Новая игра", action: initGame },
         ]);
       }
     }
   }
 
-  function canMove() {
+  function isBoardFull(): boolean {
     for (let r = 0; r < SIZE; r++) {
       for (let c = 0; c < SIZE; c++) {
-        if (board[r][c] === 0) return true;
-        if (c < SIZE - 1 && board[r][c] === board[r][c+1]) return true;
-        if (r < SIZE - 1 && board[r][c] === board[r+1][c]) return true;
+        if (board[r][c] === 0) return false;
+      }
+    }
+    return true;
+  }
+
+  function hasAvailableMoves(): boolean {
+    for (let r = 0; r < SIZE; r++) {
+      for (let c = 0; c < SIZE; c++) {
+        if (c < SIZE - 1 && board[r][c] === board[r][c + 1]) return true;
+        if (r < SIZE - 1 && board[r][c] === board[r + 1][c]) return true;
       }
     }
     return false;
   }
 
-  // --- Modal & Helpers ---
-  function showModal(title, text, actions) {
+  function handleGiveUp(): void {
+    if (integrated) {
+      onLose?.();
+    } else {
+      showModal("Конец", `Очки: ${score}`, [
+        { text: "Новая игра", action: initGame },
+      ]);
+    }
+  }
+
+  // --- Modal Helpers ---
+  function showModal(title: string, text: string, actions: Array<{ text: string; action: () => void; class?: string }>): void {
     if (integrated) return;
     modal = { show: true, title, text, actions };
   }
-  function hideModal() { modal.show = false; }
-  function handleGiveUp() {
-    if (integrated) {
-      if (onLose) onLose(); else dispatch("lose");
-    } else {
-      showModal("Отступление", "Магический круг разорван.", [{ text: "ОК", action: initGame }]);
-    }
+
+  function hideModal(): void {
+    modal.show = false;
   }
 </script>
 
-<svelte:window on:keydown={handleKeydown} />
+<BodyWrapper>
+  <GameHeader
+    onRestart={initGame}
+    onGiveUp={integrated ? handleGiveUp : undefined}
+    showGiveUp={integrated}
+  />
 
-<div class="body-wrapper">
-  <div id="game-header">
-    <div class="score-panel">
-      <span>Очки:</span>
-      <strong>{score}</strong>
-    </div>
-    <button class="btn btn-secondary" onclick={initGame}>🔄 Заново</button>
-    {#if integrated}
-      <button class="btn btn-danger" onclick={handleGiveUp}>🏳️</button>
-    {/if}
-  </div>
-
-  <div 
-    id="game-container" 
-    ontouchstart={handleTouchStart}
-    ontouchend={handleTouchEnd}
-  >
+  <div id="game-container" on:touchstart={handleTouchStart} on:touchend={handleTouchEnd}>
     <div id="grid">
       {#each board as row, r (r)}
-        {#each row as val, c (c)}
-          <div class="cell" class:tile-{val}>
-            {#if val > 0}
-              <span class="monster">
-                {EVOLUTION_CHAIN[val]}
-              </span>
-            {/if}
+        {#each row as cell, c (c)}
+          <div class="cell" class:cell-{cell} style="background-color: {COLORS[cell] || '#2a2a40'};">
+            {cell > 0 ? EVOLUTION[cell] || cell : ""}
           </div>
         {/each}
       {/each}
     </div>
   </div>
 
-  <div id="game-footer">
-    {#if rewardItemData}
-      <div id="reward-panel">
-        <div class="item-icon reward-glow">
-          <img src={`${import.meta.env.VITE_SUPABASE_URL_FILE}/storage/v1/object/public/${bucketName}/${rewardItemData.icon}`} alt={rewardItemData.name} class="icon-preview" />
-        </div>
-        <div class="reward-info">
-          <div class="reward-label">Цель эволюции:</div>
-          <div class="reward-name">{rewardItemData.name}</div>
-        </div>
-      </div>
-    {:else}
-      <div class="evolution-hint">
-        Цель: Соберите {EVOLUTION_CHAIN[WIN_LEVEL]} (Ур. {WIN_LEVEL})
-      </div>
-    {/if}
-  </div>
-</div>
-
-{#if modal.show}
-  <div id="modal-overlay" class:active={modal.show}>
-    <div class="modal-content">
-      <div class="modal-title">{modal.title}</div>
-      <div class="modal-text">{modal.text}</div>
-      <div class="modal-buttons">
-        {#each modal.actions as action (action.text)}
-          <button class="btn" onclick={action.action}>{action.text}</button>
-        {/each}
-      </div>
+  <GameFooter {rewardItem} {items} {bucketName} >
+    <div class="footer-stats">
+    
+      <span class="score-counter">Очки: <strong>{score}</strong></span>
     </div>
-  </div>
-{/if}
+  </GameFooter>
+
+  <MinigameModal {modal} />
+</BodyWrapper>
 
 <style>
-  :global(body) {
-    margin: 0;
-    background-color: #120f1a;
-    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-    color: #ececec;
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    touch-action: none; /* Отключаем зум свайпом */
-    overflow: hidden;
-  }
-
-  .body-wrapper {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: space-between;
-    height: 100%;
-    width: 100%;
-    padding: 10px;
-    box-sizing: border-box;
-  }
-
-  #game-header, #game-footer {
-    width: 100%;
-    max-width: 360px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 10px;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 15px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-sizing: border-box;
-    margin-bottom: 10px;
-  }
-
-  .score-panel strong { color: #ff9f43; font-size: 1.2rem; margin-left: 5px; }
-
   #game-container {
-    background: #1a1a2e;
-    padding: 8px;
-    border-radius: 12px;
-    border: 2px solid #333;
-    box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
+    position: relative;
+    background-color: rgba(0, 0, 0, 0.5);
+    padding: 10px;
+    border-radius: 15px;
+    box-shadow: 0 0 50px rgba(0, 0, 0, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 15px;
     touch-action: none;
   }
 
@@ -373,77 +336,97 @@
   }
 
   .cell {
-    width: 75px;
-    height: 75px;
-    background: #2d2d44;
-    border-radius: 6px;
+    width: 70px;
+    height: 70px;
+    border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 32px;
-    transition: transform 0.15s ease, background-color 0.2s;
-    position: relative;
+    font-size: 2rem;
+    font-weight: bold;
+    color: white;
+    transition: transform 0.15s, background-color 0.2s;
   }
 
-  /* Цвета для уровней */
-  .tile-1 { background: #3d3b5c; color: #aaa; } /* Кость */
-  .tile-2 { background: #5e5c8a; color: #ddd; } /* Череп */
-  .tile-3 { background: #8e8cd1; color: white; } /* Призрак */
-  .tile-4 { background: #e94560; color: white; box-shadow: 0 0 15px rgba(233, 69, 96, 0.4); } /* Зомби */
-  .tile-5 { background: #ff6b6b; color: white; } /* Вампир */
-  .tile-6 { background: #9b59b6; color: white; box-shadow: 0 0 20px rgba(155, 89, 182, 0.6); } /* Демон */
-  .tile-7 { background: #3498db; color: white; } /* Архидемон */
-  .tile-8 { background: #f1c40f; color: #333; box-shadow: 0 0 30px rgba(241, 196, 15, 0.8); animation: pulse-win 1s infinite; } /* Дракон */
+  @media (max-width: 400px) {
+    .cell {
+      width: 60px;
+      height: 60px;
+      font-size: 1.5rem;
+    }
+  }
 
-  @keyframes pulse-win {
+  @media (max-width: 320px) {
+    .cell {
+      width: 50px;
+      height: 50px;
+      font-size: 1.2rem;
+    }
+
+    #grid {
+      gap: 5px;
+    }
+  }
+
+  .cell:hover {
+    transform: scale(1.05);
+  }
+
+  .cell-2,
+  .cell-4 {
+    color: #ececec;
+  }
+
+  .cell-8,
+  .cell-16,
+  .cell-32 {
+    color: white;
+  }
+
+  .cell-64,
+  .cell-128,
+  .cell-256 {
+    color: white;
+  }
+
+  .cell-512,
+  .cell-1024 {
+    color: white;
+  }
+
+  .cell-2048 {
+    color: #2a2a40;
+    font-size: 2.5rem;
+    animation: pulse-winner 1s infinite;
+  }
+
+  @keyframes pulse-winner {
     0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.05); }
+    50% { transform: scale(1.1); }
   }
 
-  .monster {
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
-  }
-
-  /* Reward styles */
-  #reward-panel {
+  .footer-stats {
     display: flex;
-    align-items: center;
-    gap: 10px;
-    width: 100%;
     justify-content: center;
+    gap: 10px;
+    padding: 8px 10px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
   }
-  .item-icon { width: 36px; height: 36px; background: #2d2d2d; border-radius: 8px; overflow: hidden; border: 1px solid #444; }
-  .icon-preview { width: 100%; height: 100%; object-fit: cover; }
-  .reward-glow { border-color: rgba(255, 215, 0, 0.5); box-shadow: 0 0 10px rgba(255, 215, 0, 0.3); }
-  .reward-info { display: flex; flex-direction: column; }
-  .reward-label { font-size: 0.7rem; color: #888; }
-  .reward-name { color: #ffd700; font-weight: bold; }
 
-  .evolution-hint {
+  .score-counter {
     font-size: 0.9rem;
-    color: #aaa;
+    color: #ececec;
   }
 
-  /* Buttons & Modal */
-  .btn {
-    padding: 6px 12px; font-size: 1rem; background: linear-gradient(135deg, #e94560, #c0394d);
-    color: white; border: none; border-radius: 12px; cursor: pointer;
-    box-shadow: 0 3px 8px rgba(233, 69, 96, 0.4);
-    min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
-  }
-  .btn-secondary { background: linear-gradient(135deg, #4e4c75, #3d3b5c); }
-  .btn-danger { background: linear-gradient(135deg, #6c757d, #495057); }
-  
-  #modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: flex; justify-content: center; align-items: center; z-index: 100; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
-  #modal-overlay.active { opacity: 1; pointer-events: all; }
-  .modal-content { background: #252338; padding: 40px; border-radius: 20px; text-align: center; border: 2px solid #5e5c8a; width: 300px; }
-  .modal-title { font-size: 1.8rem; margin-bottom: 10px; color: #ff9f43; }
-  .modal-text { margin-bottom: 20px; color: #ccc; }
-  .modal-buttons { display: flex; gap: 10px; justify-content: center; }
-
-  /* Mobile adjustments */
-  @media (max-width: 380px) {
-    .cell { width: 65px; height: 65px; font-size: 28px; }
-    #grid { gap: 6px; }
+  .score-counter strong {
+    color: #ff9f43;
+    font-size: 1.1rem;
   }
 </style>
+
+<script lang="ts">
+  // Default export для совместимости с MinigameLauncher
+  export default {};
+</script>
