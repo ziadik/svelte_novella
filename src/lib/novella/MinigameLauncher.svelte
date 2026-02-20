@@ -10,7 +10,7 @@
     items?: any[];
   }
 
-  let { gameId, onWin, onLose, rewardItem, items }: Props = $props();
+  let { gameId, onWin, onLose, rewardItem, items, bucketName }: Props = $props();
 
   function handleWin() {
     console.log('[MinigameLauncher] Game won!');
@@ -31,7 +31,7 @@
       integrated={true}
       rewardItem={rewardItem}
       items={items}
-      bucketName="minigames"
+      bucketName=bucketName
     />
   {:else if gameId === 'memo_monsters'}
     <MemoMonsters
@@ -40,7 +40,7 @@
       integrated={true}
       rewardItem={rewardItem}
       items={items}
-      bucketName="minigames"
+      bucketName=bucketName
     />
   {:else}
     <div class="loading">Загрузка игры...</div>
