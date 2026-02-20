@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import DialogueCard from "./DialogueCard.svelte";
   import StorySelector from "./components/StorySelector.svelte";
+  import Inventory from "./components/Inventory.svelte";
   import { gameState } from "../store/gameStore.svelte";
   import { supabaseUrlFile } from "../store/store.svelte";
 
@@ -33,6 +34,9 @@
     </div>
   {:else}
     <div class="game-container">
+      <!-- Инвентарь -->
+      <Inventory />
+
       <!-- Кнопка возврата к выбору истории -->
       <button 
         class="btn-change-story"

@@ -78,11 +78,16 @@ const currentDialogue = $derived(propDialogue || gameState.findDialogue(gameStat
 
   // Вспомогательная функция проверки условий
   function isOptionVisible(option: any): boolean {
-    if (!option.visibleIf) return true;
-    if (option.visibleIf.hasItem) {
-      return gameState.hasItem(option.visibleIf.hasItem);
-    }
-    return true;
+    // Проверка visible флага
+    if (option.visible === false) return false;
+
+    // Проверка условий видимости
+    return gameState.checkVisibilityCondition(option);
+  }
+
+  // Проверка enabled флага
+  function isOptionEnabled(option: any): boolean {
+    return option.enabled !== false;
   }
 </script>
 
@@ -146,7 +151,9 @@ const currentDialogue = $derived(propDialogue || gameState.findDialogue(gameStat
             {#if isOptionVisible(option)}
               <button 
                 class="option-button" 
+                class:disabled={!isOptionEnabled(option)}
                 onclick={() => handleOptionSelect(option)}
+                disabled={!isOptionEnabled(option)}
               >
                 {option.text}
               </button>
@@ -234,6 +241,16 @@ const currentDialogue = $derived(propDialogue || gameState.findDialogue(gameStat
   
   .option-button:hover, .next-button:hover {
     background: rgba(200, 0, 0, 0.8);
+  }
+
+  .option-button.disabled {
+    background: rgba(100, 100, 100, 0.5);
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .option-button.disabled:hover {
+    background: rgba(100, 100, 100, 0.5);
   }
 
   .next-container {
