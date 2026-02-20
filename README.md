@@ -1,4 +1,7 @@
 # svelte_novella
+
+https://ziadik.github.io/svelte_novella/
+
 Это визуальная новелла/интерактивная история с Дракулой, построенная на Svelte 5.
 
 Технологический стек:
