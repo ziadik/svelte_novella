@@ -29,10 +29,44 @@
     return option.visibilityCondition!;
   }
 
-  // Обновляем поле condition
+  // Обновляем поле condition (используем мутацию для реактивности)
   function updateCondition(updates: Partial<Condition>) {
     initConditionIfNeeded();
-    option.visibilityCondition = { ...option.visibilityCondition!, ...updates };
+    const cond = option.visibilityCondition!;
+
+    // Мутируем объект напрямую для сохранения реактивности
+    Object.assign(cond, updates);
+
+    // Принудительно уведомляем Svelte об изменении
+    option.visibilityCondition = { ...cond };
+  }
+
+  // Обработчик изменения типа условия - очищает старые поля
+  function handleConditionTypeChange(newType: Condition['type']) {
+    initConditionIfNeeded();
+
+    // Создаем новый объект условия с правильными полями
+    const newCondition: Condition = {
+      type: newType
+    };
+
+    switch (newType) {
+      case 'has_item':
+        newCondition.itemId = getCondition().itemId || '';
+        break;
+      case 'stat_greater':
+        newCondition.statName = getCondition().statName || '';
+        newCondition.statValue = getCondition().statValue || 0;
+        break;
+      case 'flag_true':
+        newCondition.flagName = getCondition().flagName || '';
+        break;
+      case 'always':
+        // Для always не нужны дополнительные поля
+        break;
+    }
+
+    option.visibilityCondition = newCondition;
   }
 
   // Проверяем, включена ли мини-игра
@@ -213,10 +247,7 @@
         <select 
           id="option-cond-type-{index}"
           value={getCondition().type}
-          onchange={(e) => {
-            const type = e.target.value as Condition['type'];
-            updateCondition({ type });
-          }}
+          onchange={(e) => handleConditionTypeChange(e.target.value as Condition['type'])}
           class="input select"
         >
           {#each conditionTypes as type (type)}
@@ -259,8 +290,11 @@
           <input 
             type="number" 
             id="option-cond-stat-val-{index}"
-            value={getCondition().statValue || ''}
-            oninput={(e) => updateCondition({ statValue: parseInt(e.target.value) || 0 })}
+            value={getCondition().statValue || 0}
+            oninput={(e) => {
+              const val = parseInt(e.target.value);
+              updateCondition({ statValue: isNaN(val) ? 0 : val });
+            }}
             class="input" 
           />
         </div>
@@ -280,6 +314,16 @@
         </div>
       {/if}
     </div>
+
+    <!-- Отладочная информация -->
+    {#if import.meta.env.DEV}
+      <div class="debug-info">
+        <details>
+          <summary>Debug: visibilityCondition</summary>
+          <pre>{JSON.stringify(option.visibilityCondition, null, 2)}</pre>
+        </details>
+      </div>
+    {/if}
   </div>
 </div>
 
@@ -374,5 +418,31 @@
 
   .minigame-details .form-group:last-child {
     margin-bottom: 0;
+  }
+
+  .debug-info {
+    margin-top: 10px;
+    padding: 8px;
+    background: #111;
+    border-radius: 4px;
+    font-size: 11px;
+  }
+
+  .debug-info details {
+    color: #888;
+  }
+
+  .debug-info summary {
+    cursor: pointer;
+    color: #666;
+  }
+
+  .debug-info pre {
+    margin: 8px 0 0 0;
+    padding: 8px;
+    background: #0a0a0a;
+    border-radius: 4px;
+    overflow-x: auto;
+    color: #0f0;
   }
 </style>
