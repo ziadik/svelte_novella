@@ -6,7 +6,6 @@
   import MinigameModal from './components/MinigameModal.svelte';
   import type { MinigameProps, ModalState } from './types';
 
-  // --- Props ---
   let {
     integrated = false,
     onWin,
@@ -16,30 +15,20 @@
     bucketName = "dracula",
   } = $props<MinigameProps>();
 
-  // --- Настройки ---
   const ROWS = 5;
   const COLS = 5;
   const SHUFFLE_MOVES = 15;
 
-  // --- State ---
   let board = $state<boolean[][]>([]);
   let moves = $state(0);
   let isGameOver = $state(false);
 
-  let modal = $state<ModalState>({
-    show: false,
-    title: "",
-    text: "",
-    actions: [],
-  });
+  let modal = $state<ModalState>({ show: false, title: "", text: "", actions: [] });
 
-  onMount(() => {
-    initGame();
-  });
+  onMount(() => initGame());
 
   let isWin = $derived(board.flat().every((cell) => !cell));
 
-  // --- Инициализация ---
   function initGame(): void {
     board = Array(ROWS).fill(null).map(() => Array(COLS).fill(false));
     moves = 0;
@@ -71,7 +60,6 @@
     toggleCell(r, c);
   }
 
-  // --- Статус игры ---
   function checkGameStatus(): void {
     if (isWin) {
       isGameOver = true;
@@ -95,7 +83,6 @@
     }
   }
 
-  // --- Modal Helpers ---
   function showModal(title: string, text: string, actions: Array<{ text: string; action: () => void; class?: string }>): void {
     if (integrated) return;
     modal = { show: true, title, text, actions };
@@ -135,11 +122,11 @@
     </div>
   </div>
 
-  <GameFooter {rewardItem} {items} {bucketName} 
+  <GameFooter {rewardItem} {items} {bucketName}>
     <div class="footer-stats">
       <span class="moves-counter">Ходов: <strong>{moves}</strong></span>
     </div>
-  >} />
+  </GameFooter>
 
   <MinigameModal {modal} />
 </BodyWrapper>
@@ -264,8 +251,3 @@
     font-size: 1.1rem;
   }
 </style>
-
-<script lang="ts">
-  // Default export для совместимости с MinigameLauncher
-  export default {};
-</script>

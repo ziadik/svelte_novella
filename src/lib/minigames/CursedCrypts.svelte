@@ -6,7 +6,6 @@
   import MinigameModal from './components/MinigameModal.svelte';
   import type { MinigameProps, ModalState } from './types';
 
-  // --- Props ---
   let {
     integrated = false,
     onWin,
@@ -16,34 +15,23 @@
     bucketName = "dracula",
   } = $props<MinigameProps>();
 
-  // --- Настройки ---
   const ROWS = 8;
   const COLS = 8;
   const MINES = 10;
 
-  // --- State ---
   let board = $state<Array<{ isMine: boolean; revealed: boolean; flagged: boolean; adjacentMines: number }>>([]);
   let isGameOver = $state(false);
   let hasWon = $state(false);
   let firstClick = $state(true);
 
-  let modal = $state<ModalState>({
-    show: false,
-    title: "",
-    text: "",
-    actions: [],
-  });
+  let modal = $state<ModalState>({ show: false, title: "", text: "", actions: [] });
 
-  onMount(() => {
-    initGame();
-  });
+  onMount(() => initGame());
 
-  // Вычисляемые свойства
   let revealedCount = $derived(board.filter(cell => cell.revealed).length);
   let totalCells = ROWS * COLS;
   let isWin = $derived(hasWon || revealedCount === totalCells - MINES);
 
-  // --- Инициализация ---
   function initGame(): void {
     board = Array(totalCells).fill(null).map(() => ({
       isMine: false,
@@ -67,7 +55,6 @@
       }
     }
 
-    // Подсчёт соседних мин
     for (let i = 0; i < totalCells; i++) {
       if (!board[i].isMine) {
         board[i].adjacentMines = countAdjacentMines(i);
@@ -95,7 +82,6 @@
     return count;
   }
 
-  // --- Логика игры ---
   function handleCellClick(index: number): void {
     if (isGameOver || board[index].revealed || board[index].flagged) return;
 
@@ -105,7 +91,6 @@
     }
 
     if (board[index].isMine) {
-      // Поражение
       revealAllMines();
       isGameOver = true;
       hasWon = false;
@@ -161,7 +146,6 @@
     }
   }
 
-  // --- Статус игры ---
   function checkGameStatus(): void {
     if (isWin()) {
       hasWon = true;
@@ -186,7 +170,6 @@
     }
   }
 
-  // --- Modal Helpers ---
   function showModal(title: string, text: string, actions: Array<{ text: string; action: () => void; class?: string }>): void {
     if (integrated) return;
     modal = { show: true, title, text, actions };
@@ -240,8 +223,7 @@
     </div>
   </div>
 
-  <GameFooter {rewardItem} {items} {bucketName} >
-
+  <GameFooter {rewardItem} {items} {bucketName}>
     <div class="footer-stats">
       <span class="mines-counter">💀 {MINES}</span>
       <span class="flag-counter">🚩 {board.filter(c => c.flagged).length}</span>
@@ -341,8 +323,3 @@
     color: #ececec;
   }
 </style>
-
-<script lang="ts">
-  // Default export для совместимости с MinigameLauncher
-  export default {};
-</script>

@@ -10,10 +10,10 @@
     integrated = false,
     onWin,
     onLose,
-    rewardItem = null,
+    rewardItem,
     items = [],
     bucketName = "dracula",
-  } = $props<MinigameProps>();
+  }: MinigameProps = $props();
 
   // Настройки
   const ROWS = 6;
@@ -35,7 +35,7 @@
 
   onMount(() => initGame());
 
-  let remainingCount = $derived(() => {
+  function getRemainingCount(): number {
     let count = 0;
     for (let r = 1; r <= ROWS; r++) {
       for (let c = 1; c <= COLS; c++) {
@@ -43,8 +43,9 @@
       }
     }
     return count;
-  });
+  }
 
+  let remainingCount = $derived(getRemainingCount());
   let isHintAvailable = $derived(hintCooldown < 1);
 
   function initGame(): void {

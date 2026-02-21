@@ -6,7 +6,6 @@
   import MinigameModal from './components/MinigameModal.svelte';
   import type { MinigameProps, ModalState } from './types';
 
-  // --- Props ---
   let {
     integrated = false,
     onWin,
@@ -16,7 +15,6 @@
     bucketName = "dracula",
   } = $props<MinigameProps>();
 
-  // --- Настройки ---
   const SIZE = 12;
   const MAX_MOVES = 25;
 
@@ -29,29 +27,19 @@
     { name: "yellow", value: "#ffeaa7", icon: "🟡" },
   ];
 
-  // --- State ---
   let board = $state<number[][]>([]);
   let moves = $state(0);
   let isGameOver = $state(false);
 
-  let modal = $state<ModalState>({
-    show: false,
-    title: "",
-    text: "",
-    actions: [],
-  });
+  let modal = $state<ModalState>({ show: false, title: "", text: "", actions: [] });
 
-  onMount(() => {
-    initGame();
-  });
+  onMount(() => initGame());
 
-  // Проверка победы (все клетки одного цвета)
   let isWin = $derived(() => {
     const firstColor = board[0][0];
     return board.every(row => row.every(cell => cell === firstColor));
   });
 
-  // --- Инициализация ---
   function initGame(): void {
     board = [];
     moves = 0;
@@ -67,7 +55,6 @@
     }
   }
 
-  // --- Логика игры ---
   function floodFill(startR: number, startC: number, oldColor: number, newColor: number): void {
     if (startR < 0 || startR >= SIZE || startC < 0 || startC >= SIZE) return;
     if (board[startR][startC] !== oldColor) return;
@@ -91,7 +78,6 @@
     checkGameStatus();
   }
 
-  // --- Статус игры ---
   function checkGameStatus(): void {
     if (isWin()) {
       isGameOver = true;
@@ -124,7 +110,6 @@
     }
   }
 
-  // --- Modal Helpers ---
   function showModal(title: string, text: string, actions: Array<{ text: string; action: () => void; class?: string }>): void {
     if (integrated) return;
     modal = { show: true, title, text, actions };
@@ -168,11 +153,11 @@
     {/each}
   </div>
 
-  <GameFooter {rewardItem} {items} {bucketName} 
+  <GameFooter {rewardItem} {items} {bucketName}>
     <div class="footer-stats">
       <span class="moves-counter">Ходов: <strong>{moves}</strong> / {MAX_MOVES}</span>
     </div>
-  >} />
+  </GameFooter>
 
   <MinigameModal {modal} />
 </BodyWrapper>
@@ -274,8 +259,3 @@
     font-size: 1.1rem;
   }
 </style>
-
-<script lang="ts">
-  // Default export для совместимости с MinigameLauncher
-  export default {};
-</script>

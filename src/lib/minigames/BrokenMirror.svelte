@@ -6,7 +6,6 @@
   import MinigameModal from './components/MinigameModal.svelte';
   import type { MinigameProps, ModalState } from './types';
 
-  // --- Props ---
   let {
     integrated = false,
     onWin,
@@ -16,26 +15,16 @@
     bucketName = "dracula",
   } = $props<MinigameProps>();
 
-  // --- Настройки ---
   const SIZE = 4;
 
-  // --- State ---
   let board = $state<(number | null)[][]>([]);
   let moves = $state(0);
   let isGameOver = $state(false);
 
-  let modal = $state<ModalState>({
-    show: false,
-    title: "",
-    text: "",
-    actions: [],
-  });
+  let modal = $state<ModalState>({ show: false, title: "", text: "", actions: [] });
 
-  onMount(() => {
-    initGame();
-  });
+  onMount(() => initGame());
 
-  // Проверка победы
   let isWin = $derived(() => {
     let expected = 1;
     for (let r = 0; r < SIZE; r++) {
@@ -51,26 +40,22 @@
     return true;
   });
 
-  // --- Инициализация ---
   function initGame(): void {
     board = [];
     moves = 0;
     isGameOver = false;
     hideModal();
 
-    // Создание решённой доски
     let tiles: (number | null)[] = [];
     for (let i = 1; i < SIZE * SIZE; i++) {
       tiles.push(i);
     }
     tiles.push(null);
 
-    // Перемешивание с проверкой на решаемость
     do {
       tiles = tiles.sort(() => Math.random() - 0.5);
     } while (!isSolvable(tiles));
 
-    // Заполнение доски
     let index = 0;
     for (let r = 0; r < SIZE; r++) {
       let row: (number | null)[] = [];
@@ -91,7 +76,6 @@
       }
     }
 
-    // Находим позицию пустой клетки
     let emptyRow = 0;
     for (let i = 0; i < tiles.length; i++) {
       if (tiles[i] === null) {
@@ -100,7 +84,6 @@
       }
     }
 
-    // Для 4x4: чётность инверсий должна совпадать с чётностью (SIZE - emptyRow)
     if (SIZE % 2 === 0) {
       return (inversions % 2) === ((SIZE - emptyRow) % 2);
     } else {
@@ -108,7 +91,6 @@
     }
   }
 
-  // --- Логика игры ---
   function findEmpty(): { r: number; c: number } | null {
     for (let r = 0; r < SIZE; r++) {
       for (let c = 0; c < SIZE; c++) {
@@ -128,7 +110,6 @@
     const dc = Math.abs(c - empty.c);
 
     if ((dr === 1 && dc === 0) || (dr === 0 && dc === 1)) {
-      // Обмен значениями
       board[empty.r][empty.c] = board[r][c];
       board[r][c] = null;
       moves++;
@@ -136,7 +117,6 @@
     }
   }
 
-  // --- Статус игры ---
   function checkGameStatus(): void {
     if (isWin()) {
       isGameOver = true;
@@ -160,7 +140,6 @@
     }
   }
 
-  // --- Modal Helpers ---
   function showModal(title: string, text: string, actions: Array<{ text: string; action: () => void; class?: string }>): void {
     if (integrated) return;
     modal = { show: true, title, text, actions };
@@ -196,11 +175,11 @@
     </div>
   </div>
 
-  <GameFooter {rewardItem} {items} {bucketName} 
+  <GameFooter {rewardItem} {items} {bucketName}>
     <div class="footer-stats">
       <span class="moves-counter">Ходов: <strong>{moves}</strong></span>
     </div>
-  >} />
+  </GameFooter>
 
   <MinigameModal {modal} />
 </BodyWrapper>
@@ -293,8 +272,3 @@
     font-size: 1.1rem;
   }
 </style>
-
-<script lang="ts">
-  // Default export для совместимости с MinigameLauncher
-  export default {};
-</script>

@@ -6,7 +6,6 @@
   import MinigameModal from './components/MinigameModal.svelte';
   import type { MinigameProps, ModalState } from './types';
 
-  // --- Props ---
   let {
     integrated = false,
     onWin,
@@ -16,11 +15,9 @@
     bucketName = "dracula",
   } = $props<MinigameProps>();
 
-  // --- Настройки ---
   const SIZE = 4;
   const WIN_TARGET = 2048;
 
-  // Эволюция монстров
   const EVOLUTION: Record<number, string> = {
     2: "🦇",
     4: "👻",
@@ -49,18 +46,12 @@
     2048: "#ffd700",
   };
 
-  // --- State ---
   let board = $state<number[][]>([]);
   let score = $state(0);
   let isGameOver = $state(false);
   let hasWon = $state(false);
 
-  let modal = $state<ModalState>({
-    show: false,
-    title: "",
-    text: "",
-    actions: [],
-  });
+  let modal = $state<ModalState>({ show: false, title: "", text: "", actions: [] });
 
   onMount(() => {
     initGame();
@@ -68,7 +59,8 @@
     return () => window.removeEventListener('keydown', handleKeydown);
   });
 
-  // --- Инициализация ---
+  let isWin = $derived(board.flat().every((cell) => cell >= WIN_TARGET));
+
   function initGame(): void {
     board = Array(SIZE).fill(null).map(() => Array(SIZE).fill(0));
     score = 0;
@@ -92,7 +84,6 @@
     }
   }
 
-  // --- Логика игры ---
   function handleKeydown(e: KeyboardEvent): void {
     if (isGameOver) return;
 
@@ -179,7 +170,6 @@
     return moved;
   }
 
-  // --- Touch events ---
   let touchStartX = $state(0);
   let touchStartY = $state(0);
 
@@ -212,7 +202,6 @@
     }
   }
 
-  // --- Статус игры ---
   function checkGameStatus(): void {
     if (!hasWon) {
       for (let r = 0; r < SIZE; r++) {
@@ -274,7 +263,6 @@
     }
   }
 
-  // --- Modal Helpers ---
   function showModal(title: string, text: string, actions: Array<{ text: string; action: () => void; class?: string }>): void {
     if (integrated) return;
     modal = { show: true, title, text, actions };
@@ -296,7 +284,11 @@
     <div id="grid">
       {#each board as row, r (r)}
         {#each row as cell, c (c)}
-          <div class="cell" class:cell-{cell} style="background-color: {COLORS[cell] || '#2a2a40'};">
+          <div
+            class="cell"
+            class:cell-{cell}
+            style="background-color: {COLORS[cell] || '#2a2a40'};"
+          >
             {cell > 0 ? EVOLUTION[cell] || cell : ""}
           </div>
         {/each}
@@ -304,9 +296,8 @@
     </div>
   </div>
 
-  <GameFooter {rewardItem} {items} {bucketName} >
+  <GameFooter {rewardItem} {items} {bucketName}>
     <div class="footer-stats">
-    
       <span class="score-counter">Очки: <strong>{score}</strong></span>
     </div>
   </GameFooter>
@@ -425,8 +416,3 @@
     font-size: 1.1rem;
   }
 </style>
-
-<script lang="ts">
-  // Default export для совместимости с MinigameLauncher
-  export default {};
-</script>
