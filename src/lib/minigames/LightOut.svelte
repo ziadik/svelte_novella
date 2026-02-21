@@ -92,7 +92,7 @@
   }
 
   function showModal(title: string, text: string, actions: Array<{ text: string; action: () => void; class?: string }>): void {
-    if (integrated) return;
+    // if (integrated) return;
     modal = { show: true, title, text, actions };
   }
 
