@@ -151,7 +151,7 @@
   }
 
   function checkGameStatus(): void {
-    if (isWin()) {
+    if (isWin) {
       hasWon = true;
       isGameOver = true;
       if (integrated) {
@@ -197,7 +197,7 @@
       if (cell.adjacentMines === 0) return "";
       return cell.adjacentMines.toString();
     }
-    if (cell.flagged) return "🚩";
+    if (cell.flagged) return "🕯";
     return "";
   }
 
@@ -217,20 +217,20 @@
   <div id="game-container">
     <div id="grid" style="grid-template-columns: repeat({COLS}, 1fr);">
       {#each board as cell, index (index)}
-        <div
+        <button
+          type="button"
           class="cell"
           class:revealed={cell.revealed}
           class:mine={cell.isMine && cell.revealed}
           class:flagged={cell.flagged}
           onclick={() => handleCellClick(index)}
           oncontextmenu={(e) => handleCellRightClick(index, e)}
-          role="button"
-          tabindex="0"
+          aria-label={cell.revealed ? (cell.isMine ? 'Мина' : `Ячейка с ${cell.adjacentMines} минами`) : (cell.flagged ? 'Флаг' : 'Неизвестно')}
         >
           <span class="cell-content" style="color: {cell.revealed && !cell.isMine ? getNumberColor(cell.adjacentMines) : ''}">
             {getCellContent(cell)}
           </span>
-        </div>
+        </button>
       {/each}
     </div>
   </div>
@@ -238,7 +238,7 @@
   <GameFooter {rewardItem} {items} {bucketName}>
     <div class="footer-stats">
       <span class="mines-counter">💀 {MINES}</span>
-      <span class="flag-counter">🚩 {board.filter(c => c.flagged).length}</span>
+      <span class="flag-counter">🕯 {board.filter(c => c.flagged).length}</span>
     </div>
   </GameFooter>
 
@@ -278,6 +278,13 @@
     transition: all 0.1s;
     border: 2px outset #5e5c8a;
     user-select: none;
+    padding: 0;
+    font-family: inherit;
+  }
+
+  .cell:focus-visible {
+    outline: 2px solid #e94560;
+    outline-offset: 2px;
   }
 
   @media (max-width: 400px) {

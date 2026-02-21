@@ -240,21 +240,21 @@
     <div id="grid" style="grid-template-columns: repeat({COLS}, 1fr); grid-template-rows: repeat({ROWS}, 1fr);">
       {#each board as row, r (r)}
         {#each row as icon, c (c)}
-          <div
+          <button
+            type="button"
             class="cell"
             class:flipped={flipped[r]?.[c]}
             class:matched={matched[r]?.[c]}
             class:selected={firstSelected?.r === r && firstSelected?.c === c}
             class:hint-glow={hintCells.some((h) => h.r === r && h.c === c)}
             onclick={() => handleCellClick(r, c)}
-            role="button"
-            tabindex="0"
+            aria-label={`Ячейка ${r}, ${c}`}
           >
             <div class="card-inner">
               <div class="card-front">{icon}</div>
               <div class="card-back">?</div>
             </div>
-          </div>
+          </button>
         {/each}
       {/each}
     </div>
@@ -282,10 +282,6 @@
 </BodyWrapper>
 
 <style>
-  .body-wrapper {
-    --cell-size: 11vmin;
-  }
-
   #game-container {
     position: relative;
     background-color: rgba(0, 0, 0, 0.5);
@@ -316,6 +312,8 @@
     height: var(--cell-size);
     max-width: 80px;
     max-height: 80px;
+    width: 80px;
+    height: 80px;
     perspective: 1000px;
     cursor: pointer;
     border-radius: 8px;
@@ -324,6 +322,13 @@
     box-shadow: none;
     transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     position: relative;
+    padding: 0;
+    font-family: inherit;
+  }
+
+  .cell:focus-visible {
+    outline: 2px solid #e94560;
+    outline-offset: 2px;
   }
 
   @media (min-width: 800px) {
@@ -333,7 +338,7 @@
     }
   }
 
-  @media (max-width: 390px) {
+  @media (max-width: 800px) {
     .cell {
       width: 60px;
       height: 60px;

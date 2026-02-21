@@ -112,19 +112,19 @@
     <div id="grid" style="grid-template-columns: repeat({COLS}, 1fr); grid-template-rows: repeat({ROWS}, 1fr);">
       {#each board as row, r (r)}
         {#each row as lit, c (c)}
-          <div
+          <button
+            type="button"
             class="cell"
             class:lit={lit}
             onclick={() => handleCellClick(r, c)}
-            role="button"
-            tabindex="0"
+            aria-label={`Свеча ${r}, ${c}`}
           >
             <div class="candle">
               {#if lit}
                 <div class="flame"></div>
               {/if}
             </div>
-          </div>
+          </button>
         {/each}
       {/each}
     </div>
@@ -169,6 +169,13 @@
     cursor: pointer;
     transition: all 0.2s;
     border: 2px solid #3d3b5c;
+    padding: 0;
+    font-family: inherit;
+  }
+
+  .cell:focus-visible {
+    outline: 2px solid #e94560;
+    outline-offset: 2px;
   }
 
   @media (max-width: 400px) {

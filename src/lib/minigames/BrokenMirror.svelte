@@ -169,15 +169,16 @@
     <div id="grid" style="grid-template-columns: repeat({SIZE}, 1fr);">
       {#each board as row, r (r)}
         {#each row as tile, c (c)}
-          <div
+          <button
+            type="button"
             class="cell"
             class:empty={tile === null}
             onclick={() => handleTileClick(r, c)}
-            role="button"
-            tabindex="0"
+            disabled={tile === null}
+            aria-label={tile === null ? 'Пустая ячейка' : `Ячейка ${tile}`}
           >
             {tile}
-          </div>
+          </button>
         {/each}
       {/each}
     </div>
@@ -226,6 +227,13 @@
     transition: transform 0.15s, box-shadow 0.2s;
     border: 2px solid #5e5c8a;
     box-shadow: 0 4px 0 rgba(0, 0, 0, 0.3);
+    padding: 0;
+    font-family: inherit;
+  }
+
+  .cell:focus-visible {
+    outline: 2px solid #e94560;
+    outline-offset: 2px;
   }
 
   @media (max-width: 400px) {
@@ -257,7 +265,8 @@
     background: transparent;
     border: 2px dashed rgba(255, 255, 255, 0.1);
     box-shadow: none;
-    cursor: default;
+    cursor: not-allowed;
+    opacity: 0.5;
   }
 
   .footer-stats {
