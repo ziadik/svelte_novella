@@ -5,7 +5,7 @@
   import MinigameLauncher from "./MinigameLauncher.svelte";
   import { bucketName as defaultBucketName, supabaseUrlFile } from "../store/store.svelte";
 
-  let { index, dialogue: propDialogue, bucketName = defaultBucketName } = $props(); // bucketName может быть передан из редактора
+  let { index, dialogue: propDialogue, bucketName = defaultBucketName }: { index?: number; dialogue?: any; bucketName?: string } = $props(); // bucketName может быть передан из редактора
 console.log(bucketName);
 // Если пропс dialogue не передан, берем из стора (режим игры)
 const currentDialogue = $derived(propDialogue || gameState.findDialogue(gameState.currentDialogueId));

@@ -138,7 +138,10 @@
         <input 
           type="checkbox" 
           checked={hasMiniGame}
-          onchange={(e) => handleMiniGameToggle(e.target.checked)}
+          onchange={(e) => {
+            const target = e.target as HTMLInputElement;
+            handleMiniGameToggle(target.checked);
+          }}
         /> 
         Запустить мини-игру
       </label>
@@ -151,7 +154,10 @@
           <select 
             id="option-mg-id-{index}"
             value={getMiniGame()!.id}
-            onchange={(e) => updateMiniGameField('id', e.target.value)}
+            onchange={(e) => {
+              const target = e.target as HTMLSelectElement;
+              updateMiniGameField('id', target.value);
+            }}
             class="input select"
           >
             <option value="">-- Выберите игру --</option>
@@ -172,7 +178,10 @@
             <select 
               id="option-mg-win-{index}"
               value={getMiniGame()!.onWinDialogueId}
-              onchange={(e) => updateMiniGameField('onWinDialogueId', e.target.value)}
+              onchange={(e) => {
+                const target = e.target as HTMLSelectElement;
+                updateMiniGameField('onWinDialogueId', target.value);
+              }}
               class="input select"
             >
               <option value="">-- Выберите --</option>
@@ -189,7 +198,10 @@
             <select 
               id="option-mg-lose-{index}"
               value={getMiniGame()!.onLoseDialogueId}
-              onchange={(e) => updateMiniGameField('onLoseDialogueId', e.target.value)}
+              onchange={(e) => {
+                const target = e.target as HTMLSelectElement;
+                updateMiniGameField('onLoseDialogueId', target.value);
+              }}
               class="input select"
             >
               <option value="">-- Выберите --</option>
@@ -207,7 +219,10 @@
           <select 
             id="option-mg-reward-{index}"
             value={getMiniGame()!.rewardItem || ''}
-            onchange={(e) => updateMiniGameField('rewardItem', e.target.value)}
+            onchange={(e) => {
+              const target = e.target as HTMLSelectElement;
+              updateMiniGameField('rewardItem', target.value);
+            }}
             class="input select"
           >
             <option value="">-- Без награды --</option>
@@ -253,7 +268,10 @@
         <select 
           id="option-cond-type-{index}"
           value={getCondition().type}
-          onchange={(e) => handleConditionTypeChange(e.target.value as Condition['type'])}
+          onchange={(e) => {
+            const target = e.target as HTMLSelectElement;
+            handleConditionTypeChange(target.value as Condition['type']);
+          }}
           class="input select"
         >
           {#each conditionTypes as type (type)}
@@ -268,7 +286,10 @@
           <select 
             id="option-cond-item-{index}"
             value={getCondition().itemId || ''}
-            onchange={(e) => updateCondition({ itemId: e.target.value })}
+            onchange={(e) => {
+              const target = e.target as HTMLSelectElement;
+              updateCondition({ itemId: target.value });
+            }}
             class="input select"
           >
             <option value="">-- Выберите предмет --</option>
@@ -278,7 +299,7 @@
           </select>
         </div>
       {/if}
-      
+
       {#if getCondition().type === 'stat_greater'}
         <div class="form-group">
           <label for="option-cond-stat-{index}">Стата</label>
@@ -286,22 +307,26 @@
             type="text" 
             id="option-cond-stat-{index}"
             value={getCondition().statName || ''}
-            oninput={(e) => updateCondition({ statName: e.target.value })}
+            oninput={(e) => {
+              const target = e.target as HTMLInputElement;
+              updateCondition({ statName: target.value });
+            }}
             class="input" 
-            placeholder="knowledge" 
+            placeholder="knowledge"
           />
         </div>
         <div class="form-group">
           <label for="option-cond-stat-val-{index}">Значение ></label>
-          <input 
-            type="number" 
+          <input
+            type="number"
             id="option-cond-stat-val-{index}"
             value={getCondition().statValue || 0}
             oninput={(e) => {
-              const val = parseInt(e.target.value);
+              const target = e.target as HTMLInputElement;
+              const val = parseInt(target.value);
               updateCondition({ statValue: isNaN(val) ? 0 : val });
             }}
-            class="input" 
+            class="input"
           />
         </div>
       {/if}
@@ -309,13 +334,16 @@
       {#if getCondition().type === 'flag_true'}
         <div class="form-group full-width">
           <label for="option-cond-flag-{index}">Имя флага</label>
-          <input 
-            type="text" 
+          <input
+            type="text"
             id="option-cond-flag-{index}"
             value={getCondition().flagName || ''}
-            oninput={(e) => updateCondition({ flagName: e.target.value })}
-            class="input" 
-            placeholder="metDracula" 
+            oninput={(e) => {
+              const target = e.target as HTMLInputElement;
+              updateCondition({ flagName: target.value });
+            }}
+            class="input"
+            placeholder="metDracula"
           />
         </div>
       {/if}

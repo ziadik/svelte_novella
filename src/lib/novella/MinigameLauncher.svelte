@@ -14,9 +14,10 @@
     onLose: () => void;
     rewardItem?: any;
     items?: any[];
+    bucketName?: string;
   }
 
-  let { gameId, onWin, onLose, rewardItem, items, bucketName }: Props = $props();
+  let { gameId, onWin, onLose, rewardItem, items, bucketName = "dracula" }: Props = $props();
 
   function handleWin() {
     console.log('[MinigameLauncher] Game won!');

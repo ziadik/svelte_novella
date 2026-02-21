@@ -1,85 +1,50 @@
-<script>
-  import { tick, onMount } from "svelte";
-  import { createEventDispatcher } from "svelte";
+<script lang="ts">
+  import { onMount, tick } from "svelte";
+  import BodyWrapper from './components/BodyWrapper.svelte';
+  import GameHeader from './components/GameHeader.svelte';
+  import GameFooter from './components/GameFooter.svelte';
+  import MinigameModal from './components/MinigameModal.svelte';
+  import type { MinigameProps, ModalState } from './types';
 
-  // --- Props ---
   let {
-    // Режим интеграции с визуальной новеллой
     integrated = false,
-    // События для отправки результата
     onWin,
     onLose,
-    // Награда за победу
     rewardItem = null,
-    // Массив всех предметов для поиска описания
     items = [],
     bucketName = "dracula",
-  } = $props();
-
-  const dispatch = createEventDispatcher();
+  }: MinigameProps = $props();
 
   // --- Настройки ---
-  const ROWS = 8; // ← ИЗМЕНЕНО: было 6, стало 8
-  const COLS = 6; // ← ИЗМЕНЕНО: было 8, стало 6
+  const ROWS = 8;
+  const COLS = 6;
+  const HINT_COOLDOWN_TIME = 5;
+
   const ICONS = [
-    "🦄",
-    "🧙",
-    "👻",
-    "💀",
-    "🔥",
-    "🕷️",
-    "🕸️",
-    "🧟",
-    "‍♀️",
-    "⚰️",
-    "🐸",
-    "🦴",
-    "🔮",
-    "🧪",
-    "👹",
-    "🌜",
-    "🍭",
-    "💗",
-    "🌛",
-    "🖤",
-    "🗡️",
-    "🧛‍♀️",
-    "🗝️",
-    "🕯️",
-    "🌑",
-    "☠️",
-    "🧿",
-    "🌞",
+    "🦄", "🧙", "👻", "💀", "🔥", "🕷️",
+    "🕸️", "🧟", "🧟‍♀️", "⚰️", "🐸", "🦴",
+    "🔮", "🧪", "👹", "🌜", "🍭", "💗",
+    "🌛", "🖤", "🗡️", "🧛‍♀️", "🗝️", "🕯️",
+    "🌑", "☠️", "🧿", "🌞",
   ];
 
   // --- State (Runes) ---
-  let board = $state([]); // 2D массив иконок
-  let matched = $state([]); // 2D массив булевых (удалена ли плитка)
-  let shuffling = $state({}); // Объект для отслеживания анимации тряски {"r,c": true}
-  let hintCells = $state([]); // Массив координат для подсказки [{r, c}, {r, c}]
-
-  let firstSelected = $state(null); // {r, c}
+  let board = $state<string[][]>([]); // 2D массив иконок
+  let matched = $state<boolean[][]>([]); // 2D массив булевых (удалена ли плитка)
+  let shuffling = $state<Record<string, boolean>>({}); // Объект для отслеживания анимации тряски
+  let hintCells = $state<Array<{ r: number; c: number }>>([]); // Массив координат для подсказки
+  let firstSelected = $state<{ r: number; c: number } | null>(null);
   let isProcessing = $state(false);
   let isGameOver = $state(false);
-
-  let linePath = $state([]); // Координаты для SVG линии
+  let linePath = $state<string>(""); // Координаты для SVG polyline
   let lineKey = $state(0); // Ключ для перерисовки SVG и рестарта анимации
-
-  // Cooldown для подсказки (в секундах)
   let hintCooldown = $state(0); // Оставшееся время cooldown
-  const HINT_COOLDOWN_TIME = 5; // 5 секунд cooldown
 
-  // Modal State
-  let modal = $state({
-    show: false,
-    title: "",
-    text: "",
-    actions: [],
-  });
+  let modal = $state<ModalState>({ show: false, title: "", text: "", actions: [] });
 
   // Refs
-  let gridContainer;
-  let gridEl;
+  let gridContainer: HTMLElement;
+  let gridEl: HTMLElement;
 
   // Инициализация при монтировании
   onMount(() => {
@@ -87,7 +52,7 @@
   });
 
   // --- Вычисляемые свойства ---
-  function getRemainingCount() {
+  function getRemainingCount(): number {
     if (!matched || matched.length === 0) return 0;
     let count = 0;
     for (let r = 0; r < ROWS; r++) {
@@ -99,21 +64,10 @@
   }
 
   let remainingCount = $derived(getRemainingCount());
-
-  // Проверка доступности подсказки
   let isHintAvailable = $derived(hintCooldown < 1);
- 
-  // Получение данных о награде
-  function getRewardItemData() {
-    if (!rewardItem || !items || items.length === 0) return null;
-    const itemId = typeof rewardItem === "string" ? rewardItem : rewardItem.id;
-    return items.find((item) => item.id === itemId);
-  }
-
-  let rewardItemData = $derived(getRewardItemData());
 
   // --- Инициализация ---
-  function initGame() {
+  function initGame(): void {
     board = [];
     matched = [];
     firstSelected = null;
@@ -121,7 +75,7 @@
     isGameOver = false;
     shuffling = {};
     hintCells = [];
-    linePath = [];
+    linePath = "";
     hintCooldown = 0;
     hideModal();
 
@@ -130,19 +84,16 @@
     while (uniqueIcons.length < (ROWS * COLS) / 2) {
       uniqueIcons = [...uniqueIcons, ...uniqueIcons];
     }
-
-    let selectedIcons = uniqueIcons
-      .sort(() => 0.5 - Math.random())
-      .slice(0, (ROWS * COLS) / 2);
-    let deck = [];
+    let selectedIcons = uniqueIcons.sort(() => 0.5 - Math.random()).slice(0, (ROWS * COLS) / 2);
+    let deck: string[] = [];
     selectedIcons.forEach((icon) => deck.push(icon, icon));
     deck.sort(() => Math.random() - 0.5);
 
     // Заполнение сетки
     let index = 0;
     for (let r = 0; r < ROWS; r++) {
-      let rowBoard = [];
-      let rowMatched = [];
+      let rowBoard: string[] = [];
+      let rowMatched: boolean[] = [];
       for (let c = 0; c < COLS; c++) {
         rowBoard.push(deck[index++]);
         rowMatched.push(false);
@@ -156,9 +107,8 @@
   }
 
   // --- Логика игры ---
-  async function handleCellClick(r, c) {
+  async function handleCellClick(r: number, c: number): Promise<void> {
     if (isProcessing || matched[r][c] || isGameOver) return;
-
     // Сброс подсказки при клике
     if (hintCells.length > 0) hintCells = [];
 
@@ -196,7 +146,7 @@
     firstSelected = { r, c };
   }
 
-  async function handleCellKeyDown(r, c, event) {
+  async function handleCellKeyDown(r: number, c: number, event: KeyboardEvent): Promise<void> {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
       await handleCellClick(r, c);
@@ -204,7 +154,7 @@
   }
 
   // --- Подсказки ---
-  function startHintCooldown() {
+  function startHintCooldown(): void {
     hintCooldown = HINT_COOLDOWN_TIME;
     const timer = setInterval(() => {
       hintCooldown--;
@@ -214,11 +164,10 @@
     }, 1000);
   }
 
-  function showHint() {
+  function showHint(): void {
     if (isProcessing || isGameOver || !isHintAvailable) return;
 
-    // Логика поиска такая же, как в hasAvailableMoves, но возвращаем пару
-    let remainingTiles = [];
+    let remainingTiles: Array<{ r: number; c: number; icon: string }> = [];
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
         if (!matched[r][c]) {
@@ -227,20 +176,20 @@
       }
     }
 
-    let groups = {};
+    let groups: Record<string, Array<{ r: number; c: number; icon: string }>> = {};
     remainingTiles.forEach((tile) => {
       if (!groups[tile.icon]) groups[tile.icon] = [];
       groups[tile.icon].push(tile);
     });
 
-    for (let icon in groups) {
-      let tiles = groups[icon];
+    for (const icon in groups) {
+      const tiles = groups[icon];
       if (tiles.length < 2) continue;
 
       for (let i = 0; i < tiles.length; i++) {
         for (let j = i + 1; j < tiles.length; j++) {
-          let t1 = tiles[i];
-          let t2 = tiles[j];
+          const t1 = tiles[i];
+          const t2 = tiles[j];
           if (findPath(t1.r, t1.c, t2.r, t2.c)) {
             hintCells = [t1, t2];
             setTimeout(() => (hintCells = []), 1500);
@@ -249,25 +198,19 @@
         }
       }
     }
-    showModal("Нет ходов", "Не нашлось пар для соединения.", [
-      { text: "ОК", action: hideModal },
-    ]);
   }
 
   // --- Статус игры ---
-  function checkGameStatus() {
+  function checkGameStatus(): void {
     if (remainingCount === 0) {
       isGameOver = true;
-
       if (integrated) {
-        // В интегрированном режиме отправляем событие победы
-        if (onWin) {
-          onWin();
-        } else {
-          dispatch("win");
-        }
+        showModal("🎉 Победа!", "Все монстры пойманы!", []);
+        setTimeout(() => {
+          hideModal();
+          onWin?.();
+        }, 3000);
       } else {
-        // В автономном режиме показываем модальное окно
         showModal("🎉 Победа!", "Все монстры пойманы!", [
           { text: "Играть снова", action: initGame },
         ]);
@@ -277,7 +220,6 @@
 
     if (!hasAvailableMoves()) {
       if (integrated) {
-        // В интегрированном режиме автоматически перемешиваем
         setTimeout(() => shuffleBoard(), 1000);
       } else {
         showModal("😨 Тупик!", "Ходов больше нет. Перемешать?", [
@@ -301,23 +243,24 @@
     }
   }
 
-  function hasAvailableMoves() {
-    let remainingTiles = [];
+  function hasAvailableMoves(): boolean {
+    let remainingTiles: Array<{ r: number; c: number; icon: string }> = [];
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
         if (!matched[r][c]) remainingTiles.push({ r, c, icon: board[r][c] });
       }
     }
 
-    let groups = {};
+    let groups: Record<string, Array<{ r: number; c: number; icon: string }>> = {};
     remainingTiles.forEach((tile) => {
       if (!groups[tile.icon]) groups[tile.icon] = [];
       groups[tile.icon].push(tile);
     });
 
-    for (let icon in groups) {
-      let tiles = groups[icon];
+    for (const icon in groups) {
+      const tiles = groups[icon];
       if (tiles.length < 2) continue;
+
       for (let i = 0; i < tiles.length; i++) {
         for (let j = i + 1; j < tiles.length; j++) {
           if (findPath(tiles[i].r, tiles[i].c, tiles[j].r, tiles[j].c))
@@ -325,13 +268,14 @@
         }
       }
     }
+
     return false;
   }
 
   // --- Перемешивание ---
-  function shuffleBoard() {
-    let remainingIcons = [];
-    let remainingPositions = [];
+  function shuffleBoard(): void {
+    let remainingIcons: string[] = [];
+    let remainingPositions: Array<{ r: number; c: number }> = [];
 
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
@@ -343,19 +287,18 @@
     }
 
     if (remainingIcons.length === 0) return;
+
     remainingIcons.sort(() => Math.random() - 0.5);
 
     // Обновляем доску
     remainingPositions.forEach((pos, index) => {
       board[pos.r][pos.c] = remainingIcons[index];
-      // Запускаем анимацию тряски
       shuffling[`${pos.r},${pos.c}`] = true;
     });
 
     // Убираем класс тряски через 500мс
     setTimeout(() => {
       shuffling = {};
-
       // Рекурсивная проверка
       if (!hasAvailableMoves()) {
         shuffleBoard();
@@ -366,13 +309,14 @@
   }
 
   // --- Pathfinding (Логика пути) ---
-  function isEmpty(r, c) {
+  function isEmpty(r: number, c: number): boolean {
     if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return true;
     return matched[r][c];
   }
 
-  function checkLine(r1, c1, r2, c2) {
+  function checkLine(r1: number, c1: number, r2: number, c2: number): boolean {
     if (r1 !== r2 && c1 !== c2) return false;
+
     if (r1 === r2) {
       const minC = Math.min(c1, c2);
       const maxC = Math.max(c1, c2);
@@ -389,16 +333,17 @@
     return true;
   }
 
-  function findPath(r1, c1, r2, c2) {
+  function findPath(r1: number, c1: number, r2: number, c2: number): Array<{ r: number; c: number }> | null {
     // 0 поворотов
-    if (checkLine(r1, c1, r2, c2))
+    if (checkLine(r1, c1, r2, c2)) {
       return [
         { r: r1, c: c1 },
         { r: r2, c: c2 },
       ];
+    }
 
     // 1 поворот
-    let c1_r1_c2 = { r: r1, c: c2 };
+    const c1_r1_c2 = { r: r1, c: c2 };
     if (
       isEmpty(c1_r1_c2.r, c1_r1_c2.c) &&
       checkLine(r1, c1, c1_r1_c2.r, c1_r1_c2.c) &&
@@ -407,7 +352,7 @@
       return [{ r: r1, c: c1 }, c1_r1_c2, { r: r2, c: c2 }];
     }
 
-    let c1_r2_c1 = { r: r2, c: c1 };
+    const c1_r2_c1 = { r: r2, c: c1 };
     if (
       isEmpty(c1_r2_c1.r, c1_r2_c1.c) &&
       checkLine(r1, c1, c1_r2_c1.r, c1_r2_c1.c) &&
@@ -419,8 +364,8 @@
     // 2 поворота
     for (let r = -1; r <= ROWS; r++) {
       if (r === r1 || r === r2) continue;
-      let p1 = { r: r, c: c1 };
-      let p2 = { r: r, c: c2 };
+      const p1 = { r: r, c: c1 };
+      const p2 = { r: r, c: c2 };
       if (
         isEmpty(p1.r, p1.c) &&
         isEmpty(p2.r, p2.c) &&
@@ -434,8 +379,8 @@
 
     for (let c = -1; c <= COLS; c++) {
       if (c === c1 || c === c2) continue;
-      let p1 = { r: r1, c: c };
-      let p2 = { r: r2, c: c };
+      const p1 = { r: r1, c: c };
+      const p2 = { r: r2, c: c };
       if (
         isEmpty(p1.r, p1.c) &&
         isEmpty(p2.r, p2.c) &&
@@ -451,36 +396,30 @@
   }
 
   // --- Отрисовка линии ---
-  async function drawLine(path) {
+  async function drawLine(path: Array<{ r: number; c: number }>): Promise<void> {
     // Ждем обновления DOM перед измерением координат
     await tick();
-
     if (!gridContainer || !gridEl) return;
 
     const containerRect = gridContainer.getBoundingClientRect();
     const gridRect = gridEl.getBoundingClientRect();
 
     // Для вычисления "виртуальных" точек (за пределами сетки)
-    const baseCell = gridEl.querySelector(".cell"); // Первая доступная ячейка для замера размеров
+    const baseCell = gridEl.querySelector(".cell:not(.matched)"); // Первая доступная ячейка для замера размеров
     if (!baseCell) return;
 
     const cellW = baseCell.offsetWidth;
     const cellH = baseCell.offsetHeight;
     const style = window.getComputedStyle(gridEl);
     const gap = parseFloat(style.gap) || 4;
-
     const offsetX = gridRect.left - containerRect.left;
     const offsetY = gridRect.top - containerRect.top;
 
     const points = path
       .map((p) => {
-        let x, y;
+        let x: number, y: number;
         if (p.r >= 0 && p.r < ROWS && p.c >= 0 && p.c < COLS) {
           // Реальная ячейка
-          // Используем nth-child или querySelector для поиска конкретной ячейки
-          // В Svelte структура DOM стабильна, но безопаснее найти по data-атрибутам или индексам
-          // Но querySelector внутри gridEl с селектором по nth-child сложен для 2D.
-          // Проще: gridEl.children[p.r * COLS + p.c]
           const cell = gridEl.children[p.r * COLS + p.c];
           const rect = cell.getBoundingClientRect();
           x = rect.left - containerRect.left + rect.width / 2;
@@ -501,30 +440,28 @@
 
     return new Promise((resolve) => {
       setTimeout(() => {
-        linePath = [];
+        linePath = "";
         resolve();
       }, 350);
     });
   }
 
   // --- Modal Helpers ---
-  function showModal(title, text, actions) {
-    // В интегрированном режиме не показываем модальные окна
-    if (integrated) return;
+  function showModal(title: string, text: string, actions: Array<{ text: string; action: () => void; class?: string }>): void {
     modal = { show: true, title, text, actions };
   }
 
-  function hideModal() {
+  function hideModal(): void {
     modal.show = false;
   }
 
-  function handleGiveUp() {
+  function handleGiveUp(): void {
     if (integrated) {
-      if (onLose) {
-        onLose();
-      } else {
-        dispatch("lose");
-      }
+      showModal("💀 Сдаюсь", "Вы сдались...", []);
+      setTimeout(() => {
+        hideModal();
+        onLose?.();
+      }, 3000);
     } else {
       showModal("Конец", "Попытайте удачу снова!", [
         { text: "ОК", action: initGame },
@@ -533,16 +470,8 @@
   }
 </script>
 
-<div class="body-wrapper">
-  <div id="game-header">
-
-    <button class="btn btn-secondary" onclick={initGame}>🔄 Новая игра</button>
-    {#if integrated}
-    <button class="btn btn-danger" onclick={handleGiveUp}>🏳️ Сдаться</button>
-    {/if}
-</div>
-  
-
+<BodyWrapper>
+  <GameHeader onRestart={initGame} onGiveUp={integrated ? handleGiveUp : undefined} showGiveUp={integrated} />
   <div id="game-container" bind:this={gridContainer}>
     <div
       id="grid"
@@ -567,7 +496,6 @@
         {/each}
       {/each}
     </div>
-
     <svg id="line-layer">
       {#key lineKey}
         {#if linePath}
@@ -580,302 +508,27 @@
       {/key}
     </svg>
   </div>
-
-  <div id="game-header">
-
-    {#if rewardItemData}
-      <div id="reward-panel">
-        {#if rewardItemData.icon}
-          <div class="item-icon reward-glow">
-            <img
-              src={`${import.meta.env.VITE_SUPABASE_URL_FILE}/storage/v1/object/public/${bucketName}/${rewardItemData.icon}`}
-              alt={rewardItemData.name}
-              class="icon-preview"
-              height="64px"
-            />
-          </div>
+  <GameFooter {rewardItem} {items} {bucketName}>
+    <div class="footer-stats">
+      <span class="tiles-counter">Осталось: <strong>{remainingCount}</strong></span>
+      <button
+        class="btn btn-secondary"
+        class:disabled={!isHintAvailable}
+        class:cooldown-active={hintCooldown > 0}
+        onclick={showHint}
+        disabled={!isHintAvailable}
+      >
+        💡
+        {#if hintCooldown > 0}
+          <span class="cooldown-timer">({hintCooldown})</span>
         {/if}
-        <div class="reward-info">
-          <div class="reward-label">Награда:</div>
-          <div class="reward-name">{rewardItemData.name}</div>
-        </div>
-      </div>
-    {/if}
-
-    <span class="tiles-counter"
-      >Осталось: <strong>{remainingCount}</strong></span
-    >
-    <button
-      class="btn btn-secondary"
-      class:disabled={!isHintAvailable}
-      class:cooldown-active={hintCooldown > 0}
-      onclick={showHint}
-      disabled={!isHintAvailable}
-    >
-      💡
-      {#if hintCooldown > 0}
-        <span class="cooldown-timer">({hintCooldown})</span>
-      {/if}
-    </button>
-  </div>
-</div>
-
-<!-- Модальное окно -->
-{#if modal.show}
-  <div id="modal-overlay" class:active={modal.show}>
-    <div class="modal-content">
-      <div class="modal-title">{modal.title}</div>
-      <div class="modal-text">{modal.text}</div>
-      <div class="modal-buttons">
-        {#each modal.actions as action (action.text)}
-          <button
-            class="btn"
-            class:btn-secondary={action.class === "btn-secondary"}
-            onclick={action.action}
-          >
-            {action.text}
-          </button>
-        {/each}
-      </div>
+      </button>
     </div>
-  </div>
-{/if}
+  </GameFooter>
+  <MinigameModal {modal} />
+</BodyWrapper>
 
 <style>
-  :global(body) {
-    margin: 0;
-    background-color: #120f1a;
-    background-image: radial-gradient(
-      circle at center,
-      #2a2a40 0%,
-      #120f1a 100%
-    );
-    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-    color: #ececec;
-    overflow-x: hidden;
-    overflow-y: auto;
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-
-  @media (max-width: 380px) {
-    :global(body) {
-      align-items: stretch;
-    }
-
-    .body-wrapper {
-      align-items: center;
-    }
-  }
-  .item-icon {
-    width: 40px;
-    height: 40px;
-    background: #2d2d2d;
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-    border: 1px solid #444;
-  }
-  
-  .icon-preview {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  
-  .body-wrapper {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: flex-start;
-    width: 100%;
-    height: 100%;
-    user-select: none;
-    padding: 10px;
-    box-sizing: border-box;
-    overflow-y: auto;
-  }
-
-  #game-header {
-    margin-bottom: 15px;
-    width: 100%;
-    max-width: 390px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 10px;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 20px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(5px);
-    z-index: 10;
-    box-sizing: border-box;
-  }
-
-  .tiles-counter {
-    font-size: 0.9rem;
-    color: #ececec;
-  }
-
-  .tiles-counter strong {
-    color: #ff9f43;
-    font-size: 1.1rem;
-  }
-
-  #reward-panel {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 12px;
-    background: rgba(255, 215, 0, 0.05);
-    border-radius: 15px;
-  }
-
-  .item-icon {
-    width: 36px;
-    height: 36px;
-    background: #2d2d2d;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-    border: 1px solid #444;
-  }
-
-  .icon-preview {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .reward-glow {
-    animation: icon-glow 2s ease-in-out infinite;
-    border-color: rgba(255, 215, 0, 0.5);
-    box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
-  }
-
-  @keyframes icon-glow {
-    0%,
-    100% {
-      box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
-      border-color: rgba(255, 215, 0, 0.4);
-    }
-    50% {
-      box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
-      border-color: rgba(255, 215, 0, 0.7);
-    }
-  }
-
-  .reward-info {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-  }
-
-  .reward-label {
-    font-size: 0.65rem;
-    color: rgba(255, 255, 255, 0.6);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-
-  @media (max-width: 340px) {
-    .reward-label {
-      display: none;
-    }
-  }
-
-  @media (max-width: 380px) {
-    #game-header {
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 8px;
-      padding: 8px;
-    }
-
-    #reward-panel {
-      order: 1;
-      width: 100%;
-      justify-content: center;
-    }
-
-    .tiles-counter {
-      order: 2;
-    }
-
-    .btn {
-      order: 3;
-    }
-  }
-
-  .reward-name {
-    font-size: 0.85rem;
-    color: #ffd700;
-    font-weight: bold;
-    text-shadow: 0 0 8px rgba(255, 215, 0, 0.5);
-  }
-
-  @media (max-width: 360px) {
-    .body-wrapper {
-      padding: 5px;
-    }
-
-    #game-header {
-      gap: 4px;
-      padding: 6px 8px;
-      flex-wrap: wrap;
-      justify-content: center;
-    }
-
-    .btn {
-      padding: 5px 10px;
-      min-width: 32px;
-      height: 32px;
-      font-size: 1rem;
-    }
-
-    .item-icon {
-      width: 32px;
-      height: 32px;
-    }
-
-    .reward-label {
-      font-size: 0.6rem;
-    }
-
-    .reward-name {
-      font-size: 0.75rem;
-    }
-
-    .tiles-counter {
-      font-size: 0.8rem;
-    }
-
-    .tiles-counter strong {
-      font-size: 1rem;
-    }
-
-    .cooldown-timer {
-      font-size: 0.65rem;
-    }
-
-    #reward-panel {
-      width: 100%;
-      justify-content: center;
-    }
-
-    #game-container {
-      padding: 3px;
-    }
-  }
-
   #game-container {
     position: relative;
     background-color: rgba(0, 0, 0, 0.5);
@@ -887,8 +540,7 @@
     justify-content: center;
     align-items: center;
     max-width: 100%;
-    overflow: hidden;
-    box-sizing: border-box;
+    overflow: visible;
   }
 
   #grid {
@@ -906,19 +558,16 @@
     height: 11vmin;
     max-width: 60px;
     max-height: 60px;
-    background-color: #3d3b5c;
+    background: linear-gradient(135deg, #4e4c75, #3d3b5c);
     border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: clamp(20px, 5vmin, 32px);
     cursor: pointer;
-    border: 2px solid transparent;
+    border: 2px solid #5e5c8a;
     box-shadow: 0 4px 0 rgba(0, 0, 0, 0.3);
-    transition:
-      transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275),
-      background-color 0.2s,
-      box-shadow 0.2s;
+    transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275), background-color 0.2s, box-shadow 0.2s;
     position: relative;
   }
 
@@ -928,6 +577,7 @@
       height: 60px;
     }
   }
+
   @media (max-width: 390px) {
     .cell {
       width: 45px;
@@ -942,7 +592,6 @@
       height: 38px;
       font-size: 20px;
     }
-
     #grid {
       gap: 3px;
     }
@@ -950,18 +599,18 @@
 
   .cell:hover {
     transform: translateY(-4px);
-    background-color: #4e4c75;
+    background: linear-gradient(135deg, #5e5c8a, #4e4c75);
     z-index: 10;
     box-shadow: 0 8px 0 rgba(0, 0, 0, 0.4);
   }
 
   .cell.selected {
-    background-color: #e94560;
+    background: linear-gradient(135deg, #e94560, #c0394d);
     color: white;
     transform: scale(1.1) translateY(-2px);
     box-shadow: 0 0 20px rgba(233, 69, 96, 0.8);
     z-index: 20;
-    border-color: #fff;
+    border-color: #ff9f43;
   }
 
   .cell.matched {
@@ -974,45 +623,27 @@
     animation: shake 0.4s ease-in-out;
     filter: brightness(1.5);
     border-color: rgba(255, 255, 255, 0.5);
-    /* Фон остается темным (#3d3b5c), цвет меняется только через filter */
   }
 
   .cell.hint-glow {
     animation: pulse-hint 1s infinite;
     border-color: #ffd700;
-    box-shadow:
-      0 0 15px #ffd700,
-      inset 0 0 10px #ffd700;
+    box-shadow: 0 0 15px #ffd700, inset 0 0 10px #ffd700;
     z-index: 15;
     filter: brightness(1.3);
   }
 
   @keyframes shake {
-    0%,
-    100% {
-      transform: translate(0, 0) rotate(0);
-    }
-    25% {
-      transform: translate(-3px, 3px) rotate(-3deg);
-    }
-    50% {
-      transform: translate(3px, -3px) rotate(3deg);
-    }
-    75% {
-      transform: translate(-3px, -3px) rotate(-3deg);
-    }
+    0%, 100% { transform: translate(0, 0) rotate(0); }
+    25% { transform: translate(-3px, 3px) rotate(-3deg); }
+    50% { transform: translate(3px, -3px) rotate(3deg); }
+    75% { transform: translate(-3px, -3px) rotate(-3deg); }
   }
 
   @keyframes pulse-hint {
-    0% {
-      transform: scale(1);
-    }
-    50% {
-      transform: scale(1.15);
-    }
-    100% {
-      transform: scale(1);
-    }
+    0% { transform: scale(1); }
+    50% { transform: scale(1.15); }
+    100% { transform: scale(1); }
   }
 
   #line-layer {
@@ -1039,9 +670,28 @@
   }
 
   @keyframes dash {
-    to {
-      stroke-dashoffset: 0;
-    }
+    to { stroke-dashoffset: 0; }
+  }
+
+  .footer-stats {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .tiles-counter {
+    font-size: 0.9rem;
+    color: #ececec;
+  }
+
+  .tiles-counter strong {
+    color: #ff9f43;
+    font-size: 1.1rem;
   }
 
   .btn {
@@ -1052,10 +702,7 @@
     border: none;
     border-radius: 12px;
     cursor: pointer;
-    transition:
-      transform 0.1s,
-      box-shadow 0.2s,
-      filter 0.2s;
+    transition: transform 0.1s, box-shadow 0.2s, filter 0.2s;
     box-shadow: 0 3px 8px rgba(233, 69, 96, 0.4);
     white-space: nowrap;
     min-width: 36px;
@@ -1101,89 +748,5 @@
     margin-left: 2px;
     color: #ffd700;
     font-weight: bold;
-  }
-
-  #modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.85);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 100;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.3s;
-  }
-
-  #modal-overlay.active {
-    opacity: 1;
-    pointer-events: all;
-  }
-
-  .modal-content {
-    background: #252338;
-    padding: 40px;
-    border-radius: 20px;
-    text-align: center;
-    border: 2px solid #5e5c8a;
-    box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
-    max-width: 90%;
-    width: 390px;
-    transform: scale(0.8);
-    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    box-sizing: border-box;
-  }
-
-  @media (max-width: 400px) {
-    .modal-content {
-      padding: 25px;
-      width: 95%;
-    }
-
-    .modal-title {
-      font-size: 1.5rem;
-    }
-
-    .modal-text {
-      font-size: 1rem;
-      margin-bottom: 20px;
-    }
-
-    .modal-buttons {
-      gap: 10px;
-    }
-
-    .btn {
-      padding: 8px 16px;
-      font-size: 1rem;
-    }
-  }
-
-  #modal-overlay.active .modal-content {
-    transform: scale(1);
-  }
-
-  .modal-title {
-    font-size: 2rem;
-    margin-bottom: 10px;
-    color: #ff9f43;
-  }
-
-  .modal-text {
-    margin-bottom: 30px;
-    font-size: 1.1rem;
-    line-height: 1.5;
-    color: #ccc;
-  }
-
-  .modal-buttons {
-    display: flex;
-    gap: 15px;
-    justify-content: center;
-    flex-wrap: wrap;
   }
 </style>

@@ -1,8 +1,11 @@
-<script>
+<script lang="ts">
   import { onMount } from "svelte";
-  import { createEventDispatcher } from "svelte";
+  import BodyWrapper from './components/BodyWrapper.svelte';
+  import GameHeader from './components/GameHeader.svelte';
+  import GameFooter from './components/GameFooter.svelte';
+  import MinigameModal from './components/MinigameModal.svelte';
+  import type { MinigameProps, ModalState } from './types';
 
-  // --- Props ---
   let {
     integrated = false,
     onWin,
@@ -10,580 +13,477 @@
     rewardItem = null,
     items = [],
     bucketName = "dracula",
-  } = $props();
+  } = $props<MinigameProps>();
 
-  const dispatch = createEventDispatcher();
+  type Card = {
+    suit: "hearts" | "diamonds" | "clubs" | "spades";
+    rank: number;
+    faceUp: boolean;
+  };
 
-  // --- Настройки ---
-  const SUITS = ["🔥", "💧", "🌪️", "🌿"]; // Огонь, Вода, Воздух, Земля
-  const RANKS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+  type Pile = Card[];
 
-  // --- State (Runes) ---
-  let deck = $state([]); // Колода для добора
-  let pyramid = $state([]); // Массив карт в пирамиде
-  let activeCard = $state(null); // Текущая открытая карта
-  let score = $state(0);
+  const SUITS: Array<"hearts" | "diamonds" | "clubs" | "spades"> = ["hearts", "diamonds", "clubs", "spades"];
+  const SUIT_ICONS: Record<string, string> = {
+    hearts: "♥",
+    diamonds: "♦",
+    clubs: "♣",
+    spades: "♠",
+  };
+  const RANKS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
+  const RANK_NAMES: Record<number, string> = {
+    1: "A",
+    11: "J",
+    12: "Q",
+    13: "K",
+  };
+
+  let stock = $state<Pile>([]);
+  let waste = $state<Pile>([]);
+  let foundations = $state<Pile[]>([[], [], [], []]);
+  let tableaus = $state<Pile[]>([[], [], [], [], [], [], []]);
+  let selectedCard = $state<{ pile: number; index: number } | null>(null);
+
   let isGameOver = $state(false);
+  let moves = $state(0);
 
-  // Modal State
-  let modal = $state({ show: false, title: "", text: "", actions: [] });
+  let modal = $state<ModalState>({ show: false, title: "", text: "", actions: [] });
 
-  onMount(() => {
-    initGame();
-  });
+  onMount(() => initGame());
 
-  // --- Вычисляемые свойства ---
-  let isWin = $derived(pyramid.every(c => c.removed));
-  
-  function getRewardItemData() {
-    if (!rewardItem || !items || items.length === 0) return null;
-    const itemId = typeof rewardItem === "string" ? rewardItem : rewardItem.id;
-    return items.find((item) => item.id === itemId);
-  }
-  let rewardItemData = $derived(getRewardItemData());
+  let isWin = $derived(foundations.every((f) => f.length === 13));
 
-  // --- Инициализация ---
-  function initGame() {
-    deck = [];
-    pyramid = [];
-    activeCard = null;
-    score = 0;
-    isGameOver = false;
-    hideModal();
-
-    // 1. Создаем колоду
-    let tempDeck = [];
-    for (let s = 0; s < SUITS.length; s++) {
-      for (let r = 0; r < RANKS.length; r++) {
-        tempDeck.push({
-          id: `card-${s}-${r}-${Math.random()}`,
-          suit: SUITS[s],
-          rank: r,
-          rankStr: RANKS[r],
-          removed: false,
-          row: 0, 
-          col: 0,
-        });
+  function initGame(): void {
+    let deck: Card[] = [];
+    for (const suit of SUITS) {
+      for (const rank of RANKS) {
+        deck.push({ suit, rank, faceUp: false });
       }
     }
-    tempDeck.sort(() => Math.random() - 0.5);
+    deck = deck.sort(() => Math.random() - 0.5);
 
-    // 2. Разметка поля (Grid coordinates)
-    // 3 пика: 28 карт.
-    // Row 0: 3 карты
-    // Row 1: 6 карт
-    // Row 2: 9 карт
-    // Row 3: 10 карт (base)
-    let layout = [
-      // R0
-      { r: 0, c: 0 }, { r: 0, c: 1 }, { r: 0, c: 2 },
-      // R1
-      { r: 1, c: 0 }, { r: 1, c: 1 }, { r: 1, c: 2 }, { r: 1, c: 3 }, { r: 1, c: 4 }, { r: 1, c: 5 },
-      // R2
-      { r: 2, c: 0 }, { r: 2, c: 1 }, { r: 2, c: 2 }, { r: 2, c: 3 }, { r: 2, c: 4 }, 
-      { r: 2, c: 5 }, { r: 2, c: 6 }, { r: 2, c: 7 }, { r: 2, c: 8 },
-      // R3
-      { r: 3, c: 0 }, { r: 3, c: 1 }, { r: 3, c: 2 }, { r: 3, c: 3 }, { r: 3, c: 4 },
-      { r: 3, c: 5 }, { r: 3, c: 6 }, { r: 3, c: 7 }, { r: 3, c: 8 }, { r: 3, c: 9 }
-    ];
+    stock = [];
+    waste = [];
+    foundations = [[], [], [], []];
+    tableaus = [[], [], [], [], [], [], []];
 
-    const pyramidCards = tempDeck.splice(0, 28);
-    
-    // Назначаем координаты
-    pyramidCards.forEach((card, i) => {
-      card.row = layout[i].r;
-      card.col = layout[i].c;
-    });
-
-    pyramid = pyramidCards;
-    deck = tempDeck; // Оставшиеся 24 карты
-    
-    drawFromDeck();
-  }
-
-  // --- Логика игры ---
-
-  function drawFromDeck() {
-    if (deck.length === 0) {
-      checkGameStatus(true); 
-      return;
+    let cardIndex = 0;
+    for (let i = 0; i < 7; i++) {
+      for (let j = i; j < 7; j++) {
+        const card = deck[cardIndex++];
+        card.faceUp = (i === j);
+        tableaus[j].push(card);
+      }
     }
-    activeCard = deck.pop();
+
+    while (cardIndex < deck.length) {
+      stock.push(deck[cardIndex++]);
+    }
+
+    selectedCard = null;
+    moves = 0;
+    isGameOver = false;
+    hideModal();
   }
 
-  // Проверка: закрыта ли карта другими
-  function isCovered(card) {
-    if (card.row === 0) return false; // Верхний ряд никогда не закрыт
-    
-    // Проверяем, есть ли над картой (ряд-1) другие карты
-    // Карта в ряду R закрывает карту в ряду R-1, если их индексы 'col' пересекаются.
-    // В нашей структуре:
-    // R0 (c:0,1,2) - маленькие пики
-    // R1 (c:0..5) - средний ряд
-    // R2 (c:0..8) - большой ряд
-    // R3 (c:0..9) - основание
-    
-    // Логика покрытия для Tri-Peaks:
-    // Карта (r, c) закрывает карты в ряду r-1.
-    // Но зависит от смещения сетки.
-    // Упрощенная и рабочая логика для этой раскладки:
-    // Карта закрыта, если существует неудаленная карта в ряду выше (row - 1),
-    // чей индекс col находится в диапазоне [c - 1, c + 1] (примерно).
-    
-    // Точная проверка для нашей сетки:
-    // R3 закрывает R2. R2 закрывает R1. R1 закрывает R0.
-    
-    for (let c of pyramid) {
-      if (c.removed) continue;
-      if (c.row === card.row - 1) {
-        // Проверка перекрытия по X
-        // Для наших координат: карта в ряду выше закрывает текущую, 
-        // если её индекс достаточно близко.
-        // Эвристика: разница col должна быть небольшой.
-        // Но проще: карта (r, c) обычно закрывает (r+1, c) и (r+1, c+1).
-        // Обратное: карта (r, c) закрыта картой (r-1, c') где c' близко к c.
-        
-        // Реализуем стандарт TriPeaks:
-        // Карта верхнего ряда 'шире' и закрывает две нижние.
-        // (0,0) закрывает (1,0) и (1,1).
-        // (0,1) закрывает (1,2) и (1,3).
-        // (0,2) закрывает (1,4) и (1,5).
-        
-        // Проверяем конкретно по структуре:
-        if (card.row === 3) {
-          // R3 закрыт картами R2
-          // R2 карта с col=c закрывает R3 карты с col=c и c+1 ? 
-          // Нет, в нашей сетке R2 имеет индексы 0..8, R3 имеет 0..9.
-          // Обычно R2(c) закрывает R3(c) и R3(c+1).
-          if (c.col === card.col || c.col === card.col - 1) return true;
-        } else if (card.row === 2) {
-          // R2 закрыт картами R1
-          // R1(0..5). R1(c) закрывает R2...
-          // Визуально: R1(0) над R2(0,1). R1(1) над R2(1,2).
-          if (c.col === card.col || c.col === card.col - 1) return true;
-        } else if (card.row === 1) {
-          // R1 закрыт картами R0
-          // R0(0) над R1(0,1). R0(1) над R1(2,3). R0(2) над R1(4,5).
-          if (c.col === 0 && card.col <= 1) return true;
-          if (c.col === 1 && card.col >= 2 && card.col <= 3) return true;
-          if (c.col === 2 && card.col >= 4) return true;
+  function handleStockClick(): void {
+    if (stock.length > 0) {
+      const card = stock.pop()!;
+      card.faceUp = true;
+      waste.push(card);
+    } else if (waste.length > 0) {
+      stock = waste.reverse().map(c => ({ ...c, faceUp: false }));
+      waste = [];
+    }
+    moves++;
+  }
+
+  function handleWasteClick(): void {
+    if (waste.length === 0) return;
+    selectedCard = { pile: -2, index: waste.length - 1 };
+  }
+
+  function handleTableauClick(tableauIndex: number, cardIndex: number): void {
+    const tableau = tableaus[tableauIndex];
+
+    if (selectedCard) {
+      const { pile: sourcePile, index: sourceIndex } = selectedCard;
+      let sourceCards: Card[];
+
+      if (sourcePile === -2) {
+        sourceCards = [waste[sourceIndex]];
+      } else {
+        sourceCards = tableaus[sourcePile].slice(sourceIndex);
+      }
+
+      const cardToMove = sourceCards[0];
+
+      if (tableau.length === 0) {
+        if (cardToMove.rank === 13) {
+          moveCards(sourcePile, sourceIndex, tableauIndex, -1);
+          selectedCard = null;
+          return;
+        }
+      } else {
+        const topCard = tableau[tableau.length - 1];
+        const isOppositeColor = (cardToMove.suit === "hearts" || cardToMove.suit === "diamonds") !==
+                               (topCard.suit === "hearts" || topCard.suit === "diamonds");
+        if (isOppositeColor && cardToMove.rank === topCard.rank - 1) {
+          moveCards(sourcePile, sourceIndex, tableauIndex, -1);
+          selectedCard = null;
+          return;
+        }
+      }
+
+      if (sourceCards.length === 1) {
+        for (let f = 0; f < 4; f++) {
+          const foundation = foundations[f];
+          if (foundation.length === 0) {
+            if (cardToMove.rank === 1) {
+              moveCards(sourcePile, sourceIndex, -1, f);
+              selectedCard = null;
+              return;
+            }
+          } else {
+            const topCard = foundation[foundation.length - 1];
+            if (cardToMove.suit === topCard.suit && cardToMove.rank === topCard.rank + 1) {
+              moveCards(sourcePile, sourceIndex, -1, f);
+              selectedCard = null;
+              return;
+            }
+          }
+        }
+      }
+
+      selectedCard = null;
+    } else {
+      if (cardIndex >= 0 && tableau[cardIndex]?.faceUp) {
+        selectedCard = { pile: tableauIndex, index: cardIndex };
+      }
+    }
+  }
+
+  function handleFoundationClick(foundationIndex: number): void {
+    if (!selectedCard) return;
+
+    const { pile: sourcePile, index: sourceIndex } = selectedCard;
+    let cardToMove: Card;
+
+    if (sourcePile === -2) {
+      cardToMove = waste[sourceIndex];
+    } else {
+      cardToMove = tableaus[sourcePile][sourceIndex];
+    }
+
+    const foundation = foundations[foundationIndex];
+
+    if (foundation.length === 0) {
+      if (cardToMove.rank === 1 && sourcePile >= -1) {
+        const sourceCards = sourcePile === -2 ? [waste[sourceIndex]] : tableaus[sourcePile].slice(sourceIndex);
+        if (sourceCards.length === 1) {
+          moveCards(sourcePile, sourceIndex, -1, foundationIndex);
+        }
+      }
+    } else {
+      const topCard = foundation[foundation.length - 1];
+      if (cardToMove.suit === topCard.suit && cardToMove.rank === topCard.rank + 1) {
+        const sourceCards = sourcePile === -2 ? [waste[sourceIndex]] : tableaus[sourcePile].slice(sourceIndex);
+        if (sourceCards.length === 1) {
+          moveCards(sourcePile, sourceIndex, -1, foundationIndex);
         }
       }
     }
-    return false;
+
+    selectedCard = null;
   }
 
-  function handleCardClick(card) {
-    if (isGameOver || card.removed) return;
-    
-    // Нельзя кликнуть закрытую карту
-    if (isCovered(card)) return;
-    
-    // Проверка ранга
-    if (isValidMove(card, activeCard)) {
-      moveCard(card);
+  function moveCards(sourcePile: number, sourceIndex: number, targetTableau: number, targetFoundation: number): void {
+    let cardsToMove: Card[];
+
+    if (sourcePile === -2) {
+      cardsToMove = [waste.pop()!];
+    } else {
+      cardsToMove = tableaus[sourcePile].splice(sourceIndex);
+      if (tableaus[sourcePile].length > 0) {
+        tableaus[sourcePile][tableaus[sourcePile].length - 1].faceUp = true;
+      }
     }
-  }
 
-  function isValidMove(card, active) {
-    if (!active) return false;
-    let diff = Math.abs(card.rank - active.rank);
-    // Циклическая последовательность (K -> A -> 2)
-    // diff 1 или 12 (для A-K)
-    if (diff === 1 || diff === 12) return true;
-    return false;
-  }
+    if (targetTableau >= 0) {
+      tableaus[targetTableau].push(...cardsToMove);
+    } else if (targetFoundation >= 0) {
+      foundations[targetFoundation].push(...cardsToMove);
+    }
 
-  function moveCard(card) {
-    card.removed = true;
-    score += 10;
-    
-    // Обновляем activeCard
-    activeCard = card; 
-    
+    moves++;
     checkGameStatus();
   }
 
-  function handleDeckClick() {
-    if (isGameOver) return;
-    if (deck.length > 0) {
-      drawFromDeck();
-    } else {
-      if (!hasMovesLeft()) {
-        endGame(false);
-      }
-    }
-  }
-
-  function hasMovesLeft() {
-    for (let c of pyramid) {
-      if (!c.removed && !isCovered(c)) {
-        if (isValidMove(c, activeCard)) return true;
-      }
-    }
-    return false;
-  }
-
-  function checkGameStatus(forcedLose = false) {
+  function checkGameStatus(): void {
     if (isWin) {
-      endGame(true);
-      return;
-    }
-
-    if (deck.length === 0 && !hasMovesLeft()) {
-      endGame(false);
-    }
-  }
-
-  function endGame(win) {
-    if (isGameOver) return;
-    isGameOver = true;
-
-    if (win) {
+      isGameOver = true;
       if (integrated) {
-        if (onWin) onWin(); else dispatch("win");
+        showModal("🎉 Победа!", `Вы собрали все души за ${moves} ходов!`, []);
+        setTimeout(() => {
+          hideModal();
+          onWin?.();
+        }, 3000);
       } else {
-        showModal("🏆 Башня Пала!", `Вы освободили все души! Счет: ${score}`, [
+        showModal("🎉 Победа!", `Вы собрали все души за ${moves} ходов!`, [
           { text: "Играть снова", action: initGame },
         ]);
       }
+    }
+  }
+
+  function handleGiveUp(): void {
+    if (integrated) {
+      showModal("💀 Сдаюсь", "Вы сдались...", []);
+      setTimeout(() => {
+        hideModal();
+        onLose?.();
+      }, 3000);
     } else {
-      if (integrated) {
-        if (onLose) onLose(); else dispatch("lose");
-      } else {
-        showModal("💀 Запечатано", "Души остались в ловушке.", [
-          { text: "Заново", action: initGame },
-        ]);
-      }
+      showModal("Конец", "Попробуйте ещё раз!", [
+        { text: "Новая игра", action: initGame },
+      ]);
     }
   }
 
-  // --- Helpers ---
-  
-  // Координаты для рендеринга (картинки)
-  function getCardStyle(card) {
-    // Контейнер ~320px. Карта 40px.
-    // R3 (10 карт): должны поместиться в ширину. 10 * 32px ~ 320px.
-    // Используем пиксели для точности.
-    
-    const cardW = 32;
-    const gap = 2; // Отступ между картами
-    
-    let x = 0;
-    let y = card.row * 30; // Вертикальный отступ
-
-    // Центрирование рядов
-    if (card.row === 0) {
-       // 3 карты. Ширина 3*cardW + 2*gap = 100px. Отступ слева (320-100)/2 = 110.
-       x = 110 + card.col * (cardW + gap);
-    } else if (card.row === 1) {
-       // 6 карт. Ширина ~200. Отступ 60.
-       x = 60 + card.col * (cardW + gap);
-    } else if (card.row === 2) {
-       // 9 карт. Ширина ~290. Отступ 15.
-       x = 15 + card.col * (cardW + gap);
-    } else if (card.row === 3) {
-       // 10 карт. Ширина 320 (впритык). Отступ 0.
-       x = card.col * (cardW + gap);
-    }
-    
-    return `left: ${x}px; top: ${y}px;`;
-  }
-
-  function showModal(title, text, actions) {
+  function showModal(title: string, text: string, actions: Array<{ text: string; action: () => void; class?: string }>): void {
     if (integrated) return;
     modal = { show: true, title, text, actions };
   }
-  function hideModal() { modal.show = false; }
+
+  function hideModal(): void {
+    modal.show = false;
+  }
+
+  function getRankDisplay(rank: number): string {
+    return RANK_NAMES[rank] || rank.toString();
+  }
+
+  function getCardColor(suit: string): string {
+    return (suit === "hearts" || suit === "diamonds") ? "#e94560" : "#ececec";
+  }
 </script>
 
-<div class="body-wrapper">
-  <!-- Header -->
-  <div id="game-header">
-    <button class="btn btn-secondary" onclick={initGame}>🔄 Заново</button>
-    <div class="score-panel">
-      <span>Очки: <strong>{score}</strong></span>
-    </div>
-    {#if integrated}
-      <button class="btn btn-danger" onclick={() => endGame(false)}>🏳️</button>
-    {/if}
-  </div>
+<BodyWrapper>
+  <GameHeader
+    onRestart={initGame}
+    onGiveUp={integrated ? handleGiveUp : undefined}
+    showGiveUp={integrated}
+  />
 
-  <!-- Game Area -->
   <div id="game-container">
-    <!-- Pyramid -->
-    <div id="pyramid-area">
-      {#each pyramid as card (card.id)}
-        <button 
-          class="card pyramid-card"
-          class:removed={card.removed}
-          class:covered={isCovered(card)}
-          class:playable={!isCovered(card) && !card.removed && activeCard && isValidMove(card, activeCard)}
-          style={getCardStyle(card)}
-          onclick={() => handleCardClick(card)}
-          disabled={card.removed || isCovered(card)}
-        >
-          {#if !card.removed}
-            {#if isCovered(card)}
-              <div class="card-back">🪦</div>
-            {:else}
-              <div class="card-front">
-                <span class="rank">{card.rankStr}</span>
-                <span class="suit">{card.suit}</span>
-              </div>
-            {/if}
-          {/if}
-        </button>
-      {/each}
-    </div>
-
-    <!-- Bottom UI: Deck & Active -->
-    <div id="bottom-bar">
-      <div id="stock-pile">
-        <button class="card card-back" onclick={handleDeckClick} disabled={deck.length === 0}>
-          {#if deck.length > 0}
-            🎴 <span class="deck-count">{deck.length}</span>
-          {:else}
-            🚫
-          {/if}
-        </button>
-        <span class="label">Колода</span>
-      </div>
-
-      <div id="active-pile">
-        {#if activeCard}
-          <div class="card card-front active">
-             <span class="rank">{activeCard.rankStr}</span>
-             <span class="suit">{activeCard.suit}</span>
-          </div>
+    <div class="top-row">
+      <div class="pile stock" onclick={handleStockClick}>
+        {#if stock.length > 0}
+          <div class="card back"></div>
         {:else}
-          <div class="card empty"></div>
+          <div class="card empty">🔄</div>
         {/if}
-        <span class="label">Жернов</span>
       </div>
-    </div>
-  </div>
 
-  <!-- Footer -->
-  <div id="game-footer">
-    {#if rewardItemData}
-      <div id="reward-panel">
-        <div class="item-icon reward-glow">
-          <img src={`${import.meta.env.VITE_SUPABASE_URL_FILE}/storage/v1/object/public/${bucketName}/${rewardItemData.icon}`} alt={rewardItemData.name} class="icon-preview" />
-        </div>
-        <div class="reward-info">
-          <div class="reward-label">Награда:</div>
-          <div class="reward-name">{rewardItemData.name}</div>
-        </div>
+      <div class="pile waste" onclick={handleWasteClick}>
+        {#if waste.length > 0}
+          <div class="card front" class:selected={selectedCard?.pile === -2}>
+            <span class="rank">{getRankDisplay(waste[waste.length - 1].rank)}</span>
+            <span class="suit" style="color: {getCardColor(waste[waste.length - 1].suit)}">
+              {SUIT_ICONS[waste[waste.length - 1].suit]}
+            </span>
+          </div>
+        {/if}
       </div>
-    {:else}
-       <div class="rules">Соберите пирамиду, выбирая карты на 1 старше или младше.</div>
-    {/if}
-  </div>
-</div>
 
-{#if modal.show}
-  <div id="modal-overlay" class:active={modal.show}>
-    <div class="modal-content">
-      <div class="modal-title">{modal.title}</div>
-      <div class="modal-text">{modal.text}</div>
-      <div class="modal-buttons">
-        {#each modal.actions as action (action.text)}
-          <button class="btn" onclick={action.action}>{action.text}</button>
+      <div class="foundations">
+        {#each foundations as foundation, f (f)}
+          <div class="pile foundation" onclick={() => handleFoundationClick(f)}>
+            {#if foundation.length > 0}
+              <div class="card front">
+                <span class="rank">{getRankDisplay(foundation[foundation.length - 1].rank)}</span>
+                <span class="suit" style="color: {getCardColor(foundation[foundation.length - 1].suit)}">
+                  {SUIT_ICONS[foundation[foundation.length - 1].suit]}
+                </span>
+              </div>
+            {:else}
+              <div class="card empty">👻</div>
+            {/if}
+          </div>
         {/each}
       </div>
     </div>
+
+    <div class="tableaus">
+      {#each tableaus as tableau, t (t)}
+        <div class="tableau" onclick={() => handleTableauClick(t, -1)}>
+          {#each tableau as card, c (c)}
+            <div
+              class="card"
+              class:front={card.faceUp}
+              class:back={!card.faceUp}
+              class:selected={selectedCard?.pile === t && selectedCard?.index === c}
+              onclick={(e) => {
+                e.stopPropagation();
+                handleTableauClick(t, c);
+              }}
+              style="margin-top: {c > 0 ? '-80%' : '0'}; z-index: {c};"
+            >
+              {#if card.faceUp}
+                <span class="rank">{getRankDisplay(card.rank)}</span>
+                <span class="suit" style="color: {getCardColor(card.suit)}">
+                  {SUIT_ICONS[card.suit]}
+                </span>
+              {/if}
+            </div>
+          {/each}
+        </div>
+      {/each}
+    </div>
   </div>
-{/if}
+
+  <GameFooter {rewardItem} {items} {bucketName}>
+    <div class="footer-stats">
+      <span class="moves-counter">Ходов: <strong>{moves}</strong></span>
+    </div>
+  </GameFooter>
+
+  <MinigameModal {modal} />
+</BodyWrapper>
 
 <style>
-  :global(body) {
-    margin: 0;
-    background-color: #120f1a;
-    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-    color: #ececec;
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    touch-action: manipulation;
-  }
-
-  .body-wrapper {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    width: 100%;
-    padding: 10px;
-    box-sizing: border-box;
-    gap: 10px;
-  }
-
-  #game-header, #game-footer {
-    width: 100%;
-    max-width: 340px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 15px;
-    box-sizing: border-box;
-    margin: 0 auto;
-  }
-  
-  .score-panel { font-weight: bold; color: #ff9f43; }
-
   #game-container {
     position: relative;
-    flex: 1;
+    background-color: rgba(0, 0, 0, 0.5);
+    padding: 10px;
+    border-radius: 15px;
+    box-shadow: 0 0 50px rgba(0, 0, 0, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    margin-bottom: 15px;
+  }
+
+  .top-row {
     display: flex;
-    flex-direction: column;
-    justify-content: flex-end; /* Push bottom bar to bottom */
-    align-items: center;
-    width: 100%;
-    max-width: 340px;
-    margin: 0 auto;
+    gap: 10px;
+    margin-bottom: 20px;
   }
 
-  /* --- Pyramid Layout --- */
-  #pyramid-area {
-    position: relative;
-    width: 100%;
-    height: 220px; /* Fixed height for the pyramid */
-    margin-bottom: 10px;
-  }
-
-  .card {
-    position: absolute;
-    width: 32px;
-    height: 46px;
-    border-radius: 4px;
-    border: none;
-    padding: 0;
+  .pile {
+    width: 50px;
+    height: 70px;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 12px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
-    transition: transform 0.1s, opacity 0.3s;
-    box-sizing: border-box;
+    cursor: pointer;
+    border: 1px dashed rgba(255, 255, 255, 0.2);
   }
 
-  .pyramid-card {
+  .foundations {
+    display: flex;
+    gap: 5px;
+    margin-left: auto;
+  }
+
+  .tableaus {
+    display: flex;
+    gap: 8px;
+  }
+
+  .tableau {
+    width: 50px;
+    min-height: 250px;
     cursor: pointer;
   }
 
-  .card-front {
-    background: #e94560;
-    color: white;
+  .card {
+    width: 50px;
+    height: 70px;
+    border-radius: 6px;
+    display: flex;
     flex-direction: column;
-    line-height: 1;
+    align-items: center;
+    justify-content: center;
     font-weight: bold;
-  }
-  
-  .card-front .suit { font-size: 14px; margin-top: 2px; }
-  .card-front .rank { font-size: 10px; }
-
-  .card-back {
-    background: #333;
-    color: #666;
-    font-size: 16px;
-    cursor: default;
-  }
-  
-  .covered {
-    cursor: default;
+    transition: transform 0.1s;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
   }
 
-  .playable {
-    box-shadow: 0 0 8px #ffd700;
-    border: 1px solid #ffd700;
-    z-index: 10;
-  }
-  
-  .playable:hover {
-    transform: translateY(-5px);
+  .card.front {
+    background-color: #3d3b5c;
+    color: #ececec;
+    border: 1px solid #5e5c8a;
   }
 
-  .removed {
-    opacity: 0;
-    pointer-events: none;
+  .card.back {
+    background: linear-gradient(135deg, #4e4c75, #3d3b5c);
+    border: 1px solid #5e5c8a;
   }
 
-  /* --- Bottom Bar --- */
-  #bottom-bar {
+  .card.empty {
+    background-color: transparent;
+    border: 2px dashed rgba(255, 255, 255, 0.1);
+    font-size: 1.5rem;
+    color: rgba(255, 255, 255, 0.2);
+  }
+
+  .card.selected {
+    transform: translateY(-10px);
+    box-shadow: 0 0 15px #ff9f43;
+    border-color: #ff9f43;
+  }
+
+  .rank {
+    font-size: 1rem;
+  }
+
+  .suit {
+    font-size: 1.2rem;
+  }
+
+  @media (max-width: 400px) {
+    .pile,
+    .card,
+    .tableau {
+      width: 40px;
+    }
+
+    .card,
+    .pile {
+      height: 55px;
+    }
+
+    .tableau {
+      min-height: 200px;
+    }
+
+    .rank {
+      font-size: 0.8rem;
+    }
+
+    .suit {
+      font-size: 1rem;
+    }
+  }
+
+  .footer-stats {
     display: flex;
-    gap: 20px;
     justify-content: center;
-    align-items: flex-end;
-    background: rgba(0,0,0,0.5);
-    padding: 10px;
-    border-radius: 15px;
-    width: 100%;
-    box-sizing: border-box;
-    margin-bottom: 10px;
-  }
-
-  #stock-pile, #active-pile {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-  }
-
-  .label { font-size: 0.65rem; color: #888; text-transform: uppercase; }
-
-  .deck-count {
-    position: absolute;
-    bottom: 1px;
-    right: 1px;
-    background: #000;
-    font-size: 8px;
-    padding: 0 2px;
-    border-radius: 3px;
-  }
-
-  .active {
-    border: 2px solid #fff;
-    box-shadow: 0 0 15px #e94560;
-  }
-  
-  .empty {
-    background: rgba(255,255,255,0.1);
-    border: 1px dashed #444;
-  }
-
-  /* Reward */
-  #reward-panel {
-    display: flex;
-    align-items: center;
     gap: 10px;
-    width: 100%;
-    justify-content: center;
+    padding: 8px 10px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
   }
-  .item-icon { width: 36px; height: 36px; background: #2d2d2d; border-radius: 8px; overflow: hidden; border: 1px solid #444; }
-  .icon-preview { width: 100%; height: 100%; object-fit: cover; }
-  .reward-glow { border-color: rgba(255, 215, 0, 0.5); box-shadow: 0 0 10px rgba(255, 215, 0, 0.3); }
-  .reward-info { display: flex; flex-direction: column; }
-  .reward-label { font-size: 0.7rem; color: #888; }
-  .reward-name { color: #ffd700; font-weight: bold; }
-  
-  .rules { font-size: 0.8rem; color: #aaa; text-align: center; }
 
-  /* Buttons & Modal */
-  .btn {
-    padding: 6px 12px; font-size: 1rem; background: linear-gradient(135deg, #e94560, #c0394d);
-    color: white; border: none; border-radius: 12px; cursor: pointer;
-    min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
+  .moves-counter {
+    font-size: 0.9rem;
+    color: #ececec;
   }
-  .btn-secondary { background: linear-gradient(135deg, #4e4c75, #3d3b5c); }
-  .btn-danger { background: linear-gradient(135deg, #6c757d, #495057); }
 
-  #modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: flex; justify-content: center; align-items: center; z-index: 100; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
-  #modal-overlay.active { opacity: 1; pointer-events: all; }
-  .modal-content { background: #252338; padding: 40px; border-radius: 20px; text-align: center; border: 2px solid #5e5c8a; width: 300px; }
-  .modal-title { font-size: 1.8rem; margin-bottom: 10px; color: #ff9f43; }
-  .modal-text { margin-bottom: 20px; color: #ccc; }
-  .modal-buttons { display: flex; gap: 10px; justify-content: center; }
+  .moves-counter strong {
+    color: #ff9f43;
+    font-size: 1.1rem;
+  }
 </style>

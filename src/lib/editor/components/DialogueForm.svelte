@@ -49,7 +49,10 @@
         type="text" 
         id="dialogue-id"
         bind:value={editorDerived.currentDialogue.id} 
-        onchange={(event) => editor.selectedDialogueId = event.target?.value}
+        onchange={(event) => {
+          const target = event.target as HTMLInputElement;
+          editor.selectedDialogueId = target.value;
+        }}
         class="input" 
       />
     </div>
@@ -59,7 +62,10 @@
       <select 
         id="dialogue-chapter"
         bind:value={editorDerived.currentDialogue.chapterId}
-        onchange={(event) => editor.selectedChapterId = event.target?.value}
+        onchange={(event) => {
+          const target = event.target as HTMLSelectElement;
+          editor.selectedChapterId = target.value;
+        }}
         class="input select"
       >
         <option value="">-- Не выбрано --</option>

@@ -205,7 +205,10 @@
                           placeholder="icon.png"
                         />
                         <select 
-                          onchange={(e) => item.icon = e.target.value} 
+                          onchange={(e) => {
+                            const target = e.target as HTMLSelectElement;
+                            item.icon = target.value;
+                          }}
                           class="input select"
                         >
                           <option value="">-- Выбрать из загруженных --</option>

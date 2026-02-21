@@ -4,7 +4,7 @@
   import { bucketName as defaultBucketName, supabaseUrlFile } from '../store/store.svelte';
 
   let { fileName, bucketName = defaultBucketName } = $props();
-  let canvas = $state();
+  let canvas = $state<HTMLCanvasElement | null>(null);
 
   onMount(() => {
     if (!canvas) return;

@@ -49,7 +49,7 @@
       <!-- Контейнер диалогов -->
       <div class="dialogues-container">
         {#if gameState.storyData}
-          <DialogueCard bucketName={gameState.selectedStory || undefined} />
+          <DialogueCard bucketName={gameState.selectedStory as string | undefined} />
         {/if}
       </div>
     </div>
