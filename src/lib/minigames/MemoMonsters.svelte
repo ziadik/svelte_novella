@@ -17,8 +17,8 @@
   } = $props<MinigameProps>();
 
   // --- Настройки ---
-  const ROWS = 6;
-  const COLS = 6;
+  const ROWS = 4;
+  const COLS = 4;
   const HINT_COOLDOWN_TIME = 5;
 
   const ICONS = [
@@ -220,7 +220,7 @@
 
   // --- Modal Helpers ---
   function showModal(title: string, text: string, actions: Array<{ text: string; action: () => void; class?: string }>): void {
-    if (integrated) return;
+    // if (integrated) return;
     modal = { show: true, title, text, actions };
   }
 
@@ -314,8 +314,8 @@
   .cell {
     width: var(--cell-size);
     height: var(--cell-size);
-    max-width: 60px;
-    max-height: 60px;
+    max-width: 80px;
+    max-height: 80px;
     perspective: 1000px;
     cursor: pointer;
     border-radius: 8px;
@@ -328,22 +328,22 @@
 
   @media (min-width: 800px) {
     .cell {
-      width: 60px;
-      height: 60px;
+      width: 80px;
+      height: 80px;
     }
   }
 
   @media (max-width: 390px) {
     .cell {
-      width: 45px;
-      height: 45px;
+      width: 60px;
+      height: 60px;
     }
   }
 
   @media (max-width: 340px) {
     .cell {
-      width: 38px;
-      height: 38px;
+      width: 48px;
+      height: 48px;
     }
 
     #grid {
