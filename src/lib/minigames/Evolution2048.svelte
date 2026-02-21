@@ -292,7 +292,7 @@
     showGiveUp={integrated}
   />
 
-  <div id="game-container" on:touchstart={handleTouchStart} on:touchend={handleTouchEnd}>
+  <div id="game-container" ontouchstart={handleTouchStart} ontouchend={handleTouchEnd}>
     <div id="grid">
       {#each board as row, r (r)}
         {#each row as cell, c (c)}
@@ -373,34 +373,6 @@
 
   .cell:hover {
     transform: scale(1.05);
-  }
-
-  .cell-2,
-  .cell-4 {
-    color: #ececec;
-  }
-
-  .cell-8,
-  .cell-16,
-  .cell-32 {
-    color: white;
-  }
-
-  .cell-64,
-  .cell-128,
-  .cell-256 {
-    color: white;
-  }
-
-  .cell-512,
-  .cell-1024 {
-    color: white;
-  }
-
-  .cell-2048 {
-    color: #2a2a40;
-    font-size: 2.5rem;
-    animation: pulse-winner 1s infinite;
   }
 
   @keyframes pulse-winner {

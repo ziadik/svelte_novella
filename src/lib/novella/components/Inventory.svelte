@@ -34,8 +34,8 @@
 
   <!-- Модальное окно инвентаря -->
   {#if isOpen}
-    <div class="inventory-overlay" onclick={toggleInventory}>
-      <div class="inventory-modal" onclick={(e) => e.stopPropagation()}>
+    <div class="inventory-overlay" role="dialog" tabindex="-1" onclick={toggleInventory} onkeydown={(e) => e.key === 'Escape' && toggleInventory()}>
+      <div class="inventory-modal" role="dialog" aria-label="Окно инвентаря" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
         <div class="inventory-header">
           <h2>Инвентарь</h2>
           <button class="close-button" onclick={toggleInventory}>✕</button>
@@ -75,7 +75,12 @@
           {#if inventoryItems.length > 0}
             <div class="items-grid">
               {#each inventoryItems as item (item.id)}
-                <div class="item-card" onclick={() => handleItemClick(item)}>
+                <button
+                  type="button"
+                  class="item-card"
+                  onclick={() => handleItemClick(item)}
+                  aria-label={`Предмет: ${item.name}`}
+                >
                   <div class="item-icon">
                    <img
               src={`${import.meta.env.VITE_SUPABASE_URL_FILE}/storage/v1/object/public/${gameState.selectedStory}/${item.icon}`}
@@ -89,7 +94,7 @@
                     <span class="item-name">{item.name}</span>
                     <span class="item-type">{item.type}</span>
                   </div>
-                </div>
+                </button>
               {/each}
             </div>
           {:else}
@@ -319,6 +324,8 @@
     border: 1px solid rgba(255, 255, 255, 0.05);
     cursor: pointer;
     transition: all 0.3s ease;
+    width: 100%;
+    font-family: inherit;
   }
 
   .item-card:hover {
@@ -326,6 +333,11 @@
     border-color: rgba(233, 69, 96, 0.5);
     transform: translateY(-4px);
     box-shadow: 0 8px 20px rgba(233, 69, 96, 0.3);
+  }
+
+  .item-card:focus-visible {
+    outline: 2px solid #e94560;
+    outline-offset: 2px;
   }
 
   .item-icon {

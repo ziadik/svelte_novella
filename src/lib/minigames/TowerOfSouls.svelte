@@ -277,15 +277,15 @@
 
   <div id="game-container">
     <div class="top-row">
-      <div class="pile stock" onclick={handleStockClick}>
+      <button type="button" class="pile stock" onclick={handleStockClick} aria-label="Колода">
         {#if stock.length > 0}
           <div class="card back"></div>
         {:else}
           <div class="card empty">🔄</div>
         {/if}
-      </div>
+      </button>
 
-      <div class="pile waste" onclick={handleWasteClick}>
+      <button type="button" class="pile waste" onclick={handleWasteClick} aria-label="Сброс">
         {#if waste.length > 0}
           <div class="card front" class:selected={selectedCard?.pile === -2}>
             <span class="rank">{getRankDisplay(waste[waste.length - 1].rank)}</span>
@@ -294,11 +294,11 @@
             </span>
           </div>
         {/if}
-      </div>
+      </button>
 
       <div class="foundations">
         {#each foundations as foundation, f (f)}
-          <div class="pile foundation" onclick={() => handleFoundationClick(f)}>
+          <button type="button" class="pile foundation" onclick={() => handleFoundationClick(f)} aria-label={`Фундамент ${f + 1}`}>
             {#if foundation.length > 0}
               <div class="card front">
                 <span class="rank">{getRankDisplay(foundation[foundation.length - 1].rank)}</span>
@@ -309,16 +309,29 @@
             {:else}
               <div class="card empty">👻</div>
             {/if}
-          </div>
+          </button>
         {/each}
       </div>
     </div>
 
     <div class="tableaus">
       {#each tableaus as tableau, t (t)}
-        <div class="tableau" onclick={() => handleTableauClick(t, -1)}>
+        <div
+          class="tableau"
+          role="button"
+          tabindex="0"
+          onclick={() => handleTableauClick(t, -1)}
+          onkeydown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              handleTableauClick(t, -1);
+            }
+          }}
+          aria-label={`Столбец ${t + 1}`}
+        >
           {#each tableau as card, c (c)}
-            <div
+            <button
+              type="button"
               class="card"
               class:front={card.faceUp}
               class:back={!card.faceUp}
@@ -328,6 +341,7 @@
                 handleTableauClick(t, c);
               }}
               style="margin-top: {c > 0 ? '-80%' : '0'}; z-index: {c};"
+              aria-label={card.faceUp ? `${getRankDisplay(card.rank)} ${SUIT_ICONS[card.suit]}` : 'Лицевая сторона карты'}
             >
               {#if card.faceUp}
                 <span class="rank">{getRankDisplay(card.rank)}</span>
@@ -335,7 +349,7 @@
                   {SUIT_ICONS[card.suit]}
                 </span>
               {/if}
-            </div>
+            </button>
           {/each}
         </div>
       {/each}
@@ -378,6 +392,13 @@
     justify-content: center;
     cursor: pointer;
     border: 1px dashed rgba(255, 255, 255, 0.2);
+    padding: 0;
+    font-family: inherit;
+  }
+
+  .pile:focus-visible {
+    outline: 2px solid #ff9f43;
+    outline-offset: 2px;
   }
 
   .foundations {
@@ -397,6 +418,11 @@
     cursor: pointer;
   }
 
+  .tableau:focus-visible {
+    outline: 2px solid #ff9f43;
+    outline-offset: 2px;
+  }
+
   .card {
     width: 50px;
     height: 70px;
@@ -408,6 +434,13 @@
     font-weight: bold;
     transition: transform 0.1s;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+    padding: 0;
+    font-family: inherit;
+  }
+
+  .card:focus-visible {
+    outline: 2px solid #ff9f43;
+    outline-offset: 2px;
   }
 
   .card.front {

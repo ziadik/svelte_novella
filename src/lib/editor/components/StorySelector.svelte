@@ -166,17 +166,6 @@
     flex: 1;
   }
 
-  .bucket-name {
-    font-size: 18px;
-    font-weight: 600;
-    margin-bottom: 4px;
-  }
-
-  .bucket-meta {
-    font-size: 14px;
-    color: #666;
-  }
-
   .bucket-actions {
     display: flex;
     gap: 8px;
