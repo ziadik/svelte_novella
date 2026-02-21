@@ -95,7 +95,11 @@
       isGameOver = true;
       hasWon = false;
       if (integrated) {
-        onLose?.();
+        showModal("💥 БУМ!", "Вы наткнулись на проклятую мину!", []);
+        setTimeout(() => {
+          hideModal();
+          onLose?.();
+        }, 3000);
       } else {
         showModal("💥 БУМ!", "Вы наткнулись на проклятую мину!", [
           { text: "Попробовать снова", action: initGame },
@@ -151,7 +155,11 @@
       hasWon = true;
       isGameOver = true;
       if (integrated) {
-        onWin?.();
+        showModal("🎉 Победа!", "Вы нашли все проклятые мины!", []);
+        setTimeout(() => {
+          hideModal();
+          onWin?.();
+        }, 3000);
       } else {
         showModal("🎉 Победа!", "Вы нашли все проклятые мины!", [
           { text: "Играть снова", action: initGame },
@@ -162,7 +170,11 @@
 
   function handleGiveUp(): void {
     if (integrated) {
-      onLose?.();
+      showModal("💀 Сдаюсь", "Вы сдались...", []);
+      setTimeout(() => {
+        hideModal();
+        onLose?.();
+      }, 3000);
     } else {
       showModal("Конец", "Попробуйте ещё раз!", [
         { text: "Новая игра", action: initGame },

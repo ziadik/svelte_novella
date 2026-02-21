@@ -190,7 +190,11 @@
     if (remainingCount === 0) {
       isGameOver = true;
       if (integrated) {
-        onWin?.();
+        showModal("🎉 Победа!", "Все монстры пойманы!", []);
+        setTimeout(() => {
+          hideModal();
+          onWin?.();
+        }, 3000);
       } else {
         showModal("🎉 Победа!", "Все монстры пойманы!", [
           { text: "Играть снова", action: initGame },
@@ -199,12 +203,17 @@
     }
   }
 
+  // --- Give Up ---
   function handleGiveUp(): void {
     if (integrated) {
-      onLose?.();
+      showModal("💀 Сдаюсь", "Вы сдаюсь...", []);
+      setTimeout(() => {
+        hideModal();
+        onLose?.();
+      }, 3000);
     } else {
-      showModal("Конец", "Попытайте удачу снова!", [
-        { text: "ОК", action: initGame },
+      showModal("Конец", "Попробуйте ещё раз!", [
+        { text: "Новая игра", action: initGame },
       ]);
     }
   }

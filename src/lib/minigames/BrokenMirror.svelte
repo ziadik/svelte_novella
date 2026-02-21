@@ -121,7 +121,11 @@
     if (isWin()) {
       isGameOver = true;
       if (integrated) {
-        onWin?.();
+        showModal("🪞 Зеркало восстановлено!", `Вы собрали осколки за ${moves} ходов!`, []);
+        setTimeout(() => {
+          hideModal();
+          onWin?.();
+        }, 3000);
       } else {
         showModal("🪞 Зеркало восстановлено!", `Вы собрали осколки за ${moves} ходов!`, [
           { text: "Играть снова", action: initGame },
@@ -132,7 +136,11 @@
 
   function handleGiveUp(): void {
     if (integrated) {
-      onLose?.();
+      showModal("💀 Сдаюсь", "Вы сдались...", []);
+      setTimeout(() => {
+        hideModal();
+        onLose?.();
+      }, 3000);
     } else {
       showModal("Конец", "Попробуйте ещё раз!", [
         { text: "Новая игра", action: initGame },

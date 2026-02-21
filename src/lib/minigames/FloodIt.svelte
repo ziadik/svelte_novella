@@ -19,12 +19,12 @@
   const MAX_MOVES = 25;
 
   const COLORS = [
-    { name: "crimson", value: "#e94560", icon: "🔴" },
-    { name: "purple", value: "#6c5ce7", icon: "🟣" },
-    { name: "blue", value: "#0984e3", icon: "🔵" },
-    { name: "green", value: "#00b894", icon: "🟢" },
-    { name: "orange", value: "#fdcb6e", icon: "🟠" },
-    { name: "yellow", value: "#ffeaa7", icon: "🟡" },
+    { name: "unicorn", value: "#e94560", icon: "🦄" },
+    { name: "wizard", value: "#6c5ce7", icon: "🧙" },
+    { name: "ghost", value: "#0984e3", icon: "👻" },
+    { name: "skull", value: "#00b894", icon: "💀" },
+    { name: "fire", value: "#fdcb6e", icon: "🔥" },
+    { name: "spider", value: "#ffeaa7", icon: "🕷️" },
   ];
 
   let board = $state<number[][]>([]);
@@ -82,27 +82,39 @@
     if (isWin()) {
       isGameOver = true;
       if (integrated) {
-        onWin?.();
+        showModal("🎉 Победа!", `Вы захватили мир за ${moves} ходов!`, []);
+        setTimeout(() => {
+          hideModal();
+          onWin?.();
+        }, 3000);
       } else {
         showModal("🎉 Победа!", `Вы захватили мир за ${moves} ходов!`, [
           { text: "Играть снова", action: initGame },
         ]);
-      }
+      } 
     } else if (moves >= MAX_MOVES) {
       isGameOver = true;
       if (integrated) {
-        onLose?.();
+        showModal("💀 Поражение", "Ходы закончились!", []);
+        setTimeout(() => {
+          hideModal();
+          onLose?.();
+        }, 3000);
       } else {
         showModal("💀 Поражение", "Ходы закончились!", [
           { text: "Заново", action: initGame },
         ]);
-      }
+      } 
     }
   }
 
   function handleGiveUp(): void {
     if (integrated) {
-      onLose?.();
+      showModal("💀 Сдаюсь", "Вы сдались...", []);
+      setTimeout(() => {
+        hideModal();
+        onLose?.();
+      }, 3000);
     } else {
       showModal("Конец", "Попробуйте ещё раз!", [
         { text: "Новая игра", action: initGame },
@@ -111,7 +123,6 @@
   }
 
   function showModal(title: string, text: string, actions: Array<{ text: string; action: () => void; class?: string }>): void {
-    if (integrated) return;
     modal = { show: true, title, text, actions };
   }
 
@@ -134,7 +145,9 @@
           <div
             class="cell"
             style="background-color: {COLORS[color].value};"
-          ></div>
+          >
+            {COLORS[color].icon}
+          </div>
         {/each}
       {/each}
     </div>
@@ -185,12 +198,17 @@
     width: 25px;
     height: 25px;
     transition: background-color 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
   }
 
   @media (max-width: 400px) {
     .cell {
       width: 20px;
       height: 20px;
+      font-size: 12px;
     }
   }
 
@@ -198,6 +216,7 @@
     .cell {
       width: 18px;
       height: 18px;
+      font-size: 10px;
     }
   }
 

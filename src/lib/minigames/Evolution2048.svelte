@@ -209,7 +209,11 @@
           if (board[r][c] >= WIN_TARGET) {
             hasWon = true;
             if (integrated) {
-              onWin?.();
+              showModal("👑 Победа!", "Вы создали короля монстров!", []);
+              setTimeout(() => {
+                hideModal();
+                onWin?.();
+              }, 3000);
             } else {
               showModal("👑 Победа!", "Вы создали короля монстров!", [
                 { text: "Продолжить", action: hideModal },
@@ -225,7 +229,11 @@
     if (isBoardFull() && !hasAvailableMoves()) {
       isGameOver = true;
       if (integrated) {
-        onLose?.();
+        showModal("💀 Конец", `Игра окончена. Очки: ${score}`, []);
+        setTimeout(() => {
+          hideModal();
+          onLose?.();
+        }, 3000);
       } else {
         showModal("💀 Конец", `Игра окончена. Очки: ${score}`, [
           { text: "Новая игра", action: initGame },
@@ -255,9 +263,13 @@
 
   function handleGiveUp(): void {
     if (integrated) {
-      onLose?.();
+      showModal("💀 Сдаюсь", "Вы сдались...", []);
+      setTimeout(() => {
+        hideModal();
+        onLose?.();
+      }, 3000);
     } else {
-      showModal("Конец", `Очки: ${score}`, [
+      showModal("Конец", "Попробуйте ещё раз!", [
         { text: "Новая игра", action: initGame },
       ]);
     }
