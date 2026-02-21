@@ -38,6 +38,41 @@
       }
     }
   }
+
+  // Получаем текст целевого диалога
+  function getTargetText(id: string | undefined): string {
+    if (!id || !editor.data) return "Нет";
+    const target = editor.data.dialogues.find(d => d.id === id);
+    if (!target) return `❌ ${id}`;
+    return target.text.substring(0, 25) + "...";
+  }
+
+  // Получаем исходящие связи
+  function getOutgoingLinks() {
+    const links: { type: string; id: string; text: string }[] = [];
+    const dialogue = editorDerived.currentDialogue;
+    if (!dialogue) return links;
+
+    if (dialogue.nextDialogueId) {
+      links.push({
+        type: 'Auto',
+        id: dialogue.nextDialogueId,
+        text: getTargetText(dialogue.nextDialogueId)
+      });
+    }
+
+    dialogue.options?.forEach((opt, idx) => {
+      if (opt.nextDialogueId) {
+        links.push({
+          type: `Опция #${idx + 1}`,
+          id: opt.nextDialogueId,
+          text: getTargetText(opt.nextDialogueId)
+        });
+      }
+    });
+
+    return links;
+  }
 </script>
 
 {#if editorDerived.currentDialogue}
@@ -203,6 +238,69 @@
       {/each}
     </div>
 
+    <!-- Связи диалога -->
+    <div class="links-section">
+      <div class="links-grid">
+        <!-- Исходящие связи -->
+        <div class="link-block">
+          <h5>👉 Куда ведет ({getOutgoingLinks().length})</h5>
+          {#if getOutgoingLinks().length === 0}
+            <div class="empty-links">Нет связей</div>
+          {:else}
+            <div class="links-list">
+              {#each getOutgoingLinks() as link}
+                <div class="link-item">
+                  <span class="link-type">{link.type}:</span>
+                  <span class="link-id">{link.id}</span>
+                  <button
+                    class="btn-jump"
+                    onclick={() => storyActions.jumpTo(link.id)}
+                    title="Перейти к диалогу"
+                  >
+                    →
+                  </button>
+                  <span class="link-text">{link.text}</span>
+                </div>
+              {/each}
+            </div>
+          {/if}
+        </div>
+
+        <!-- Входящие связи -->
+        <div class="link-block secondary">
+          <h5>👈 Откуда ведут ({editorDerived.backlinks.length})</h5>
+          {#if editorDerived.backlinks.length === 0}
+            <div class="empty-links">Никто не ссылается</div>
+          {:else}
+            <div class="links-list">
+              {#each editorDerived.backlinks.slice(0, 5) as link}
+                {@const linkType = storyActions.getLinkType(link, editorDerived.currentDialogue!.id)}
+                <div class="link-item">
+                  <span class="link-id">{link.id}</span>
+                  <span class:link-auto={linkType === 'Auto'}
+                        class:link-option={linkType === 'Option'}
+                        class="link-type-badge">
+                    {linkType}
+                  </span>
+                  <button
+                    class="btn-jump"
+                    onclick={() => storyActions.jumpTo(link.id)}
+                    title="Перейти к диалогу"
+                  >
+                    ←
+                  </button>
+                  <span class="link-text">{link.text.substring(0, 20)}...</span>
+                </div>
+              {/each}
+              {#if editorDerived.backlinks.length > 5}
+                <div class="more-links">...ещё {editorDerived.backlinks.length - 5}</div>
+              {/if}
+            </div>
+          {/if}
+        </div>
+      </div>
+    </div>
+
     <!-- Авто-переход -->
     <div class="links-section">
       <h4>Авто-переход</h4>
@@ -364,5 +462,131 @@
   .form-actions {
     margin-top: 20px;
     text-align: right;
+  }
+
+  /* Стили для секции связей */
+  .links-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+  }
+
+  .link-block {
+    background: #1e1e1e;
+    padding: 12px;
+    border-radius: 4px;
+    border: 1px solid #444;
+  }
+
+  .link-block.secondary {
+    background: #252526;
+    border-color: #555;
+  }
+
+  .link-block h5 {
+    margin: 0 0 10px 0;
+    font-size: 11px;
+    color: #aaa;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+
+  .links-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .link-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+    background: #2a2d2e;
+    border-radius: 3px;
+    font-size: 11px;
+    border-left: 2px solid #444;
+  }
+
+  .link-item:hover {
+    background: #333;
+    border-left-color: #666;
+  }
+
+  .link-type {
+    color: #888;
+    font-size: 10px;
+    min-width: 50px;
+    white-space: nowrap;
+  }
+
+  .link-id {
+    color: #4db6ac;
+    font-family: monospace;
+    font-weight: bold;
+    min-width: 60px;
+    font-size: 10px;
+  }
+
+  .link-type-badge {
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-weight: bold;
+    min-width: 35px;
+    text-align: center;
+  }
+
+  .link-type-badge.link-auto {
+    background: #0d47a1;
+    color: white;
+  }
+
+  .link-type-badge.link-option {
+    background: #f57c00;
+    color: white;
+  }
+
+  .btn-jump {
+    background: #3c3c3c;
+    border: none;
+    color: #4caf50;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    min-width: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .btn-jump:hover {
+    background: #4a4a4a;
+  }
+
+  .link-text {
+    flex: 1;
+    color: #888;
+    font-size: 10px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .empty-links {
+    color: #666;
+    font-style: italic;
+    font-size: 11px;
+    text-align: center;
+    padding: 10px;
+  }
+
+  .more-links {
+    color: #666;
+    font-size: 10px;
+    text-align: center;
+    padding: 4px;
+    font-style: italic;
   }
 </style>
