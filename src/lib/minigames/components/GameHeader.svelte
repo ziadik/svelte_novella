@@ -1,18 +1,26 @@
 <script lang="ts">
+  import type { Snippet } from 'svelte';
+
   let {
     onRestart,
     onGiveUp,
     showGiveUp = false,
     extraContent = null,
+    onShowRules = null,
   } = $props<{
     onRestart?: () => void;
     onGiveUp?: () => void;
     showGiveUp?: boolean;
-    extraContent?: any;
+    extraContent?: Snippet;
+    onShowRules?: () => void;
   }>();
 </script>
 
 <div id="game-header">
+  {#if onShowRules}
+    <button class="btn btn-info" onclick={onShowRules}>❓ Правила</button>
+  {/if}
+
   {#if onRestart}
     <button class="btn btn-secondary" onclick={onRestart}>🔄 Заново</button>
   {/if}
@@ -79,6 +87,15 @@
 
   .btn-danger {
     background: linear-gradient(135deg, #6c757d, #495057);
+  }
+
+  .btn-info {
+    background: linear-gradient(135deg, #0984e3, #0652DD);
+    box-shadow: 0 3px 8px rgba(9, 132, 227, 0.4);
+  }
+
+  .btn-info:hover {
+    box-shadow: 0 5px 12px rgba(9, 132, 227, 0.6);
   }
 
   @media (max-width: 380px) {
