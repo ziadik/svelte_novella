@@ -455,6 +455,24 @@
     modal.show = false;
   }
 
+  function showRules(): void {
+    showModal("📖 Правила", `Соеди монстров:
+
+🎯 Цель: Удалить все пары одинаковых монстров.
+
+🔗 Соедини две одинаковые фигуры линией.
+
+📐 Линия может иметь не более 2 поворотов (изгибов).
+
+🚫 Линия не должна проходить через другие фигуры.
+
+💡 Если ходов нет — игра сама перемешает доску.
+
+💡 Кнопка 💡 покажет доступную пару (с перезарядкой).`, [
+      { text: "Понятно", action: hideModal },
+    ]);
+  }
+
   function handleGiveUp(): void {
     if (integrated) {
       showModal("💀 Сдаюсь", "Вы сдались...", []);
@@ -471,7 +489,7 @@
 </script>
 
 <BodyWrapper>
-  <GameHeader onRestart={initGame} onGiveUp={integrated ? handleGiveUp : undefined} showGiveUp={integrated} />
+  <GameHeader onRestart={initGame} onGiveUp={integrated ? handleGiveUp : undefined} showGiveUp={integrated} onShowRules={showRules} />
   <div id="game-container" bind:this={gridContainer}>
     <div
       id="grid"
