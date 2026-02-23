@@ -198,16 +198,39 @@ export async function updatePassword(newPassword: string): Promise<{ success: bo
 // Сброс пароля
 export async function resetPassword(email: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+    const redirectUrl = `${window.location.origin}/reset-password`;
+    console.log('[Auth] Сброс пароля, redirectTo:', redirectUrl);
+
+    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: redirectUrl,
     });
 
     if (error) {
+      console.error('[Auth] Ошибка сброса пароля:', error);
+      
+      // Обработка rate limit (бесплатный план: 2 письма в час)
+      if (error.message?.includes('rate limit') || error.message?.includes('Too many')) {
+        return { 
+          success: false, 
+          error: 'Лимит исчерпан. На бесплатном плане Supabase можно отправить только 2 письма в час. Подождите час или настройте SMTP (Resend).' 
+        };
+      }
+      
       return { success: false, error: error.message };
     }
 
+    console.log('[Auth] Email для сброса отправлен:', data);
     return { success: true };
   } catch (error: any) {
+    console.error('[Auth] Исключение при сбросе пароля:', error);
+    
+    if (error.message?.includes('rate limit')) {
+      return { 
+        success: false, 
+        error: 'Лимит исчерпан. На бесплатном плане Supabase можно отправить только 2 письма в час.' 
+      };
+    }
+    
     return { success: false, error: error.message };
   }
 }
