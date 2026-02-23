@@ -10,30 +10,35 @@
   let initialized = $state(false);
   let showResetPassword = $state(false);
   let resetPasswordError = $state('');
+  let resetPasswordToken = $state('');
 
   onMount(async () => {
     const url = window.location.href;
     const hash = window.location.hash;
+    const search = window.location.search;
     
     console.log('[App] URL:', url);
-    console.log('[App] Hash:', hash);
+    console.log('[App] Search:', search);
 
-    // Проверяем hash параметры
+    // Проверяем hash и query параметры
     const hashParams = new URLSearchParams(hash.substring(1));
-    const accessToken = hashParams.get('access_token');
-    const type = hashParams.get('type');
-    const error = hashParams.get('error');
-    const errorDescription = hashParams.get('error_description');
+    const queryParams = new URLSearchParams(search.substring(1));
+    
+    const accessToken = hashParams.get('access_token') || queryParams.get('token');
+    const type = hashParams.get('type') || queryParams.get('type');
+    const error = hashParams.get('error') || queryParams.get('error');
+    const errorDescription = hashParams.get('error_description') || queryParams.get('error_description');
 
-    console.log('[App] Hash params:', { accessToken, type, error, errorDescription });
+    console.log('[App] Token found:', !!accessToken, 'Type:', type, 'Error:', error);
 
     // Если есть ошибка - показываем форму с ошибкой
     if (error) {
       resetPasswordError = errorDescription || error;
       showResetPassword = true;
     }
-    // Если есть access_token - показываем форму ввода пароля (даже без type)
+    // Если есть токен - показываем форму ввода пароля
     else if (accessToken) {
+      resetPasswordToken = accessToken;
       showResetPassword = true;
     }
     // Если в URL есть reset-password - показываем пустую форму
@@ -60,7 +65,11 @@
     <p>Загрузка...</p>
   </div>
 {:else if showResetPassword}
-  <ResetPasswordPage onClose={handleCloseResetPassword} initialError={resetPasswordError} />
+  <ResetPasswordPage 
+    onClose={handleCloseResetPassword} 
+    initialError={resetPasswordError}
+    initialToken={resetPasswordToken}
+  />
 {:else if editor.showEditor}
   <button 
     onclick={editorActions.toggleEditor}

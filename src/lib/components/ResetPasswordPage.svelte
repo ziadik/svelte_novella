@@ -2,9 +2,10 @@
   import { onMount } from 'svelte';
   import { supabase } from '../supabaseClient';
 
-  let { onClose, initialError = '' } = $props<{ 
+  let { onClose, initialError = '', initialToken = '' } = $props<{ 
     onClose?: () => void; 
     initialError?: string;
+    initialToken?: string;
   }>();
 
   let newPassword = $state('');
@@ -57,29 +58,48 @@
   }
 
   onMount(async () => {
-    // Проверяем токен в URL
-    const hashParams = new URLSearchParams(window.location.hash.substring(1));
-    const accessToken = hashParams.get('access_token');
-    const type = hashParams.get('type');
-    const errorParam = hashParams.get('error');
-    const errorDescription = hashParams.get('error_description');
+    // Используем токен из props или из URL
+    let accessToken = initialToken;
+    let errorParam = initialError;
+    
+    // Если нет токена из props - пробуем получить из URL
+    if (!accessToken) {
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      const queryParams = new URLSearchParams(window.location.search);
+      
+      accessToken = hashParams.get('access_token') || queryParams.get('token');
+      const type = hashParams.get('type') || queryParams.get('type');
+      errorParam = errorParam || hashParams.get('error') || queryParams.get('error');
+      const errorDescription = hashParams.get('error_description') || queryParams.get('error_description');
+      
+      console.log('[ResetPassword] URL Token:', !!accessToken, 'Type:', type);
+    } else {
+      console.log('[ResetPassword] Props Token:', !!accessToken);
+    }
 
-    console.log('[ResetPassword] Hash params:', { accessToken, type, errorParam, errorDescription });
+    console.log('[ResetPassword] Final Token:', !!accessToken);
 
-    // Если есть ошибка в URL - показываем форму повторной отправки
+    // Если есть ошибка - показываем форму повторной отправки
     if (errorParam) {
       hasValidToken = false;
-      error = errorDescription || errorParam;
+      error = errorParam;
       return;
     }
 
-    // Если есть токен и тип recovery - показываем форму ввода пароля
-    if (accessToken && type === 'recovery') {
+    // Если есть токен - показываем форму ввода пароля
+    if (accessToken) {
+      console.log('[ResetPassword] Setting hasValidToken = true');
       hasValidToken = true;
+      
+      // Получаем refresh_token если есть
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      const queryParams = new URLSearchParams(window.location.search);
+      const refreshToken = hashParams.get('refresh_token') || queryParams.get('refresh_token') || '';
+      
       // Устанавливаем сессию из токена
       const { error: sessionError } = await supabase.auth.setSession({
         access_token: accessToken,
-        refresh_token: hashParams.get('refresh_token') || '',
+        refresh_token: refreshToken,
       });
 
       if (sessionError) {
