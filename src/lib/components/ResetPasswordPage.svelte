@@ -58,26 +58,40 @@
   }
 
   onMount(async () => {
+    console.log('[ResetPassword] Mount - initialToken:', !!initialToken);
+    
     // Используем токен из props или из URL
     let accessToken = initialToken;
     let errorParam = initialError;
     
     // Если нет токена из props - пробуем получить из URL
     if (!accessToken) {
-      const hashParams = new URLSearchParams(window.location.hash.substring(1));
-      const queryParams = new URLSearchParams(window.location.search);
+      const fullUrl = window.location.href;
+      const hash = window.location.hash;
+      const search = window.location.search;
       
-      accessToken = hashParams.get('access_token') || queryParams.get('token');
-      const type = hashParams.get('type') || queryParams.get('type');
-      errorParam = errorParam || hashParams.get('error') || queryParams.get('error');
-      const errorDescription = hashParams.get('error_description') || queryParams.get('error_description');
+      console.log('[ResetPassword] Full URL:', fullUrl);
       
-      console.log('[ResetPassword] URL Token:', !!accessToken, 'Type:', type);
+      // Пробуем разные варианты
+      if (search.includes('token=')) {
+        const params = new URLSearchParams(search);
+        accessToken = params.get('token') || '';
+        errorParam = errorParam || params.get('error') || '';
+      } else if (hash.includes('access_token=')) {
+        const params = new URLSearchParams(hash.substring(1));
+        accessToken = params.get('access_token') || '';
+        errorParam = errorParam || params.get('error') || '';
+      } else if (fullUrl.includes('token=')) {
+        const tokenMatch = fullUrl.match(/token=([^&]+)/);
+        if (tokenMatch) accessToken = tokenMatch[1];
+      }
+      
+      console.log('[ResetPassword] Parsed Token:', accessToken ? 'found' : 'not found');
     } else {
-      console.log('[ResetPassword] Props Token:', !!accessToken);
+      console.log('[ResetPassword] Using props token');
     }
 
-    console.log('[ResetPassword] Final Token:', !!accessToken);
+    console.log('[ResetPassword] Final accessToken:', !!accessToken);
 
     // Если есть ошибка - показываем форму повторной отправки
     if (errorParam) {

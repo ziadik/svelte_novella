@@ -13,23 +13,42 @@
   let resetPasswordToken = $state('');
 
   onMount(async () => {
-    const url = window.location.href;
-    const hash = window.location.hash;
-    const search = window.location.search;
-    
-    console.log('[App] URL:', url);
-    console.log('[App] Search:', search);
+    // Сохраняем URL сразу при загрузке, потому что он может измениться
+    const fullUrl = window.location.href;
+    console.log('[App] Initial URL:', fullUrl);
 
-    // Проверяем hash и query параметры
-    const hashParams = new URLSearchParams(hash.substring(1));
-    const queryParams = new URLSearchParams(search.substring(1));
-    
-    const accessToken = hashParams.get('access_token') || queryParams.get('token');
-    const type = hashParams.get('type') || queryParams.get('type');
-    const error = hashParams.get('error') || queryParams.get('error');
-    const errorDescription = hashParams.get('error_description') || queryParams.get('error_description');
+    // Парсим параметры из сохранённого URL
+    let accessToken = '';
+    let type = '';
+    let error = '';
+    let errorDescription = '';
 
-    console.log('[App] Token found:', !!accessToken, 'Type:', type, 'Error:', error);
+    // Проверяем есть ли параметры в URL
+    if (fullUrl.includes('token=') || fullUrl.includes('access_token=')) {
+      // Из search (?token=xxx)
+      const searchMatch = fullUrl.match(/\?([^#]+)/);
+      if (searchMatch) {
+        const params = new URLSearchParams('?' + searchMatch[1]);
+        accessToken = params.get('token') || '';
+        type = params.get('type') || '';
+        error = params.get('error') || '';
+        errorDescription = params.get('error_description') || '';
+      }
+      
+      // Из hash (#access_token=xxx)
+      if (!accessToken) {
+        const hashMatch = fullUrl.match(/#(.+)$/);
+        if (hashMatch) {
+          const hashParams = new URLSearchParams(hashMatch[1]);
+          accessToken = hashParams.get('access_token') || '';
+          type = hashParams.get('type') || '';
+          error = hashParams.get('error') || '';
+          errorDescription = hashParams.get('error_description') || '';
+        }
+      }
+    }
+
+    console.log('[App] Parsed - Token:', accessToken ? 'found' : 'not found', 'Type:', type, 'Error:', error ? 'yes' : 'no');
 
     // Если есть ошибка - показываем форму с ошибкой
     if (error) {
@@ -42,7 +61,7 @@
       showResetPassword = true;
     }
     // Если в URL есть reset-password - показываем пустую форму
-    else if (url.includes('reset-password')) {
+    else if (fullUrl.includes('reset-password')) {
       showResetPassword = true;
     }
     
