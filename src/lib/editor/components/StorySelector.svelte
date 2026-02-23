@@ -9,6 +9,7 @@
 
   let showCreateModal = $state(false);
   let newStoryTitle = $state('');
+  let newStoryBucket = $state('stories');
   let creating = $state(false);
 
   // Информация об историях (для обратной совместимости)
@@ -39,8 +40,10 @@
   }
 
   async function handleSelectStory(story: Story) {
-    editor.selectedBucket = story.json_url.split('/')[0];
-    editor.currentFileName = story.json_url.split('/').slice(1).join('/');
+    // Используем bucket из истории, по умолчанию 'stories'
+    editor.selectedBucket = story.bucket || 'stories';
+    // json_url теперь содержит только имя файла
+    editor.currentFileName = story.json_url;
     await storyActions.loadStory(editor.currentFileName);
   }
 
@@ -48,10 +51,11 @@
     if (!newStoryTitle.trim()) return;
     creating = true;
 
-    const result = await createStory(newStoryTitle.trim());
+    const result = await createStory(newStoryTitle.trim(), newStoryBucket);
     if (result.success && result.story) {
       showCreateModal = false;
       newStoryTitle = '';
+      newStoryBucket = 'stories';
       await handleSelectStory(result.story);
     } else {
       alert(result.error || 'Ошибка создания истории');
@@ -200,12 +204,27 @@
   <div class="modal-overlay" onclick={() => showCreateModal = false} role="dialog">
     <div class="modal" onclick={(e) => e.stopPropagation()}>
       <h3>Создать новую историю</h3>
-      <input 
-        type="text" 
-        bind:value={newStoryTitle} 
-        placeholder="Название истории"
-        class="input"
-      />
+      <div class="form-group">
+        <label for="story-title">Название истории</label>
+        <input 
+          type="text" 
+          id="story-title"
+          bind:value={newStoryTitle} 
+          placeholder="Например: Приключения в замке"
+          class="input"
+        />
+      </div>
+      <div class="form-group">
+        <label for="story-bucket">Bucket для ресурсов</label>
+        <select id="story-bucket" bind:value={newStoryBucket} class="input">
+          <option value="stories">stories (по умолчанию)</option>
+          <option value="dracula">dracula</option>
+          <option value="zombie">zombie</option>
+          <option value="fairy_tale">fairy_tale</option>
+          <option value="minigames">minigames</option>
+        </select>
+        <small class="hint">Выберите bucket в котором будут храниться ресурсы истории</small>
+      </div>
       <div class="modal-actions">
         <button class="btn" onclick={() => showCreateModal = false}>Отмена</button>
         <button class="btn primary" onclick={handleCreateStory} disabled={creating || !newStoryTitle.trim()}>
@@ -406,6 +425,24 @@
     color: #fff;
     margin-bottom: 15px;
     box-sizing: border-box;
+  }
+
+  .modal .form-group {
+    margin-bottom: 15px;
+  }
+
+  .modal .form-group label {
+    display: block;
+    margin-bottom: 5px;
+    color: #aaa;
+    font-size: 14px;
+  }
+
+  .modal .hint {
+    display: block;
+    margin-top: 5px;
+    color: #666;
+    font-size: 12px;
   }
 
   .modal-actions {

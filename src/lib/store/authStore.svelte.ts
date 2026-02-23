@@ -11,6 +11,7 @@ interface UserProfile {
   telegram_last_name: string | null;
   telegram_photo_url: string | null;
   is_author: boolean;
+  is_admin: boolean;
 }
 
 // Состояние аутентификации

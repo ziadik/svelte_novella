@@ -12,6 +12,7 @@ export interface Story {
   preview_image_url: string | null;
   is_public: boolean;
   allowed_players: string[];
+  bucket: string; // bucket где хранятся ресурсы истории
 }
 
 // Состояние
@@ -49,9 +50,17 @@ export function getPlayerStories(): Story[] {
   );
 }
 
-// Истории автора (только свои)
+// Истории автора (только свои + все для админа)
 export function getAuthorStories(): Story[] {
-  return stories.stories.filter(s => s.author_id === authState.user?.id);
+  const userId = authState.user?.id;
+  
+  // Админ видит все истории
+  if (userId && authState.profile?.is_admin) {
+    return stories.stories;
+  }
+  
+  // Обычный автор видит только свои
+  return stories.stories.filter(s => s.author_id === userId);
 }
 
 export function hasAuthorStories(): boolean {
@@ -84,14 +93,13 @@ export async function loadStories(): Promise<void> {
 }
 
 // Создание истории (для авторов)
-export async function createStory(title: string): Promise<{ success: boolean; story?: Story; error?: string }> {
+export async function createStory(title: string, bucketName: string = 'stories'): Promise<{ success: boolean; story?: Story; error?: string }> {
   if (!authState.user) {
     return { success: false, error: 'Необходимо войти' };
   }
 
   try {
     // Создаём JSON файл в storage
-    const bucketName = 'stories';
     const fileName = `${title.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}.json`;
     
     const newStory: StoryData = {
@@ -121,7 +129,7 @@ export async function createStory(title: string): Promise<{ success: boolean; st
       return { success: false, error: uploadError.message };
     }
 
-    const jsonUrl = `${bucketName}/${fileName}`;
+    const jsonUrl = fileName;
 
     // Создаём запись в таблице stories
     const { data, error } = await supabase
@@ -130,6 +138,7 @@ export async function createStory(title: string): Promise<{ success: boolean; st
         title,
         author_id: authState.user.id,
         json_url: jsonUrl,
+        bucket: bucketName,
         is_public: false,
         allowed_players: [],
       })
@@ -213,12 +222,16 @@ export async function deleteStory(storyId: string): Promise<{ success: boolean; 
 // Загрузка JSON истории из storage
 export async function loadStoryJson(story: Story): Promise<StoryData | null> {
   try {
-    const [bucket, ...pathParts] = story.json_url.split('/');
-    const filePath = pathParts.join('/');
+    // Используем bucket из истории, по умолчанию 'stories'
+    const bucket = story.bucket || 'stories';
+    const jsonPath = story.json_url;
+    
+    // Если json_url содержит путь (stories/file.json), извлекаем имя файла
+    const fileName = jsonPath.split('/').pop() || 'story.json';
 
     const { data, error } = await supabase.storage
       .from(bucket)
-      .download(filePath);
+      .download(fileName);
 
     if (error) {
       console.error('Error downloading story:', error);
@@ -241,8 +254,9 @@ export async function saveStoryJson(storyId: string, storyData: StoryData): Prom
       return { success: false, error: 'История не найдена' };
     }
 
-    const [bucket, ...pathParts] = story.json_url.split('/');
-    const filePath = pathParts.join('/');
+    const bucket = story.bucket || 'stories';
+    const jsonPath = story.json_url;
+    const fileName = jsonPath.split('/').pop() || 'story.json';
 
     const jsonString = JSON.stringify(storyData, null, 2);
     const encoder = new TextEncoder();
@@ -250,7 +264,7 @@ export async function saveStoryJson(storyId: string, storyData: StoryData): Prom
 
     const { error } = await supabase.storage
       .from(bucket)
-      .update(filePath, uint8Array, { contentType: "application/json" });
+      .update(fileName, uint8Array, { contentType: "application/json" });
 
     if (error) {
       return { success: false, error: error.message };

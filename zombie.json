@@ -1,0 +1,167 @@
+{
+  "meta": {
+    "version": "1",
+    "title": "Zombie Quiz"
+  },
+  "items": [
+    {
+      "id": "rose_from_garden",
+      "name": "Черная роза",
+      "description": "После осмотра сада вы нашли черную розу без шипов",
+      "icon": "rose.svg",
+      "type": "consumable"
+    },
+    {
+      "id": "master_key",
+      "name": "Таинственный ключ",
+      "description": "Откроет только одну дверь, но какую?",
+      "icon": "key.png",
+      "type": "key"
+    }
+  ],
+  "miniGames": [],
+  "activities": [],
+  "chapters": [
+    {
+      "id": "ch_intro",
+      "title": "Глава 1. Прелюдия под аккомпанемент грома",
+      "description": "Знакомство"
+    }
+  ],
+  "dialogues": [
+    {
+      "id": "narrator_1",
+      "chapterId": "ch_intro",
+      "text": "Знал я одну вампиршу… Не ту, о которых поют баллады. \nЕё главный ужас был в том, что она отчаянно боялась собственной тени. \nА ещё — тишины, пустого замка и мысли, что она… плохо справляется. ",
+      "backgroundImage": "back_full.png",
+      "nextDialogueId": "narrator_2",
+      "options": [],
+      "characterImage": ""
+    },
+    {
+      "id": "narrator_2",
+      "chapterId": "ch_intro",
+      "text": "Всё началось с дождя. Как и многие хорошие и плохие вещи. Конец этой истории мне не очень нравится, и думаю вы сможете ее изменить.\n",
+      "options": [],
+      "nextDialogueId": "gamer_1",
+      "backgroundImage": "rain.png",
+      "characterImage": ""
+    },
+    {
+      "id": "gamer_1",
+      "chapterId": "ch_intro",
+      "text": "\"Не знаю, что бы я мог тут изменить, но кидать сразу в слякоть и холод не слишком гостеприимно... \"",
+      "options": [],
+      "backgroundImage": "rain.png",
+      "characterImage": "",
+      "nextDialogueId": "gamer_2"
+    },
+    {
+      "id": "gamer_2",
+      "chapterId": "ch_intro",
+      "text": "\"Ну рас уж я здесь, для начало стоит скрыться от дождя\" ",
+      "options": [
+        {
+          "text": "Осмотреться",
+          "enabled": true,
+          "visible": true,
+          "visibilityCondition": {
+            "type": "always"
+          },
+          "nextDialogueId": "narrator_3"
+        }
+      ],
+      "backgroundImage": "rain.png",
+      "characterImage": "",
+      "nextDialogueId": ""
+    },
+    {
+      "id": "narrator_3",
+      "chapterId": "ch_intro",
+      "text": "За плотным занавесом ливня вы заметили замок. Не совсем богатый и ухоженный, но зато способный укрыть от дождя",
+      "options": [],
+      "backgroundImage": "castle_behind_the_rain.png",
+      "characterImage": "",
+      "nextDialogueId": "narrator_4"
+    },
+    {
+      "id": "narrator_4",
+      "chapterId": "ch_intro",
+      "text": "Слева от замка вы смогли разглядеть сад с запущенными кустами чёрной розы. Они растут как попало, но одна ветка аккуратно подвязана к колышку белой ниткой, может, вы могли бы облегчить ее страдания?",
+      "options": [
+        {
+          "text": "Попробовать сорвать розу",
+          "enabled": true,
+          "visible": true,
+          "visibilityCondition": {
+            "type": "always"
+          },
+          "miniGame": {
+            "id": "onet_monsters",
+            "onWinDialogueId": "narrator_game_win_1",
+            "onLoseDialogueId": "narrator_game_loose_1",
+            "rewardItem": "rose_from_garden"
+          },
+          "nextDialogueId": ""
+        },
+        {
+          "text": "Оставить все как есть",
+          "enabled": true,
+          "visible": true,
+          "visibilityCondition": {
+            "type": "always"
+          },
+          "nextDialogueId": "narrator_game_neutral_1"
+        }
+      ],
+      "backgroundImage": "garden_behind_the_rain.png",
+      "characterImage": "",
+      "nextDialogueId": ""
+    },
+    {
+      "id": "narrator_game_loose_1",
+      "chapterId": "ch_intro",
+      "text": "Ну... вы хотя бы попробовали, стоит ли вас за это винить? ",
+      "options": [],
+      "backgroundImage": "garden_behind_the_rain.png",
+      "characterImage": "",
+      "nextDialogueId": "narrator_5"
+    },
+    {
+      "id": "narrator_game_win_1",
+      "chapterId": "ch_intro",
+      "text": "Надо же! Вы меня впечатлили, такого исхода от вас явно не ожидал, может... Я в вас не ошибся",
+      "options": [],
+      "backgroundImage": "garden_behind_the_rain.png",
+      "characterImage": "",
+      "nextDialogueId": "narrator_5"
+    },
+    {
+      "id": "narrator_game_neutral_1",
+      "chapterId": "ch_intro",
+      "text": "Даже не попробовали? Очень жаль... Этот мир полон загадок и сюрпризов, кто знает, как повлияло бы это на вашу историю",
+      "options": [],
+      "backgroundImage": "garden_behind_the_rain.png",
+      "characterImage": "",
+      "nextDialogueId": "narrator_5"
+    },
+    {
+      "id": "narrator_5",
+      "chapterId": "ch_intro",
+      "text": "Чуть правее от сада на вас смотрит фонтан в виде горгульи. Внутри чаши — многолетний слой листьев. Но если присмотреться — листья лежат не хаотично, а аккуратным кругом, будто их специально разровняли. Кто-то явно ухаживает даже за пустотой. ",
+      "options": [],
+      "backgroundImage": "fountain_behind_the_rain.png",
+      "characterImage": "",
+      "nextDialogueId": ""
+    },
+    {
+      "id": "narrator_6",
+      "chapterId": "ch_intro",
+      "text": "Место завораживающее и любоваться им можно долго, однако вы продолжаете мокнуть под ливнем. В замке можно попробовать найти для себя укрытие хотя бы на время",
+      "options": [],
+      "backgroundImage": "fountain_behind_the_rain.png",
+      "characterImage": "",
+      "nextDialogueId": ""
+    }
+  ]
+}

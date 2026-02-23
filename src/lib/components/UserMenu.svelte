@@ -47,7 +47,9 @@
         {/if}
       </div>
       <span class="username">{authState.profile?.telegram_first_name || authState.user?.email?.split('@')[0]}</span>
-      {#if authDerivedState.isAuthor}
+      {#if authDerivedState.isAdmin}
+        <span class="admin-badge" title="Админ">⚡</span>
+      {:else if authDerivedState.isAuthor}
         <span class="author-badge" title="Автор">✏️</span>
       {/if}
       <span class="arrow">▼</span>
@@ -57,7 +59,9 @@
       <div class="dropdown-menu">
         <div class="user-info">
           <div class="user-email">{authState.user?.email}</div>
-          {#if authDerivedState.isAuthor}
+          {#if authDerivedState.isAdmin}
+            <div class="user-role admin">Администратор</div>
+          {:else if authDerivedState.isAuthor}
             <div class="user-role">Автор</div>
           {/if}
         </div>
@@ -188,9 +192,20 @@
     font-weight: 600;
   }
 
+  .user-role.admin {
+    color: #ffd700;
+  }
+
   .author-badge {
     font-size: 0.8rem;
     background: #e94560;
+    padding: 2px 5px;
+    border-radius: 10px;
+  }
+
+  .admin-badge {
+    font-size: 0.8rem;
+    background: linear-gradient(135deg, #ffd700, #ff8c00);
     padding: 2px 5px;
     border-radius: 10px;
   }

@@ -37,21 +37,18 @@
       "stateMachineBackgroundRive": "SM1",
       "options": [
         {
-          "text": "Конечно! Во что играем?",
-          "nextDialogueId": "game_intro",
+          "text": "Игра Onet",
+          "nextDialogueId": "",
           "enabled": true,
           "visible": true,
           "visibilityCondition": {
             "type": "always"
-          }
-        },
-        {
-          "text": "Не сегодня, я устал",
-          "nextDialogueId": "decline",
-          "enabled": true,
-          "visible": true,
-          "visibilityCondition": {
-            "type": "always"
+          },
+          "miniGame": {
+            "id": "onet_monsters",
+            "onWinDialogueId": "game_win",
+            "onLoseDialogueId": "game_lose",
+            "rewardItem": "vampire_fangs"
           }
         },
         {
@@ -100,7 +97,7 @@
           }
         },
         {
-          "text": "Пятнашки",
+          "text": "Игра Пятнашки",
           "enabled": true,
           "visible": true,
           "visibilityCondition": {
@@ -158,6 +155,15 @@
             "onLoseDialogueId": "game_lose",
             "rewardItem": "key_master"
           }
+        },
+        {
+          "text": "Не сегодня, я устал",
+          "enabled": true,
+          "visible": true,
+          "visibilityCondition": {
+            "type": "always"
+          },
+          "nextDialogueId": "decline"
         }
       ],
       "nextDialogueId": ""
