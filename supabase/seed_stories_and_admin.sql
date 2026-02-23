@@ -23,24 +23,24 @@
 -- ШАГ 3: Вставьте истории в таблицу stories
 -- --------------------------------------------------------
 
--- История "Дракула"
-INSERT INTO public.stories (title, author_id, json_url, is_public, allowed_players)
-VALUES ('Дракула', NULL, 'stories/dracula.json', true, '{}')
+-- История "Дракула" - ресурсы в bucket 'dracula'
+INSERT INTO public.stories (title, author_id, json_url, bucket, is_public, allowed_players)
+VALUES ('Дракула', NULL, 'dracula.json', 'dracula', true, '{}')
 ON CONFLICT DO NOTHING;
 
--- История "Выживание" (Zombie)
-INSERT INTO public.stories (title, author_id, json_url, is_public, allowed_players)
-VALUES ('Выживание', NULL, 'stories/zombie.json', true, '{}')
+-- История "Выживание" (Zombie) - ресурсы в bucket 'zombie'
+INSERT INTO public.stories (title, author_id, json_url, bucket, is_public, allowed_players)
+VALUES ('Выживание', NULL, 'zombie.json', 'zombie', true, '{}')
 ON CONFLICT DO NOTHING;
 
--- История "Сказка"
-INSERT INTO public.stories (title, author_id, json_url, is_public, allowed_players)
-VALUES ('Сказка', NULL, 'stories/fairy_tale.json', true, '{}')
+-- История "Сказка" - ресурсы в bucket 'fairy_tale'
+INSERT INTO public.stories (title, author_id, json_url, bucket, is_public, allowed_players)
+VALUES ('Сказка', NULL, 'fairy_tale.json', 'fairy_tale', true, '{}')
 ON CONFLICT DO NOTHING;
 
--- История "Мини-игры"
-INSERT INTO public.stories (title, author_id, json_url, is_public, allowed_players)
-VALUES ('Мини-игры', NULL, 'stories/minigames.json', true, '{}')
+-- История "Мини-игры" - ресурсы в bucket 'minigames'
+INSERT INTO public.stories (title, author_id, json_url, bucket, is_public, allowed_players)
+VALUES ('Мини-игры', NULL, 'minigames.json', 'minigames', true, '{}')
 ON CONFLICT DO NOTHING;
 
 -- --------------------------------------------------------
@@ -67,7 +67,7 @@ UPDATE public.stories SET is_public = true WHERE is_public = false;
 -- --------------------------------------------------------
 -- ПРОВЕРКА: Посмотреть все истории
 -- --------------------------------------------------------
-SELECT id, title, author_id, json_url, is_public, allowed_players 
+SELECT id, title, author_id, json_url, bucket, is_public, allowed_players 
 FROM public.stories 
 ORDER BY created_at;
 
