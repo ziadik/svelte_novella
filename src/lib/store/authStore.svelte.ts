@@ -1,11 +1,10 @@
-import { supabase } from '../supabaseClient';
-import type { User, Session } from '@supabase/supabase-js';
+import { supabase } from "../supabaseClient";
+import type { User, Session } from "@supabase/supabase-js";
 
-// Тип для профиля пользователя (по структуре вашей таблицы)
 interface UserProfile {
   user_id: string;
   created_at: string;
-  telegram_id: bigint | null;
+  telegram_id: number | null;
   telegram_username: string | null;
   telegram_first_name: string | null;
   telegram_last_name: string | null;
@@ -14,117 +13,187 @@ interface UserProfile {
   is_admin: boolean;
 }
 
-// Состояние аутентификации
-interface AuthState {
-  user: User | null;
-  session: Session | null;
-  profile: UserProfile | null;
-  loading: boolean;
-  initialized: boolean;
-}
+// Состояние
+let user = $state<User | null>(null);
+let session = $state<Session | null>(null);
+let profile = $state<UserProfile | null>(null);
+let loading = $state(true);
+let initialized = $state(false);
 
-// Начальное состояние
-const auth: AuthState = $state({
-  user: null,
-  session: null,
-  profile: null,
-  loading: true,
-  initialized: false,
-});
+// Производные значения
+const isAuthenticated = $derived(session !== null && user !== null);
+const isAuthor = $derived(profile?.is_author ?? false);
 
-// Derived состояние
-const authDerived = $derived({
-  isAuthenticated: auth.session !== null && auth.user !== null,
-  isAuthor: auth.profile?.is_author ?? false,
-});
-
-// Инициализация аутентификации
+// Инициализация
 export async function initAuth(): Promise<void> {
   try {
-    auth.loading = true;
+    loading = true;
 
-    const { data: { session } } = await supabase.auth.getSession();
-    auth.session = session;
-    auth.user = session?.user ?? null;
+    const {
+      data: { session: currentSession },
+    } = await supabase.auth.getSession();
+    session = currentSession;
+    user = currentSession?.user ?? null;
 
-    if (session?.user) {
-      await loadProfile(session.user.id);
+    if (currentSession?.user) {
+      await loadProfile(currentSession.user.id);
     }
 
-    // Подписка на изменения аутентификации
-    supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('[Auth] State change:', event);
-      auth.session = session;
-      auth.user = session?.user ?? null;
+    supabase.auth.onAuthStateChange(async (event, newSession) => {
+      console.log("[Auth] State change:", event, newSession?.user?.email);
 
-      if (session?.user) {
-        await loadProfile(session.user.id);
+      session = newSession;
+      user = newSession?.user ?? null;
+
+      if (newSession?.user) {
+        await loadProfile(newSession.user.id);
       } else {
-        auth.profile = null;
+        profile = null;
       }
-      
-      auth.loading = false;
     });
   } catch (error) {
-    console.error('[Auth] Init error:', error);
+    console.error("[Auth] Init error:", error);
   } finally {
-    auth.loading = false;
-    auth.initialized = true;
+    loading = false;
+    initialized = true;
   }
 }
 
-// Загрузка профиля пользователя
 async function loadProfile(userId: string): Promise<void> {
   try {
     const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('user_id', userId)
+      .from("profiles")
+      .select("*")
+      .eq("user_id", userId)
       .single();
 
     if (error) {
-      if (error.code === 'PGRST116') {
-        // Профиль не найден - создаем новый
-        console.log('[Auth] Profile not found, creating...');
+      if (error.code === "PGRST116") {
+        console.log("[Auth] Profile not found, creating...");
         await createProfile(userId);
       } else {
-        console.error('[Auth] Error loading profile:', error);
+        console.error("[Auth] Error loading profile:", error);
       }
       return;
     }
 
-    auth.profile = data;
+    profile = data;
+    console.log("[Auth] Profile loaded:", data);
   } catch (error) {
-    console.error('[Auth] Error in loadProfile:', error);
+    console.error("[Auth] Error in loadProfile:", error);
   }
 }
-// Создание профиля
+
 async function createProfile(userId: string): Promise<void> {
   try {
     const { data, error } = await supabase
-      .from('profiles')
-      .insert([{ 
-        user_id: userId,
-        is_author: false,
-        is_admin: false 
-      }])
+      .from("profiles")
+      .insert([
+        {
+          user_id: userId,
+          is_author: false,
+          is_admin: false,
+        },
+      ])
       .select()
       .single();
 
     if (error) {
-      console.error('[Auth] Error creating profile:', error);
+      console.error("[Auth] Error creating profile:", error);
       return;
     }
 
-    auth.profile = data;
+    profile = data;
   } catch (error) {
-    console.error('[Auth] Error in createProfile:', error);
+    console.error("[Auth] Error in createProfile:", error);
   }
 }
 
-// Регистрация нового пользователя
-export async function signUp(email: string, password: string, username?: string): Promise<{ success: boolean; error?: string }> {
-  auth.loading = true;
+export async function signIn(
+  email: string,
+  password: string,
+): Promise<{ success: boolean; error?: string }> {
+  if (!email || !email.trim()) {
+    return { success: false, error: "Email не может быть пустым" };
+  }
+
+  if (!password || !password.trim()) {
+    return { success: false, error: "Пароль не может быть пустым" };
+  }
+
+  loading = true;
+
+  try {
+    console.log("[Auth] Attempting sign in for:", email);
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password: password.trim(),
+    });
+
+    if (error) {
+      console.error("[Auth] Sign in error:", error);
+
+      if (error.status === 400 || error.status === 422) {
+        return { success: false, error: "Неверный email или пароль" };
+      }
+
+      if (error.message?.includes("Email not confirmed")) {
+        return {
+          success: false,
+          error: "Email не подтвержден. Проверьте почту.",
+        };
+      }
+
+      return { success: false, error: error.message };
+    }
+
+    console.log("[Auth] Sign in successful:", data.user?.email);
+
+    session = data.session;
+    user = data.user;
+
+    if (data.user) {
+      await loadProfile(data.user.id);
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("[Auth] Sign in exception:", error);
+    return { success: false, error: "Произошла ошибка при входе" };
+  } finally {
+    loading = false;
+  }
+}
+
+export async function signOut(): Promise<void> {
+  loading = true;
+
+  try {
+    const { error } = await supabase.auth.signOut();
+
+    if (error) {
+      console.error("[Auth] Error signing out:", error);
+    }
+
+    user = null;
+    session = null;
+    profile = null;
+  } finally {
+    loading = false;
+  }
+}
+
+export async function signUp(
+  email: string,
+  password: string,
+  username?: string,
+): Promise<{
+  success: boolean;
+  error?: string;
+  needsEmailConfirmation?: boolean;
+}> {
+  loading = true;
 
   try {
     const { data, error } = await supabase.auth.signUp({
@@ -132,131 +201,91 @@ export async function signUp(email: string, password: string, username?: string)
       password,
       options: {
         data: {
-          username: username || email.split('@')[0],
-        }
-      }
+          username: username || email.split("@")[0],
+        },
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
     });
 
     if (error) {
+      if (
+        error.status === 429 ||
+        error.message?.toLowerCase().includes("rate limit")
+      ) {
+        return {
+          success: false,
+          error: "Слишком много попыток. Пожалуйста, подождите час.",
+        };
+      }
       return { success: false, error: error.message };
     }
 
-    return { success: true };
+    const needsConfirmation =
+      data.user?.identities?.length === 0 ||
+      data.user?.email_confirmed_at === null;
+
+    return { success: true, needsEmailConfirmation: needsConfirmation };
   } catch (error: any) {
     return { success: false, error: error.message };
   } finally {
-    auth.loading = false;
+    loading = false;
   }
 }
 
-// Вход пользователя
-export async function signIn(email: string, password: string): Promise<{ success: boolean; error?: string }> {
-  // Валидация на пустые значения
-  if (!email || !email.trim()) {
-    return { success: false, error: 'Email не может быть пустым' };
-  }
-  
-  if (!password || !password.trim()) {
-    return { success: false, error: 'Пароль не может быть пустым' };
-  }
-
-  // Базовая валидация email
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    return { success: false, error: 'Неверный формат email' };
-  }
-
-  auth.loading = true;
-
+export async function resetPassword(
+  email: string,
+): Promise<{ success: boolean; error?: string }> {
   try {
-    console.log('[Auth] Attempting sign in for:', email);
-    
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: email.trim().toLowerCase(),
-      password: password.trim(),
+    const redirectUrl = `${window.location.origin}/reset-password`;
+    console.log("[Auth] Sending reset email to:", email);
+
+    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: redirectUrl,
     });
 
     if (error) {
-      console.error('[Auth] Sign in error:', error);
-      
-      // Обработка различных ошибок
-      if (error.status === 400 || error.status === 422) {
-        // Проверяем, не требует ли пользователь подтверждения email
-        const { data: userData } = await supabase.auth.signInWithOtp({
-          email: email.trim().toLowerCase(),
-        });
-        
-        if (userData) {
-          return { 
-            success: false, 
-            error: 'Email не подтвержден. Проверьте почту и подтвердите регистрацию.' 
-          };
-        }
-        
-        return { 
-          success: false, 
-          error: 'Неверный email или пароль' 
+      console.error("[Auth] Reset password error:", error);
+
+      if (
+        error.status === 429 ||
+        error.message?.toLowerCase().includes("rate limit")
+      ) {
+        return {
+          success: false,
+          error: "Слишком много попыток. Пожалуйста, подождите час.",
         };
       }
-      
-      if (error.message?.includes('Invalid login credentials')) {
-        return { success: false, error: 'Неверный email или пароль' };
-      }
-      
-      if (error.message?.includes('Email not confirmed')) {
-        return { 
-          success: false, 
-          error: 'Email не подтвержден. Проверьте почту и перейдите по ссылке подтверждения.' 
-        };
-      }
-      
+
       return { success: false, error: error.message };
     }
 
-    console.log('[Auth] Sign in successful:', data.user?.email);
+    console.log("[Auth] Reset email sent:", data);
     return { success: true };
   } catch (error: any) {
-    console.error('[Auth] Sign in exception:', error);
-    return { success: false, error: 'Произошла ошибка при входе' };
-  } finally {
-    auth.loading = false;
+    console.error("[Auth] Reset password exception:", error);
+    return { success: false, error: error.message };
   }
 }
 
-// Выход пользователя
-export async function signOut(): Promise<void> {
-  auth.loading = true;
-
-  const { error } = await supabase.auth.signOut();
-
-  if (error) {
-    console.error('Error signing out:', error);
-  }
-
-  auth.user = null;
-  auth.session = null;
-  auth.profile = null;
-  auth.loading = false;
-}
-
-// Обновление профиля
-export async function updateProfile(updates: Partial<UserProfile>): Promise<{ success: boolean; error?: string }> {
-  if (!auth.user) {
-    return { success: false, error: 'Пользователь не авторизован' };
+export async function updateProfile(
+  updates: Partial<UserProfile>,
+): Promise<{ success: boolean; error?: string }> {
+  if (!user) {
+    return { success: false, error: "Пользователь не авторизован" };
   }
 
   try {
     const { error } = await supabase
-      .from('profiles')
+      .from("profiles")
       .update(updates)
-      .eq('user_id', auth.user.id);
+      .eq("user_id", user.id);
 
     if (error) {
       return { success: false, error: error.message };
     }
 
-    if (auth.profile) {
-      auth.profile = { ...auth.profile, ...updates };
+    if (profile) {
+      profile = { ...profile, ...updates };
     }
 
     return { success: true };
@@ -265,8 +294,9 @@ export async function updateProfile(updates: Partial<UserProfile>): Promise<{ su
   }
 }
 
-// Обновление пароля
-export async function updatePassword(newPassword: string): Promise<{ success: boolean; error?: string }> {
+export async function updatePassword(
+  newPassword: string,
+): Promise<{ success: boolean; error?: string }> {
   try {
     const { error } = await supabase.auth.updateUser({
       password: newPassword,
@@ -282,69 +312,63 @@ export async function updatePassword(newPassword: string): Promise<{ success: bo
   }
 }
 
-// Сброс пароля
-export async function resetPassword(email: string): Promise<{ success: boolean; error?: string }> {
-  try {
-    // Для чисто клиентского приложения используем относительный URL
-    const redirectUrl = `${window.location.origin}/reset-password`;
-    console.log('[Auth] Sending reset email to:', email, 'with redirect:', redirectUrl);
-
-    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: redirectUrl,
-    });
-
-    if (error) {
-      console.error('[Auth] Reset password error:', error);
-      
-      // Обработка rate limit
-      if (error.message?.toLowerCase().includes('rate limit') || 
-          error.message?.toLowerCase().includes('too many')) {
-        return { 
-          success: false, 
-          error: 'Лимит отправки писем исчерпан. Пожалуйста, подождите час или настройте SMTP в Supabase.' 
-        };
-      }
-      
-      return { success: false, error: error.message };
-    }
-
-    console.log('[Auth] Reset email sent:', data);
-    return { success: true };
-  } catch (error: any) {
-    console.error('[Auth] Reset password exception:', error);
-    return { success: false, error: error.message };
-  }
-}
-
-// Проверка статуса пользователя
-export async function checkUserStatus(email: string): Promise<{ 
-  exists: boolean; 
+// ✅ НОВАЯ ФУНКЦИЯ: проверка статуса пользователя
+export async function checkUserStatus(email: string): Promise<{
+  exists: boolean;
   confirmed: boolean;
-  error?: string 
+  error?: string;
 }> {
   try {
     // Пробуем отправить OTP - если пользователь существует, получим успех
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim().toLowerCase(),
       options: {
-        shouldCreateUser: false // Не создавать нового пользователя
-      }
+        shouldCreateUser: false, // Не создавать нового пользователя
+      },
     });
 
     if (error) {
-      if (error.message?.includes('User not found')) {
+      // Если пользователь не найден
+      if (error.message?.includes("User not found")) {
         return { exists: false, confirmed: false };
       }
+
+      // Другие ошибки (например, rate limit)
       return { exists: true, confirmed: false, error: error.message };
     }
 
     // Если OTP отправился успешно - пользователь существует
     return { exists: true, confirmed: true };
-  } catch (error) {
-    return { exists: false, confirmed: false, error: 'Ошибка проверки' };
+  } catch (error: any) {
+    console.error("[Auth] Error checking user status:", error);
+    return { exists: false, confirmed: false, error: error.message };
   }
 }
 
-// Экспорт состояния
-export const authState = auth;
-export const authDerivedState = authDerived;
+// Экспорты
+export const authState = {
+  get user() {
+    return user;
+  },
+  get session() {
+    return session;
+  },
+  get profile() {
+    return profile;
+  },
+  get loading() {
+    return loading;
+  },
+  get initialized() {
+    return initialized;
+  },
+};
+
+export const authDerivedState = {
+  get isAuthenticated() {
+    return isAuthenticated;
+  },
+  get isAuthor() {
+    return isAuthor;
+  },
+};

@@ -5,12 +5,24 @@
   import UserMenu from './lib/components/UserMenu.svelte';
   import ResetPasswordPage from './lib/components/ResetPasswordPage.svelte';
   import { editor, editorActions } from './lib/editor/stores/editorStore.svelte';
-  import { initAuth, authDerivedState } from './lib/store/authStore.svelte';
+  import { initAuth, authState, authDerivedState } from './lib/store/authStore.svelte';
 
-  let initialized = $state(false);
+  let appInitialized = $state(false);
   let showResetPassword = $state(false);
   let resetPasswordError = $state('');
   let resetPasswordToken = $state('');
+  
+  // Отслеживаем изменения аутентификации
+  $effect(() => {
+    if (authState.initialized) {
+      console.log('[App] Auth state changed:', {
+        user: authState.user?.email,
+        isAuthenticated: authDerivedState.isAuthenticated,
+        session: !!authState.session,
+        loading: authState.loading
+      });
+    }
+  });
 
   async function handleAuthCallback() {
     const hash = window.location.hash;
@@ -22,7 +34,6 @@
     if (hash.includes('type=recovery') || search.includes('type=recovery')) {
       console.log('[App] Recovery flow detected');
       
-      // Извлекаем токен из hash или search
       let accessToken = '';
       
       if (hash.includes('access_token=')) {
@@ -36,8 +47,6 @@
       if (accessToken) {
         resetPasswordToken = accessToken;
         showResetPassword = true;
-        
-        // Очищаем URL от токенов
         window.history.replaceState({}, '', '/reset-password');
       }
     }
@@ -62,7 +71,7 @@
     
     // Инициализируем auth
     await initAuth();
-    initialized = true;
+    appInitialized = true;
   });
 
   function handleCloseResetPassword() {
@@ -73,7 +82,8 @@
   }
 </script>
 
-{#if !initialized}
+<!-- ✅ Используем appInitialized, а не initialized -->
+{#if !appInitialized}
   <div class="loading-screen">
     <div class="loader"></div>
     <p>Загрузка...</p>
@@ -95,6 +105,16 @@
 {:else}
   <UserMenu />
   <Main />
+{/if}
+
+<!-- Отладочная панель (опционально) -->
+{#if import.meta.env.DEV}
+  <div style="position: fixed; bottom: 10px; left: 10px; background: rgba(0,0,0,0.8); color: #0f0; padding: 10px; font-size: 12px; z-index: 9999; border-radius: 4px;">
+    <div><strong>Auth Status:</strong> {authDerivedState.isAuthenticated ? '✅' : '❌'}</div>
+    <div><strong>User:</strong> {authState.user?.email || 'none'}</div>
+    <div><strong>App Initialized:</strong> {appInitialized ? '✅' : '❌'}</div>
+    <div><strong>Auth Initialized:</strong> {authState.initialized ? '✅' : '❌'}</div>
+  </div>
 {/if}
 
 <style>
