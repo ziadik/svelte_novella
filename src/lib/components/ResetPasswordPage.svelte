@@ -16,6 +16,72 @@
   let error = $state(initialError);
   let isSuccess = $state(false);
   let hasValidToken = $state(false);
+  let sessionSet = $state(false);
+
+  async function setSessionFromToken() {
+    if (sessionSet) return true;
+    
+    try {
+      console.log('[ResetPassword] Setting session from token');
+      
+      // Пробуем установить сессию из текущей URL
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        console.error('[ResetPassword] Session error:', sessionError);
+        return false;
+      }
+      
+      if (session) {
+        console.log('[ResetPassword] Session already exists');
+        sessionSet = true;
+        return true;
+      }
+      
+      // Если нет сессии, но есть токен - пробуем восстановить
+      if (initialToken) {
+        // Для PKCE потока токен уже в URL, Supabase сам обработает
+        console.log('[ResetPassword] Token provided, waiting for session...');
+        
+        // Даем время Supabase обработать токен
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        const { data: { session: newSession } } = await supabase.auth.getSession();
+        if (newSession) {
+          sessionSet = true;
+          return true;
+        }
+      }
+      
+      return false;
+    } catch (err) {
+      console.error('[ResetPassword] Error setting session:', err);
+      return false;
+    }
+  }
+
+  onMount(async () => {
+    console.log('[ResetPassword] Mounted with:', { 
+      hasToken: !!initialToken, 
+      hasError: !!initialError,
+      path: window.location.pathname,
+      hash: window.location.hash,
+      search: window.location.search
+    });
+
+    // Если есть токен или мы на странице сброса
+    if (initialToken || window.location.pathname === '/reset-password') {
+      const sessionValid = await setSessionFromToken();
+      hasValidToken = sessionValid;
+      
+      if (!sessionValid && !initialError) {
+        error = 'Ссылка для сброса пароля недействительна или истекла. Запросите новую.';
+      }
+    } else if (initialError) {
+      hasValidToken = false;
+      error = initialError;
+    }
+  });
 
   async function resendResetLink() {
     if (!resetEmail) return;
@@ -24,112 +90,34 @@
     error = '';
     message = '';
 
-    console.log('[ResetPassword] Отправка сброса на:', resetEmail);
+    console.log('[ResetPassword] Sending reset to:', resetEmail);
 
     try {
-      // Используем базовый URL без redirectTo для тестирования
-      const { data, error: resetError } = await supabase.auth.resetPasswordForEmail(resetEmail);
+      const { data, error: resetError } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
 
-      console.log('[ResetPassword] Ответ:', { data, error: resetError });
+      console.log('[ResetPassword] Response:', { data, error: resetError });
 
       if (resetError) {
-        console.error('[ResetPassword] Ошибка:', resetError);
-        
-        // Обработка rate limit (бесплатный план: 2 письма в час)
-        if (resetError.message?.toLowerCase().includes('rate limit') || resetError.message?.toLowerCase().includes('too many')) {
-          error = '⚠️ Лимит писем исчерпан! На бесплатном плане Supabase можно отправить только 2 письма в час.\n\n📧 Решение: настройте SMTP в Supabase (например, Resend — бесплатно 3000 писем/мес).';
-        } else if (resetError.message?.includes('User not found') || resetError.message?.includes('No user')) {
+        if (resetError.message?.toLowerCase().includes('rate limit') || 
+            resetError.message?.toLowerCase().includes('too many')) {
+          error = 'Лимит отправки писем исчерпан. Пожалуйста, подождите час.';
+        } else if (resetError.message?.includes('User not found')) {
           error = 'Пользователь с таким email не найден';
-        } else if (resetError.message?.includes('Email address is invalid')) {
-          error = 'Неверный формат email';
         } else {
-          // Показываем оригинальную ошибку для диагностики
-          error = `Ошибка: ${resetError.message}`;
+          error = resetError.message;
         }
       } else {
-        message = 'Ссылка для сброса пароля отправлена! Проверьте почту (и спам).';
+        message = 'Ссылка для сброса пароля отправлена! Проверьте почту (и папку спам).';
       }
     } catch (err: any) {
-      console.error('[ResetPassword] Исключение:', err);
-      error = err.message || 'Ошибка отправки ссылки';
+      console.error('[ResetPassword] Exception:', err);
+      error = err.message || 'Ошибка отправки';
     }
 
     loading = false;
   }
-
-  onMount(async () => {
-    console.log('[ResetPassword] Mount - initialToken:', !!initialToken);
-    
-    // Используем токен из props или из URL
-    let accessToken = initialToken;
-    let errorParam = initialError;
-    
-    // Если нет токена из props - пробуем получить из URL
-    if (!accessToken) {
-      const fullUrl = window.location.href;
-      const hash = window.location.hash;
-      const search = window.location.search;
-      
-      console.log('[ResetPassword] Full URL:', fullUrl);
-      
-      // Пробуем разные варианты
-      if (search.includes('token=')) {
-        const params = new URLSearchParams(search);
-        accessToken = params.get('token') || '';
-        errorParam = errorParam || params.get('error') || '';
-      } else if (hash.includes('access_token=')) {
-        const params = new URLSearchParams(hash.substring(1));
-        accessToken = params.get('access_token') || '';
-        errorParam = errorParam || params.get('error') || '';
-      } else if (fullUrl.includes('token=')) {
-        const tokenMatch = fullUrl.match(/token=([^&]+)/);
-        if (tokenMatch) accessToken = tokenMatch[1];
-      }
-      
-      console.log('[ResetPassword] Parsed Token:', accessToken ? 'found' : 'not found');
-    } else {
-      console.log('[ResetPassword] Using props token');
-    }
-
-    console.log('[ResetPassword] Final accessToken:', !!accessToken);
-
-    // Если есть ошибка - показываем форму повторной отправки
-    if (errorParam) {
-      hasValidToken = false;
-      error = errorParam;
-      return;
-    }
-
-    // Если есть токен - показываем форму ввода пароля
-    if (accessToken) {
-      console.log('[ResetPassword] Setting hasValidToken = true');
-      hasValidToken = true;
-      
-      // Получаем refresh_token если есть
-      const hashParams = new URLSearchParams(window.location.hash.substring(1));
-      const queryParams = new URLSearchParams(window.location.search);
-      const refreshToken = hashParams.get('refresh_token') || queryParams.get('refresh_token') || '';
-      
-      // Устанавливаем сессию из токена
-      const { error: sessionError } = await supabase.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken,
-      });
-
-      if (sessionError) {
-        console.error('[ResetPassword] Ошибка установки сессии:', sessionError);
-        error = sessionError.message || 'Ссылка для сброса пароля недействительна';
-        hasValidToken = false;
-      }
-    } else if (initialError) {
-      // Если передана начальная ошибка
-      hasValidToken = false;
-      error = initialError;
-    } else {
-      // Нет токена - показываем форму для повторной отправки
-      hasValidToken = false;
-    }
-  });
 
   async function handleResetPassword() {
     error = '';
@@ -148,30 +136,37 @@
     loading = true;
 
     try {
+      // Сначала убеждаемся что есть сессия
+      const sessionValid = await setSessionFromToken();
+      
+      if (!sessionValid) {
+        error = 'Сессия не найдена. Пожалуйста, запросите новую ссылку для сброса пароля.';
+        return;
+      }
+
       const { error: updateError } = await supabase.auth.updateUser({
         password: newPassword,
       });
 
       if (updateError) {
-        console.error('[ResetPassword] Ошибка обновления пароля:', updateError);
+        console.error('[ResetPassword] Update error:', updateError);
         error = updateError.message;
       } else {
         isSuccess = true;
-        message = 'Пароль успешно изменён! Теперь вы можете войти с новым паролем.';
+        message = 'Пароль успешно изменён!';
         
-        // Перенаправляем через 3 секунды
+        // Выходим через 3 секунды
         setTimeout(() => {
-          // Очищаем URL
           window.location.hash = '';
           onClose?.();
         }, 3000);
       }
     } catch (err: any) {
-      console.error('[ResetPassword] Исключение:', err);
-      error = err.message || 'Произошла ошибка при сбросе пароля';
+      console.error('[ResetPassword] Exception:', err);
+      error = err.message || 'Ошибка при сбросе пароля';
+    } finally {
+      loading = false;
     }
-
-    loading = false;
   }
 </script>
 

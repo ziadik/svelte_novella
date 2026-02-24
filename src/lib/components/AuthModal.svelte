@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { authState, authDerivedState, signIn, signUp, resetPassword } from '../store/authStore.svelte';
+  import { supabase } from '../supabaseClient';
+  import { authState, authDerivedState, signIn, signUp, resetPassword, checkUserStatus } from '../store/authStore.svelte';
 
   let {
     onClose,
@@ -9,50 +10,162 @@
     initialMode?: 'login' | 'register' | 'reset';
   }>();
 
-  let mode = $state<'login' | 'register' | 'reset'>(initialMode);
+  // ✅ СОЗДАЕМ ЛОКАЛЬНУЮ КОПИЮ, которую можно изменять
+  let mode = $state(initialMode);
+  
   let email = $state('');
   let password = $state('');
   let username = $state('');
   let error = $state('');
   let success = $state('');
   let loading = $state(false);
+  let emailError = $state('');
+  let passwordError = $state('');
 
-  async function handleSubmit() {
+  // Функция для переключения режима - используем локальную переменную mode
+  function switchMode(newMode: 'login' | 'register' | 'reset') {
+    mode = newMode; // ✅ Это работает, потому что mode - это $state
+    error = '';
+    success = '';
+    emailError = '';
+    passwordError = '';
+  }
+
+  // Валидация email
+  function validateEmail(email: string): boolean {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const isValid = emailRegex.test(email);
+    emailError = isValid ? '' : 'Введите корректный email';
+    return isValid;
+  }
+
+  // Валидация пароля
+  function validatePassword(password: string): boolean {
+    const isValid = password.length >= 6;
+    passwordError = isValid ? '' : 'Пароль должен быть не менее 6 символов';
+    return isValid;
+  }
+
+  // Обработка входа
+  async function handleLogin() {
+    if (!validateEmail(email) || !validatePassword(password)) {
+      return;
+    }
+
     error = '';
     success = '';
     loading = true;
 
-    if (mode === 'login') {
+    try {
       const result = await signIn(email, password);
+      
       if (!result.success) {
         error = result.error || 'Ошибка входа';
+        
+        // Если ошибка о неподтвержденном email
+        if (error.includes('подтвержден')) {
+          // Предлагаем отправить письмо повторно
+          setTimeout(() => {
+            if (confirm('Отправить письмо с подтверждением повторно?')) {
+              resendConfirmation();
+            }
+          }, 100);
+        }
       } else {
         onClose?.();
       }
-    } else if (mode === 'register') {
+    } finally {
+      loading = false;
+    }
+  }
+
+  // Повторная отправка подтверждения
+  async function resendConfirmation() {
+    loading = true;
+    try {
+      const { error: authError } = await supabase.auth.resend({
+        type: 'signup',
+        email: email,
+      });
+      
+      if (authError) {
+        error = 'Ошибка при отправке: ' + authError.message;
+      } else {
+        success = 'Письмо с подтверждением отправлено повторно!';
+      }
+    } catch (err: any) {
+      error = err.message;
+    } finally {
+      loading = false;
+    }
+  }
+
+  // Обработка регистрации
+  async function handleRegister() {
+    if (!validateEmail(email) || !validatePassword(password)) {
+      return;
+    }
+
+    if (!username.trim()) {
+      error = 'Введите имя пользователя';
+      return;
+    }
+
+    error = '';
+    success = '';
+    loading = true;
+
+    try {
       const result = await signUp(email, password, username);
+      
       if (!result.success) {
         error = result.error || 'Ошибка регистрации';
+      } else if (result.needsEmailConfirmation) {
+        success = '✅ Регистрация почти завершена! Проверьте почту и подтвердите email.';
       } else {
-        success = 'Проверьте почту для подтверждения регистрации!';
+        success = 'Регистрация успешна!';
+        setTimeout(() => onClose?.(), 2000);
       }
-    } else if (mode === 'reset') {
+    } finally {
+      loading = false;
+    }
+  }
+
+  // Обработка сброса пароля
+  async function handleReset() {
+    if (!validateEmail(email)) {
+      return;
+    }
+
+    error = '';
+    success = '';
+    loading = true;
+
+    try {
       const result = await resetPassword(email);
+      
       if (!result.success) {
         error = result.error || 'Ошибка сброса пароля';
       } else {
-        success = 'Инструкции по сбросу пароля отправлены на почту!';
+        success = '📧 Инструкции по сбросу пароля отправлены на почту!';
       }
+    } finally {
+      loading = false;
     }
-
-    loading = false;
   }
 
-  function switchMode(newMode: 'login' | 'register' | 'reset') {
-    mode = newMode;
-    error = '';
-    success = '';
+  // Основной обработчик
+  async function handleSubmit() {
+    if (mode === 'login') {
+      await handleLogin();
+    } else if (mode === 'register') {
+      await handleRegister();
+    } else if (mode === 'reset') {
+      await handleReset();
+    }
   }
+
+
 </script>
 
 <div class="auth-modal-overlay" onclick={onClose} onkeydown={(e) => e.key === 'Escape' && onClose?.()} role="dialog" aria-modal="true" tabindex="-1">
@@ -70,11 +183,15 @@
     </h2>
 
     {#if error}
-      <div class="alert error">{error}</div>
+      <div class="alert error">
+        <strong>⚠️</strong> {error}
+      </div>
     {/if}
 
     {#if success}
-      <div class="alert success">{success}</div>
+      <div class="alert success">
+        <strong>✅</strong> {success}
+      </div>
     {/if}
 
     <form onsubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
@@ -87,6 +204,7 @@
             bind:value={username}
             placeholder="Придумайте имя"
             required
+            disabled={loading}
           />
         </div>
       {/if}
@@ -98,8 +216,14 @@
           id="email"
           bind:value={email}
           placeholder="your@email.com"
+          class:error={emailError}
+          oninput={() => validateEmail(email)}
           required
+          disabled={loading}
         />
+        {#if emailError}
+          <span class="field-error">{emailError}</span>
+        {/if}
       </div>
 
       {#if mode !== 'reset'}
@@ -110,13 +234,28 @@
             id="password"
             bind:value={password}
             placeholder="Введите пароль"
+            class:error={passwordError}
+            oninput={() => validatePassword(password)}
             required
             minlength="6"
+            disabled={loading}
           />
+          {#if passwordError}
+            <span class="field-error">{passwordError}</span>
+          {/if}
+          {#if mode === 'register'}
+            <small class="hint">Минимум 6 символов</small>
+          {/if}
         </div>
       {/if}
 
-      <button type="submit" class="btn-primary" disabled={loading}>
+      <button 
+        type="submit" 
+        class="btn-primary" 
+        disabled={loading || (mode === 'login' && (!email || !password)) || 
+                (mode === 'register' && (!email || !password || !username)) ||
+                (mode === 'reset' && !email)}
+      >
         {#if loading}
           Загрузка...
         {:else if mode === 'login'}
@@ -131,27 +270,44 @@
 
     <div class="auth-links">
       {#if mode === 'login'}
-        <button type="button" class="link-btn" onclick={() => switchMode('reset')}>
+        <button type="button" class="link-btn" onclick={() => switchMode('reset')} disabled={loading}>
           Забыли пароль?
         </button>
-        <button type="button" class="link-btn" onclick={() => switchMode('register')}>
+        <button type="button" class="link-btn" onclick={() => switchMode('register')} disabled={loading}>
           Нет аккаунта? Регистрация
         </button>
       {:else if mode === 'register'}
-        <button type="button" class="link-btn" onclick={() => switchMode('login')}>
+        <button type="button" class="link-btn" onclick={() => switchMode('login')} disabled={loading}>
           Уже есть аккаунт? Войти
         </button>
       {:else}
-        <button type="button" class="link-btn" onclick={() => switchMode('login')}>
+        <button type="button" class="link-btn" onclick={() => switchMode('login')} disabled={loading}>
           Вспомнили пароль? Войти
         </button>
       {/if}
     </div>
+
+    <!-- Отладка (можно убрать в продакшене) -->
+    {#if mode === 'login' && error}
+      <div class="debug-info">
+        <details>
+          <summary>🔧 Отладка</summary>
+          <p>Email: {email}</p>
+          <p>Длина пароля: {password.length}</p>
+          <p>Статус: Попробуйте:</p>
+          <ul>
+            <li>Проверить подтвержден ли email в Supabase Dashboard</li>
+            <li>Сбросить пароль через "Забыли пароль?"</li>
+            <li>Проверить консоль браузера (F12)</li>
+          </ul>
+        </details>
+      </div>
+    {/if}
   </div>
 </div>
 
 <style>
-  .auth-modal-overlay {
+ .auth-modal-overlay {
     position: fixed;
     top: 0;
     left: 0;
@@ -289,5 +445,42 @@
   .link-btn:hover {
     color: #80cbc4;
     text-decoration: underline;
+  }
+  /* Добавьте эти стили */
+  .field-error {
+    color: #e94560;
+    font-size: 0.8rem;
+    margin-top: 5px;
+    display: block;
+  }
+
+  input.error {
+    border-color: #e94560;
+  }
+
+  .hint {
+    color: #888;
+    font-size: 0.8rem;
+    margin-top: 5px;
+    display: block;
+  }
+
+  .debug-info {
+    margin-top: 20px;
+    padding: 10px;
+    background: #1e1e1e;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    color: #888;
+  }
+
+  .debug-info summary {
+    cursor: pointer;
+    color: #4db6ac;
+  }
+
+  .debug-info ul {
+    margin: 5px 0;
+    padding-left: 20px;
   }
 </style>

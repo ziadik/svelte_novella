@@ -12,60 +12,55 @@
   let resetPasswordError = $state('');
   let resetPasswordToken = $state('');
 
-  onMount(async () => {
-    // Сохраняем URL сразу при загрузке, потому что он может измениться
-    const fullUrl = window.location.href;
-    console.log('[App] Initial URL:', fullUrl);
-
-    // Парсим параметры из сохранённого URL
-    let accessToken = '';
-    let type = '';
-    let error = '';
-    let errorDescription = '';
-
-    // Проверяем есть ли параметры в URL
-    if (fullUrl.includes('token=') || fullUrl.includes('access_token=')) {
-      // Из search (?token=xxx)
-      const searchMatch = fullUrl.match(/\?([^#]+)/);
-      if (searchMatch) {
-        const params = new URLSearchParams('?' + searchMatch[1]);
-        accessToken = params.get('token') || '';
-        type = params.get('type') || '';
-        error = params.get('error') || '';
-        errorDescription = params.get('error_description') || '';
-      }
-      
-      // Из hash (#access_token=xxx)
-      if (!accessToken) {
-        const hashMatch = fullUrl.match(/#(.+)$/);
-        if (hashMatch) {
-          const hashParams = new URLSearchParams(hashMatch[1]);
-          accessToken = hashParams.get('access_token') || '';
-          type = hashParams.get('type') || '';
-          error = hashParams.get('error') || '';
-          errorDescription = hashParams.get('error_description') || '';
-        }
-      }
-    }
-
-    console.log('[App] Parsed - Token:', accessToken ? 'found' : 'not found', 'Type:', type, 'Error:', error ? 'yes' : 'no');
-
-    // Если есть ошибка - показываем форму с ошибкой
-    if (error) {
-      resetPasswordError = errorDescription || error;
-      showResetPassword = true;
-    }
-    // Если есть токен - показываем форму ввода пароля
-    else if (accessToken) {
-      resetPasswordToken = accessToken;
-      showResetPassword = true;
-    }
-    // Если в URL есть reset-password - показываем пустую форму
-    else if (fullUrl.includes('reset-password')) {
-      showResetPassword = true;
-    }
+  async function handleAuthCallback() {
+    const hash = window.location.hash;
+    const search = window.location.search;
     
-    // Инициализируем auth в любом случае
+    console.log('[App] Checking auth callback:', { hash, search });
+
+    // Проверяем тип recovery (сброс пароля)
+    if (hash.includes('type=recovery') || search.includes('type=recovery')) {
+      console.log('[App] Recovery flow detected');
+      
+      // Извлекаем токен из hash или search
+      let accessToken = '';
+      
+      if (hash.includes('access_token=')) {
+        const hashParams = new URLSearchParams(hash.substring(1));
+        accessToken = hashParams.get('access_token') || '';
+      } else if (search.includes('token=')) {
+        const searchParams = new URLSearchParams(search);
+        accessToken = searchParams.get('token') || '';
+      }
+
+      if (accessToken) {
+        resetPasswordToken = accessToken;
+        showResetPassword = true;
+        
+        // Очищаем URL от токенов
+        window.history.replaceState({}, '', '/reset-password');
+      }
+    }
+    // Проверяем ошибки
+    else if (search.includes('error=')) {
+      const params = new URLSearchParams(search);
+      resetPasswordError = params.get('error_description') || params.get('error') || 'Unknown error';
+      showResetPassword = true;
+      window.history.replaceState({}, '', '/reset-password');
+    }
+    // Проверяем прямой переход на /reset-password
+    else if (window.location.pathname === '/reset-password') {
+      showResetPassword = true;
+    }
+  }
+
+  onMount(async () => {
+    console.log('[App] Mounted');
+    
+    // Проверяем callback от Supabase
+    await handleAuthCallback();
+    
+    // Инициализируем auth
     await initAuth();
     initialized = true;
   });
@@ -73,7 +68,7 @@
   function handleCloseResetPassword() {
     showResetPassword = false;
     resetPasswordError = '';
-    // Очищаем URL
+    resetPasswordToken = '';
     window.history.replaceState({}, '', '/');
   }
 </script>

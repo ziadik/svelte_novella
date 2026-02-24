@@ -40,29 +40,37 @@ const authDerived = $derived({
 
 // Инициализация аутентификации
 export async function initAuth(): Promise<void> {
-  auth.loading = true;
+  try {
+    auth.loading = true;
 
-  const { data: { session } } = await supabase.auth.getSession();
-  auth.session = session;
-  auth.user = session?.user ?? null;
-
-  if (session?.user) {
-    await loadProfile(session.user.id);
-  }
-
-  auth.loading = false;
-  auth.initialized = true;
-
-  supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { session } } = await supabase.auth.getSession();
     auth.session = session;
     auth.user = session?.user ?? null;
 
     if (session?.user) {
       await loadProfile(session.user.id);
-    } else {
-      auth.profile = null;
     }
-  });
+
+    // Подписка на изменения аутентификации
+    supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('[Auth] State change:', event);
+      auth.session = session;
+      auth.user = session?.user ?? null;
+
+      if (session?.user) {
+        await loadProfile(session.user.id);
+      } else {
+        auth.profile = null;
+      }
+      
+      auth.loading = false;
+    });
+  } catch (error) {
+    console.error('[Auth] Init error:', error);
+  } finally {
+    auth.loading = false;
+    auth.initialized = true;
+  }
 }
 
 // Загрузка профиля пользователя
@@ -74,14 +82,43 @@ async function loadProfile(userId: string): Promise<void> {
       .eq('user_id', userId)
       .single();
 
-    if (error && error.code !== 'PGRST116') {
-      console.error('Error loading profile:', error);
+    if (error) {
+      if (error.code === 'PGRST116') {
+        // Профиль не найден - создаем новый
+        console.log('[Auth] Profile not found, creating...');
+        await createProfile(userId);
+      } else {
+        console.error('[Auth] Error loading profile:', error);
+      }
       return;
     }
 
     auth.profile = data;
   } catch (error) {
-    console.error('Error loading profile:', error);
+    console.error('[Auth] Error in loadProfile:', error);
+  }
+}
+// Создание профиля
+async function createProfile(userId: string): Promise<void> {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .insert([{ 
+        user_id: userId,
+        is_author: false,
+        is_admin: false 
+      }])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('[Auth] Error creating profile:', error);
+      return;
+    }
+
+    auth.profile = data;
+  } catch (error) {
+    console.error('[Auth] Error in createProfile:', error);
   }
 }
 
@@ -101,38 +138,88 @@ export async function signUp(email: string, password: string, username?: string)
     });
 
     if (error) {
-      auth.loading = false;
       return { success: false, error: error.message };
     }
 
-    auth.loading = false;
     return { success: true };
   } catch (error: any) {
-    auth.loading = false;
     return { success: false, error: error.message };
+  } finally {
+    auth.loading = false;
   }
 }
 
 // Вход пользователя
 export async function signIn(email: string, password: string): Promise<{ success: boolean; error?: string }> {
+  // Валидация на пустые значения
+  if (!email || !email.trim()) {
+    return { success: false, error: 'Email не может быть пустым' };
+  }
+  
+  if (!password || !password.trim()) {
+    return { success: false, error: 'Пароль не может быть пустым' };
+  }
+
+  // Базовая валидация email
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return { success: false, error: 'Неверный формат email' };
+  }
+
   auth.loading = true;
 
   try {
+    console.log('[Auth] Attempting sign in for:', email);
+    
     const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
+      email: email.trim().toLowerCase(),
+      password: password.trim(),
     });
 
     if (error) {
-      auth.loading = false;
+      console.error('[Auth] Sign in error:', error);
+      
+      // Обработка различных ошибок
+      if (error.status === 400 || error.status === 422) {
+        // Проверяем, не требует ли пользователь подтверждения email
+        const { data: userData } = await supabase.auth.signInWithOtp({
+          email: email.trim().toLowerCase(),
+        });
+        
+        if (userData) {
+          return { 
+            success: false, 
+            error: 'Email не подтвержден. Проверьте почту и подтвердите регистрацию.' 
+          };
+        }
+        
+        return { 
+          success: false, 
+          error: 'Неверный email или пароль' 
+        };
+      }
+      
+      if (error.message?.includes('Invalid login credentials')) {
+        return { success: false, error: 'Неверный email или пароль' };
+      }
+      
+      if (error.message?.includes('Email not confirmed')) {
+        return { 
+          success: false, 
+          error: 'Email не подтвержден. Проверьте почту и перейдите по ссылке подтверждения.' 
+        };
+      }
+      
       return { success: false, error: error.message };
     }
 
-    auth.loading = false;
+    console.log('[Auth] Sign in successful:', data.user?.email);
     return { success: true };
   } catch (error: any) {
+    console.error('[Auth] Sign in exception:', error);
+    return { success: false, error: 'Произошла ошибка при входе' };
+  } finally {
     auth.loading = false;
-    return { success: false, error: error.message };
   }
 }
 
@@ -198,40 +285,63 @@ export async function updatePassword(newPassword: string): Promise<{ success: bo
 // Сброс пароля
 export async function resetPassword(email: string): Promise<{ success: boolean; error?: string }> {
   try {
+    // Для чисто клиентского приложения используем относительный URL
     const redirectUrl = `${window.location.origin}/reset-password`;
-    console.log('[Auth] Сброс пароля, redirectTo:', redirectUrl);
+    console.log('[Auth] Sending reset email to:', email, 'with redirect:', redirectUrl);
 
     const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: redirectUrl,
     });
 
     if (error) {
-      console.error('[Auth] Ошибка сброса пароля:', error);
+      console.error('[Auth] Reset password error:', error);
       
-      // Обработка rate limit (бесплатный план: 2 письма в час)
-      if (error.message?.includes('rate limit') || error.message?.includes('Too many')) {
+      // Обработка rate limit
+      if (error.message?.toLowerCase().includes('rate limit') || 
+          error.message?.toLowerCase().includes('too many')) {
         return { 
           success: false, 
-          error: 'Лимит исчерпан. На бесплатном плане Supabase можно отправить только 2 письма в час. Подождите час или настройте SMTP (Resend).' 
+          error: 'Лимит отправки писем исчерпан. Пожалуйста, подождите час или настройте SMTP в Supabase.' 
         };
       }
       
       return { success: false, error: error.message };
     }
 
-    console.log('[Auth] Email для сброса отправлен:', data);
+    console.log('[Auth] Reset email sent:', data);
     return { success: true };
   } catch (error: any) {
-    console.error('[Auth] Исключение при сбросе пароля:', error);
-    
-    if (error.message?.includes('rate limit')) {
-      return { 
-        success: false, 
-        error: 'Лимит исчерпан. На бесплатном плане Supabase можно отправить только 2 письма в час.' 
-      };
-    }
-    
+    console.error('[Auth] Reset password exception:', error);
     return { success: false, error: error.message };
+  }
+}
+
+// Проверка статуса пользователя
+export async function checkUserStatus(email: string): Promise<{ 
+  exists: boolean; 
+  confirmed: boolean;
+  error?: string 
+}> {
+  try {
+    // Пробуем отправить OTP - если пользователь существует, получим успех
+    const { error } = await supabase.auth.signInWithOtp({
+      email: email.trim().toLowerCase(),
+      options: {
+        shouldCreateUser: false // Не создавать нового пользователя
+      }
+    });
+
+    if (error) {
+      if (error.message?.includes('User not found')) {
+        return { exists: false, confirmed: false };
+      }
+      return { exists: true, confirmed: false, error: error.message };
+    }
+
+    // Если OTP отправился успешно - пользователь существует
+    return { exists: true, confirmed: true };
+  } catch (error) {
+    return { exists: false, confirmed: false, error: 'Ошибка проверки' };
   }
 }
 
