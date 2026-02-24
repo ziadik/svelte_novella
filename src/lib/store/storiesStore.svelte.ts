@@ -30,8 +30,60 @@ const stories: StoriesState = $state({
 
 // Функции для получения производных данных
 
+// Статический список историй для гостей (fallback)
+const FALLBACK_STORIES: Story[] = [
+  {
+    id: 'dracula',
+    created_at: new Date().toISOString(),
+    title: 'Дракула',
+    author_id: null,
+    json_url: 'dracula_story.json',
+    preview_image_url: null,
+    is_public: true,
+    allowed_players: [],
+    bucket: 'dracula'
+  },
+  {
+    id: 'zombie',
+    created_at: new Date().toISOString(),
+    title: 'Выживание',
+    author_id: null,
+    json_url: 'zombie_story.json',
+    preview_image_url: null,
+    is_public: true,
+    allowed_players: [],
+    bucket: 'zombie'
+  },
+  {
+    id: 'fairy_tale',
+    created_at: new Date().toISOString(),
+    title: 'Сказка',
+    author_id: null,
+    json_url: 'fairy_tale_story.json',
+    preview_image_url: null,
+    is_public: true,
+    allowed_players: [],
+    bucket: 'fairy_tale'
+  },
+  {
+    id: 'minigames',
+    created_at: new Date().toISOString(),
+    title: 'Мини-игры',
+    author_id: null,
+    json_url: 'minigames_story.json',
+    preview_image_url: null,
+    is_public: true,
+    allowed_players: [],
+    bucket: 'minigames'
+  }
+];
+
 // Публичные истории - видят ВСЕ (гости, игроки, авторы)
 export function getPublicStories(): Story[] {
+  // Если stories не загружены - возвращаем fallback
+  if (!stories.initialized || stories.stories.length === 0) {
+    return FALLBACK_STORIES;
+  }
   return stories.stories.filter(s => s.is_public);
 }
 
@@ -39,9 +91,10 @@ export function getPublicStories(): Story[] {
 export function getPlayerStories(): Story[] {
   const userId = authState.user?.id;
   
-  // Если пользователь не авторизован - показываем только публичные
+  // Если пользователь не авторизован - показываем fallback или публичные
   if (!userId) {
-    return getPublicStories();
+    const publicStories = getPublicStories();
+    return publicStories.length > 0 ? publicStories : FALLBACK_STORIES;
   }
   
   // Авторизованный игрок видит публичные + те, где он в списке allowed_players
@@ -72,19 +125,23 @@ export async function loadStories(): Promise<void> {
   stories.loading = true;
 
   try {
+    console.log('[storiesStore] Загрузка историй из таблицы...');
     const { data, error } = await supabase
       .from('stories')
       .select('*')
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Error loading stories:', error);
+      console.error('[storiesStore] Error loading stories:', error);
+      console.log('[storiesStore] Используем fallback истории');
       stories.stories = [];
     } else {
+      console.log('[storiesStore] Загружено историй из БД:', data?.length || 0);
       stories.stories = data || [];
     }
   } catch (error) {
-    console.error('Error loading stories:', error);
+    console.error('[storiesStore] Exception loading stories:', error);
+    console.log('[storiesStore] Используем fallback истории');
     stories.stories = [];
   }
 
@@ -229,19 +286,33 @@ export async function loadStoryJson(story: Story): Promise<StoryData | null> {
     // Если json_url содержит путь (stories/file.json), извлекаем имя файла
     const fileName = jsonPath.split('/').pop() || 'story.json';
 
+    console.log(`[storiesStore] Загрузка истории ${story.title} из bucket: ${bucket}, файл: ${fileName}`);
+
     const { data, error } = await supabase.storage
       .from(bucket)
       .download(fileName);
 
     if (error) {
-      console.error('Error downloading story:', error);
-      return null;
+      console.error('[storiesStore] Error downloading story:', error);
+      
+      // Fallback: пробуем загрузить напрямую из публичного URL
+      const fallbackUrl = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/${bucket}/${fileName}`;
+      console.log('[storiesStore] Пробуем fallback URL:', fallbackUrl);
+      
+      try {
+        const response = await fetch(fallbackUrl);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return await response.json();
+      } catch (fetchError) {
+        console.error('[storiesStore] Fallback also failed:', fetchError);
+        return null;
+      }
     }
 
     const text = await data.text();
     return JSON.parse(text);
   } catch (error) {
-    console.error('Error loading story JSON:', error);
+    console.error('[storiesStore] Error loading story JSON:', error);
     return null;
   }
 }

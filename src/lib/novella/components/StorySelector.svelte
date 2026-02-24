@@ -1,12 +1,19 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { gameState } from '../../store/gameStore.svelte';
+  import { storiesState, getPlayerStories } from '../../store/storiesStore.svelte';
   import type { Story } from '../../store/storiesStore.svelte';
 
   let loading = $state(true);
 
   onMount(async () => {
+    console.log('[StorySelector] Инициализация...');
     await gameState.initStories();
+    console.log('[StorySelector] Истории загружены:', {
+      initialized: storiesState.initialized,
+      count: storiesState.stories.length,
+      available: getPlayerStories().length
+    });
     loading = false;
   });
 

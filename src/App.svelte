@@ -66,12 +66,24 @@
   onMount(async () => {
     console.log('[App] Mounted');
     
-    // Проверяем callback от Supabase
-    await handleAuthCallback();
-    
-    // Инициализируем auth
-    await initAuth();
-    appInitialized = true;
+    try {
+      // Проверяем callback от Supabase
+      await handleAuthCallback();
+      
+      // Инициализируем auth с timeout
+      const authPromise = initAuth();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout auth')), 10000)
+      );
+      
+      await Promise.race([authPromise, timeoutPromise]);
+      console.log('[App] Auth initialized successfully');
+    } catch (err) {
+      console.error('[App] Auth init error:', err);
+    } finally {
+      appInitialized = true;
+      console.log('[App] App ready');
+    }
   });
 
   function handleCloseResetPassword() {
@@ -107,15 +119,15 @@
   <Main />
 {/if}
 
-<!-- Отладочная панель (опционально) -->
-<!-- {#if import.meta.env.DEV}
+<!-- Отладочная панель -->
+{#if import.meta.env.DEV}
   <div style="position: fixed; bottom: 10px; left: 10px; background: rgba(0,0,0,0.8); color: #0f0; padding: 10px; font-size: 12px; z-index: 9999; border-radius: 4px;">
     <div><strong>Auth Status:</strong> {authDerivedState.isAuthenticated ? '✅' : '❌'}</div>
     <div><strong>User:</strong> {authState.user?.email || 'none'}</div>
     <div><strong>App Initialized:</strong> {appInitialized ? '✅' : '❌'}</div>
     <div><strong>Auth Initialized:</strong> {authState.initialized ? '✅' : '❌'}</div>
   </div>
-{/if} -->
+{/if}
 
 <style>
   .loading-screen {

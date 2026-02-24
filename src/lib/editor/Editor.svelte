@@ -11,30 +11,50 @@
   import { storyActions } from './stores/storyStore';
   import { getStoriesList } from './stores/bucketStore';
 
+  // Функция загрузки истории по bucket
+  async function loadStoryForBucket(bucketName: string) {
+    console.log(`[Editor] Загрузка для bucket: ${bucketName}`);
+    try {
+      // Добавляем timeout для загрузки ресурсов
+      const resourcesPromise = resourceActions.loadStoredResources();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout loading resources')), 15000)
+      );
+      
+      await Promise.race([resourcesPromise, timeoutPromise]);
+      
+      const storyFileName = `${bucketName}_story.json`;
+      editor.currentFileName = storyFileName;
+      
+      // Таймаут для загрузки истории
+      const storyPromise = storyActions.loadStory(storyFileName);
+      const storyTimeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout loading story')), 15000)
+      );
+      
+      await Promise.race([storyPromise, storyTimeoutPromise]);
+      
+      console.log(`[Editor] История загружена: ${storyFileName}`);
+    } catch (err) {
+      console.error('[Editor] Ошибка загрузки истории:', err);
+    }
+  }
+
   onMount(async () => {
     // Загружаем список историй
     getStoriesList();
     
-    // Если есть истории и ни одна не выбрана, выбираем первую
+    // Если есть истории и ни одна не выбрана, выбираем первую и загружаем
     if (editor.availableBuckets.length > 0 && !editor.selectedBucket) {
       editor.selectedBucket = editor.availableBuckets[0].name;
+      await loadStoryForBucket(editor.selectedBucket);
     }
   });
 
   // Реагируем на изменение выбранного bucket (только для старых bucket'ов)
   $effect(() => {
     if (editor.selectedBucket && !editor.manualStorySelected) {
-      console.log(`[Editor] Bucket выбран: ${editor.selectedBucket}`);
-
-      // Загружаем ресурсы
-      resourceActions.loadStoredResources().then(() => {
-        // Формируем имя файла и загружаем историю напрямую
-        const storyFileName = `${editor.selectedBucket}_story.json`;
-        editor.currentFileName = storyFileName;
-        return storyActions.loadStory(storyFileName);
-      }).catch((err) => {
-        console.error('[Editor] Ошибка загрузки истории:', err);
-      });
+      loadStoryForBucket(editor.selectedBucket);
     }
   });
 
