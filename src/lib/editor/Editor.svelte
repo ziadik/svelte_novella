@@ -55,12 +55,6 @@
     <!-- Верхняя панель -->
     <header class="toolbar">
       <div class="logo">
-        <button 
-          class="btn-link" 
-          onclick={handleChangeStory}
-        >
-          ← Сменить историю
-        </button>
         <h2>Story Editor v3.1 - {editor.selectedBucket}</h2>
       </div>
       <div class="stories-control">
@@ -124,6 +118,15 @@
       <!-- Правая панель: Предпросмотр -->
       <PreviewPanel />
     </div>
+
+    <!-- Кнопка возврата в правом нижнем углу -->
+    <button 
+      class="btn-back-to-game"
+      onclick={handleChangeStory}
+      title="Сменить историю"
+    >
+      ← Назад к игре
+    </button>
   </div>
 {/if}
 
@@ -285,4 +288,26 @@
   
   .btn-icon:hover { background: #555; }
   .btn-icon.danger { background: #b71c1c; }
+
+  .btn-back-to-game {
+    position: fixed;
+    bottom: 16px;
+    right: 16px;
+    padding: 10px 16px;
+    background: rgba(102, 126, 234, 0.8);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+    z-index: 1000;
+  }
+
+  .btn-back-to-game:hover {
+    background: rgba(102, 126, 234, 1);
+    transform: scale(1.05);
+  }
 </style>

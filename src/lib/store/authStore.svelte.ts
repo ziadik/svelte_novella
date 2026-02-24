@@ -32,6 +32,7 @@ const initialized = $derived(authStateObj.initialized);
 // Производные значения
 const isAuthenticated = $derived(session !== null && user !== null);
 const isAuthor = $derived(profile?.is_author ?? false);
+const isAdmin = $derived(profile?.is_admin ?? false);
 
 // Инициализация
 export async function initAuth(): Promise<void> {
@@ -382,5 +383,8 @@ export const authDerivedState = {
   },
   get isAuthor() {
     return isAuthor;
+  },
+  get isAdmin() {
+    return isAdmin;
   },
 };

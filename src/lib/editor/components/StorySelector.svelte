@@ -89,128 +89,78 @@
 </script>
 
 <div class="story-selector">
-  <div class="selector-header">
-    <h2>
-      {#if authDerivedState.isAuthor}
-        Мои истории
-      {:else}
-        Выберите историю
-      {/if}
-    </h2>
-    {#if authDerivedState.isAuthor}
+  <!-- Только для авторов и админов -->
+  {#if authDerivedState.isAuthor || authDerivedState.isAdmin}
+    <div class="selector-header">
+      <h2>📝 Мои истории</h2>
       <button class="btn btn-primary" onclick={() => showCreateModal = true}>
         + Создать историю
       </button>
-    {/if}
-  </div>
+    </div>
 
-  <!-- Истории из таблицы -->
-  {#if storiesState.initialized}
-    <!-- Для авторов: их истории -->
-    {#if authDerivedState.isAuthor && getAuthorStories().length > 0}
-      <div class="stories-section">
-        <h3>📝 Мои истории (автор)</h3>
-        <div class="stories-grid">
-          {#each getAuthorStories() as story (story.id)}
-            <div class="story-card author-card">
-              <div class="story-icon">{story.preview_image_url ? '🖼️' : '📖'}</div>
-              <div class="story-content">
-                <h4>{story.title}</h4>
-                <span class="story-status" class:public={story.is_public}>
-                  {story.is_public ? '🌍 Публичная' : '🔒 Приватная'}
-                </span>
-              </div>
-              <div class="story-actions">
-                <button class="btn small" onclick={() => handleSelectStory(story)}>Открыть</button>
-                <button class="btn small" onclick={() => handleTogglePublic(story)}>
-                  {story.is_public ? 'Скрыть' : 'Опубликовать'}
-                </button>
-                <button class="btn small danger" onclick={() => handleDeleteStory(story)}>✕</button>
-              </div>
-            </div>
-          {/each}
-        </div>
-      </div>
-    {/if}
-
-    <!-- Для всех (включая гостей): публичные истории -->
-    {#if getPublicStories().length > 0}
-      <div class="stories-section">
-        <h3>🌍 Публичные истории</h3>
-        <div class="stories-grid">
-          {#each getPublicStories() as story (story.id)}
-            <div 
-              class="story-card player-card"
-              class:selected={editor.currentFileName === story.json_url.split('/').slice(1).join('/')}
-            >
-              <div class="story-icon">{story.preview_image_url ? '🖼️' : '📖'}</div>
-              <div class="story-content">
-                <h4>{story.title}</h4>
-                <span class="story-status public">🌍 Публичная</span>
-              </div>
-              <div class="story-actions">
-                {#if authDerivedState.isAuthenticated}
-                  <button class="btn small primary" onclick={() => handleSelectStory(story)}>Играть</button>
-                {:else}
-                  <button class="btn small" onclick={() => handleSelectStory(story)}>Смотреть</button>
-                {/if}
-              </div>
-            </div>
-          {/each}
-        </div>
-      </div>
-    {/if}
-
-    <!-- Для авторизованных: личные истории (доступные персонально) -->
-    {#if authDerivedState.isAuthenticated && !authDerivedState.isAuthor}
-      {@const personalStories = getPlayerStories().filter(s => !s.is_public)}
-      {#if personalStories.length > 0}
+    <!-- Истории из таблицы -->
+    {#if storiesState.initialized}
+      <!-- Для авторов: их истории -->
+      {#if getAuthorStories().length > 0}
         <div class="stories-section">
-          <h3>🔐 Доступные мне</h3>
           <div class="stories-grid">
-            {#each personalStories as story (story.id)}
-              <div class="story-card player-card">
-                <div class="story-icon">📖</div>
+            {#each getAuthorStories() as story (story.id)}
+              <div class="story-card author-card">
+                <div class="story-icon">{story.preview_image_url ? '🖼️' : '📖'}</div>
                 <div class="story-content">
                   <h4>{story.title}</h4>
-                  <span class="story-status">🔒 Личная</span>
+                  <span class="story-status" class:public={story.is_public}>
+                    {story.is_public ? '🌍 Публичная' : '🔒 Приватная'}
+                  </span>
                 </div>
                 <div class="story-actions">
-                  <button class="btn small primary" onclick={() => handleSelectStory(story)}>Играть</button>
+                  <button class="btn small" onclick={() => handleSelectStory(story)}>Открыть</button>
+                  <button class="btn small" onclick={() => handleTogglePublic(story)}>
+                    {story.is_public ? 'Скрыть' : 'Опубликовать'}
+                  </button>
+                  <button class="btn small danger" onclick={() => handleDeleteStory(story)}>✕</button>
                 </div>
               </div>
             {/each}
           </div>
         </div>
+      {:else}
+        <p class="empty-text">У вас пока нет историй. Создайте первую!</p>
       {/if}
+    {:else}
+      <p>Загрузка историй...</p>
     {/if}
-  {:else}
-    <p>Загрузка историй...</p>
-  {/if}
 
-  <!-- Старые bucket'ы (для обратной совместимости) -->
-  <div class="stories-section">
-    <h3>📚 Все истории</h3>
-    <div class="stories-grid">
-      {#each editor.availableBuckets as bucket (bucket.name)}
-        {@const info = storiesInfo[bucket.id] || { title: bucket.name, description: 'История', icon: '📖' }}
-        <div class="story-card" class:selected={editor.selectedBucket === bucket.name}>
-          <div class="story-icon">{info.icon}</div>
-          <div class="story-content">
-            <h4>{info.title}</h4>
-            <p>{info.description}</p>
+    <!-- Старые bucket'ы (для обратной совместимости) -->
+    <div class="stories-section">
+      <h3>📚 Архивные истории</h3>
+      <div class="stories-grid">
+        {#each editor.availableBuckets as bucket (bucket.name)}
+          {@const info = storiesInfo[bucket.id] || { title: bucket.name, description: 'История', icon: '📖' }}
+          <div class="story-card" class:selected={editor.selectedBucket === bucket.name}>
+            <div class="story-icon">{info.icon}</div>
+            <div class="story-content">
+              <h4>{info.title}</h4>
+              <p>{info.description}</p>
+            </div>
+            <div class="story-actions">
+              {#if editor.selectedBucket === bucket.name}
+                <span class="selected-badge">Выбрано</span>
+              {:else}
+                <button class="btn small" onclick={() => handleSelectBucket(bucket.name)}>Выбрать</button>
+              {/if}
+            </div>
           </div>
-          <div class="story-actions">
-            {#if editor.selectedBucket === bucket.name}
-              <span class="selected-badge">Выбрано</span>
-            {:else}
-              <button class="btn small" onclick={() => handleSelectBucket(bucket.name)}>Выбрать</button>
-            {/if}
-          </div>
-        </div>
-      {/each}
+        {/each}
+      </div>
     </div>
-  </div>
+  {:else}
+    <div class="access-denied">
+      <h2>🔒 Доступ запрещён</h2>
+      <p>Редактирование историй доступно только авторам и администраторам.</p>
+      <p>Станьте автором, чтобы создавать и редактировать истории.</p>
+    </div>
+  {/if}
 </div>
 
 <!-- Модальное окно создания истории -->
@@ -463,5 +413,32 @@
     display: flex;
     gap: 10px;
     justify-content: flex-end;
+  }
+
+  .empty-text {
+    color: #888;
+    text-align: center;
+    padding: 40px;
+    font-size: 16px;
+  }
+
+  .access-denied {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 50vh;
+    text-align: center;
+    padding: 20px;
+  }
+
+  .access-denied h2 {
+    color: #e94560;
+    margin-bottom: 10px;
+  }
+
+  .access-denied p {
+    color: #888;
+    margin: 8px 0;
   }
 </style>
