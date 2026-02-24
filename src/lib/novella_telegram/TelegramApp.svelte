@@ -6,6 +6,7 @@
   // @ts-ignore
   import { supabase, getTmaAuthInvoke } from "../supabaseClient.js";
   import { initializeTelegram, getTelegramUser } from "../telegram.js";
+  import { signOut, authState } from "../store/authStore.svelte";
   import Main from "../novella/Main.svelte";
 
   let tg = $state(null);
@@ -85,13 +86,16 @@
 
   // Выход
   async function logout() {
+    console.log("[TelegramApp] Выход из аккаунта...");
     try {
-      await supabase.auth.signOut();
+      await signOut();
       user = null;
       session = null;
+      console.log("[TelegramApp] Выход выполнен успешно");
     } catch (err) {
       // @ts-ignore
       error = "Ошибка выхода: " + err.message;
+      console.error("[TelegramApp] Ошибка выхода:", err);
     }
   }
 
@@ -102,11 +106,139 @@
   });
 </script>
 
-<div>
+<div class="app-container">
   {#if isLoading}
     <div class="loading">
       <p>Загрузка...</p>
     </div>   
+
+<style>
+  .app-container {
+    min-height: 100vh;
+  }
+
+  /* Мобильные устройства - скрываем авторизацию */
+  @media (max-width: 768px) {
+    .header {
+      display: none !important;
+    }
+    
+    .auth-section {
+      display: none !important;
+    }
+  }
+
+  /* Десктоп - показываем элементы */
+  @media (min-width: 769px) {
+    .header {
+      display: flex;
+    }
+    
+    .auth-section {
+      display: block;
+    }
+  }
+
+  .loading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    font-size: 18px;
+  }
+
+  /* Стили шапки */
+  .header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px;
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(10px);
+    z-index: 1000;
+  }
+
+  .user-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+  }
+
+  .user-info {
+    flex: 1;
+  }
+
+  .user-name {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: white;
+  }
+
+  .user-meta {
+    margin: 0;
+    font-size: 12px;
+    color: #aaa;
+  }
+
+  .button-logout {
+    padding: 8px 16px;
+    font-size: 14px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+
+  /* Секция авторизации */
+  .auth-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 20px;
+    text-align: center;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  }
+
+  .welcome-title {
+    font-size: 32px;
+    color: white;
+    margin: 0 0 16px 0;
+  }
+
+  .welcome-text {
+    font-size: 16px;
+    color: #aaa;
+    margin: 0 0 32px 0;
+    max-width: 300px;
+  }
+
+  .button {
+    padding: 14px 32px;
+    font-size: 16px;
+    font-weight: 600;
+    color: white;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+
+  .button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+  }
+</style>   
     <!-- <Main></Main> -->
     <!-- {:else if error}
     <div class="error">

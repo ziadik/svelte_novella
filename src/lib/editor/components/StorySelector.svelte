@@ -40,12 +40,26 @@
   }
 
   async function handleSelectStory(story: Story) {
+    // Устанавливаем флаг ручного выбора истории
+    editor.manualStorySelected = true;
     // Используем bucket из истории, по умолчанию 'stories'
-    editor.selectedBucket = story.bucket || 'stories';
+    const bucket = story.bucket || 'stories';
+    editor.selectedBucket = bucket;
     // json_url теперь содержит только имя файла
     editor.currentFileName = story.json_url;
+    // Загружаем ресурсы из правильного bucket'а
+    await resourceActions.loadStoredResources();
+    // Загружаем историю
     await storyActions.loadStory(editor.currentFileName);
   }
+
+  // // Функция для выбора старого bucket'а (обратная совместимость)
+  // async function handleSelectBucket(bucketName: string) {
+  //   editor.manualStorySelected = false;
+  //   editor.selectedBucket = bucketName;
+  //   // При выборе старого bucket'а сбрасываем флаг
+  //   // Загрузка произойдёт автоматически через $effect в Editor.svelte
+  // }
 
   async function handleCreateStory() {
     if (!newStoryTitle.trim()) return;

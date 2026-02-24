@@ -13,12 +13,21 @@ interface UserProfile {
   is_admin: boolean;
 }
 
-// Состояние
-let user = $state<User | null>(null);
-let session = $state<Session | null>(null);
-let profile = $state<UserProfile | null>(null);
-let loading = $state(true);
-let initialized = $state(false);
+// Состояние - используем объект для реактивности
+const authStateObj = $state({
+  user: null as User | null,
+  session: null as Session | null,
+  profile: null as UserProfile | null,
+  loading: true,
+  initialized: false,
+});
+
+// Геттеры для обратной совместимости
+const user = $derived(authStateObj.user);
+const session = $derived(authStateObj.session);
+const profile = $derived(authStateObj.profile);
+const loading = $derived(authStateObj.loading);
+const initialized = $derived(authStateObj.initialized);
 
 // Производные значения
 const isAuthenticated = $derived(session !== null && user !== null);
@@ -27,13 +36,13 @@ const isAuthor = $derived(profile?.is_author ?? false);
 // Инициализация
 export async function initAuth(): Promise<void> {
   try {
-    loading = true;
+    authStateObj.loading = true;
 
     const {
       data: { session: currentSession },
     } = await supabase.auth.getSession();
-    session = currentSession;
-    user = currentSession?.user ?? null;
+    authStateObj.session = currentSession;
+    authStateObj.user = currentSession?.user ?? null;
 
     if (currentSession?.user) {
       await loadProfile(currentSession.user.id);
@@ -42,20 +51,20 @@ export async function initAuth(): Promise<void> {
     supabase.auth.onAuthStateChange(async (event, newSession) => {
       console.log("[Auth] State change:", event, newSession?.user?.email);
 
-      session = newSession;
-      user = newSession?.user ?? null;
+      authStateObj.session = newSession;
+      authStateObj.user = newSession?.user ?? null;
 
       if (newSession?.user) {
         await loadProfile(newSession.user.id);
       } else {
-        profile = null;
+        authStateObj.profile = null;
       }
     });
   } catch (error) {
     console.error("[Auth] Init error:", error);
   } finally {
-    loading = false;
-    initialized = true;
+    authStateObj.loading = false;
+    authStateObj.initialized = true;
   }
 }
 
@@ -77,7 +86,7 @@ async function loadProfile(userId: string): Promise<void> {
       return;
     }
 
-    profile = data;
+    authStateObj.profile = data;
     console.log("[Auth] Profile loaded:", data);
   } catch (error) {
     console.error("[Auth] Error in loadProfile:", error);
@@ -103,7 +112,7 @@ async function createProfile(userId: string): Promise<void> {
       return;
     }
 
-    profile = data;
+    authStateObj.profile = data;
   } catch (error) {
     console.error("[Auth] Error in createProfile:", error);
   }
@@ -121,7 +130,7 @@ export async function signIn(
     return { success: false, error: "Пароль не может быть пустым" };
   }
 
-  loading = true;
+  authStateObj.loading = true;
 
   try {
     console.log("[Auth] Attempting sign in for:", email);
@@ -150,8 +159,8 @@ export async function signIn(
 
     console.log("[Auth] Sign in successful:", data.user?.email);
 
-    session = data.session;
-    user = data.user;
+    authStateObj.session = data.session;
+    authStateObj.user = data.user;
 
     if (data.user) {
       await loadProfile(data.user.id);
@@ -162,12 +171,12 @@ export async function signIn(
     console.error("[Auth] Sign in exception:", error);
     return { success: false, error: "Произошла ошибка при входе" };
   } finally {
-    loading = false;
+    authStateObj.loading = false;
   }
 }
 
 export async function signOut(): Promise<void> {
-  loading = true;
+  authStateObj.loading = true;
 
   try {
     const { error } = await supabase.auth.signOut();
@@ -176,11 +185,14 @@ export async function signOut(): Promise<void> {
       console.error("[Auth] Error signing out:", error);
     }
 
-    user = null;
-    session = null;
-    profile = null;
+    // Сбрасываем все состояния
+    authStateObj.user = null;
+    authStateObj.session = null;
+    authStateObj.profile = null;
+    
+    console.log("[Auth] Signed out successfully");
   } finally {
-    loading = false;
+    authStateObj.loading = false;
   }
 }
 
@@ -193,7 +205,7 @@ export async function signUp(
   error?: string;
   needsEmailConfirmation?: boolean;
 }> {
-  loading = true;
+  authStateObj.loading = true;
 
   try {
     const { data, error } = await supabase.auth.signUp({
@@ -228,7 +240,7 @@ export async function signUp(
   } catch (error: any) {
     return { success: false, error: error.message };
   } finally {
-    loading = false;
+    authStateObj.loading = false;
   }
 }
 
@@ -270,7 +282,7 @@ export async function resetPassword(
 export async function updateProfile(
   updates: Partial<UserProfile>,
 ): Promise<{ success: boolean; error?: string }> {
-  if (!user) {
+  if (!authStateObj.user) {
     return { success: false, error: "Пользователь не авторизован" };
   }
 
@@ -278,14 +290,14 @@ export async function updateProfile(
     const { error } = await supabase
       .from("profiles")
       .update(updates)
-      .eq("user_id", user.id);
+      .eq("user_id", authStateObj.user.id);
 
     if (error) {
       return { success: false, error: error.message };
     }
 
-    if (profile) {
-      profile = { ...profile, ...updates };
+    if (authStateObj.profile) {
+      authStateObj.profile = { ...authStateObj.profile, ...updates };
     }
 
     return { success: true };
@@ -345,22 +357,22 @@ export async function checkUserStatus(email: string): Promise<{
   }
 }
 
-// Экспорты
+// Экспорты - используем derived для реактивности
 export const authState = {
   get user() {
-    return user;
+    return authStateObj.user;
   },
   get session() {
-    return session;
+    return authStateObj.session;
   },
   get profile() {
-    return profile;
+    return authStateObj.profile;
   },
   get loading() {
-    return loading;
+    return authStateObj.loading;
   },
   get initialized() {
-    return initialized;
+    return authStateObj.initialized;
   },
 };
 

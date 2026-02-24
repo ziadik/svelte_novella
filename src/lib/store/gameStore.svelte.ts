@@ -1,3 +1,5 @@
+import { getPlayerStories, loadStories, storiesState, type Story } from './storiesStore.svelte';
+
 // Определение типов для нашей новой JSON структуры
 export interface Item {
   id: string;
@@ -87,11 +89,28 @@ class GameState {
   isLoading = $state<boolean>(true);
   error = $state<string>("");
 
-  // Выбранная история (bucket name)
+  // Выбранная история (id истории из БД)
   selectedStory = $state<string | null>(null);
 
-  // Доступные истории
-  availableStories = $state<string[]>(['dracula', 'zombie', 'fairy_tale', 'minigames']);
+  // Выбранный объект истории (полная информация из БД)
+  selectedStoryData = $state<Story | null>(null);
+
+  // Доступные истории - вычисляемое свойство из Supabase
+  get availableStories(): Story[] {
+    return getPlayerStories();
+  }
+
+  // Загрузка историй при инициализации
+  async initStories(): Promise<void> {
+    if (!storiesState.initialized) {
+      await loadStories();
+    }
+  }
+
+  // Получить историю по ID
+  getStoryById(id: string): Story | undefined {
+    return storiesState.stories.find(s => s.id === id);
+  }
 
   // Компьютерное свойство для получения текущего диалога
   get currentDialogue(): Dialogue | undefined {

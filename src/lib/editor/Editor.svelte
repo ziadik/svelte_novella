@@ -21,9 +21,9 @@
     }
   });
 
-  // Реагируем на изменение выбранного bucket
+  // Реагируем на изменение выбранного bucket (только для старых bucket'ов)
   $effect(() => {
-    if (editor.selectedBucket) {
+    if (editor.selectedBucket && !editor.manualStorySelected) {
       console.log(`[Editor] Bucket выбран: ${editor.selectedBucket}`);
 
       // Загружаем ресурсы
@@ -37,6 +37,14 @@
       });
     }
   });
+
+  // Сброс флага при смене истории через кнопку "Сменить историю"
+  function handleChangeStory() {
+    editor.manualStorySelected = false;
+    editor.selectedBucket = null;
+    editor.currentFileName = '';
+    editor.data = null;
+  }
 </script>
 
 <!-- Экран выбора истории -->
@@ -49,7 +57,7 @@
       <div class="logo">
         <button 
           class="btn-link" 
-          onclick={() => editor.selectedBucket = null}
+          onclick={handleChangeStory}
         >
           ← Сменить историю
         </button>
