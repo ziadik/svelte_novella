@@ -1,3 +1,4 @@
+const BASE_PATH = '/svelte_novella';
 const CACHE_NAME = 'novella-v1';
 const STATIC_CACHE = 'novella-static-v1';
 const DYNAMIC_CACHE = 'novella-dynamic-v1';
@@ -13,7 +14,13 @@ const STATIC_ASSETS = [
   '/stories/zombie_story.json',
   '/stories/fairy_tale_story.json',
   '/stories/minigames_story.json'
-];
+].map(path => BASE_PATH + path);
+
+// Функция для преобразования пути с учетом BASE_PATH
+function withBasePath(path) {
+  if (path.startsWith('http')) return path;
+  return BASE_PATH + path;
+}
 
 // Установка Service Worker
 self.addEventListener('install', (event) => {
@@ -91,7 +98,7 @@ self.addEventListener('fetch', (event) => {
         })
         .catch(() => {
           return caches.match(request).then((cachedResponse) => {
-            return cachedResponse || caches.match('/index.html');
+            return cachedResponse || caches.match(withBasePath('/index.html'));
           });
         })
     );
@@ -100,8 +107,11 @@ self.addEventListener('fetch', (event) => {
 
   // Для статических ресурсов - кэш с сетевым обновлением
   if (isStaticAsset(url.pathname)) {
+    // Пробуем найти в кэше с учетом BASE_PATH
+    const cachePath = withBasePath(url.pathname);
+    
     event.respondWith(
-      caches.match(request).then((cachedResponse) => {
+      caches.match(cachePath).then((cachedResponse) => {
         if (cachedResponse) {
           // Возвращаем кэш и обновляем в фоне
           fetch(request)

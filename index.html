@@ -2,15 +2,15 @@
 <html lang="ru" data-theme="cerberus">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/novella_icon.png">
+    <link rel="icon" type="image/png" href="/svelte_novella/novella_icon.png">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     
     <!-- PWA мета-теги для iOS Safari -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Визуальные новеллы">
-    <link rel="apple-touch-icon" href="/icon-192.png">
-    <link rel="apple-touch-startup-image" href="/icon-512.png">
+    <link rel="apple-touch-icon" href="/svelte_novella/icon-192.png">
+    <link rel="apple-touch-startup-image" href="/svelte_novella/icon-512.png">
     
     <!-- PWA манифест -->
     <link rel="manifest" href="/manifest.json">
@@ -33,9 +33,10 @@
     
     <!-- Регистрация Service Worker -->
     <script>
+      const BASE_PATH = '/svelte_novella';
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js')
+          navigator.serviceWorker.register(BASE_PATH + '/sw.js')
             .then((registration) => {
               console.log('[SW] Зарегистрирован:', registration.scope);
             })
