@@ -15,9 +15,18 @@
   let session = $state(null);
   let isLoading = $state(true);
   let error = $state("");
+  let isOnline = $state(true);
 
   // Инициализация приложения
   onMount(async () => {
+    // Проверка наличия сети
+    isOnline = navigator.onLine;
+    
+    const handleOnline = () => { isOnline = true; };
+    const handleOffline = () => { isOnline = false; };
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
     try {
       tg = initializeTelegram();
       telegramUser = getTelegramUser(tg);
@@ -238,6 +247,21 @@
     transform: translateY(-2px);
     box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
   }
+
+  .button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .offline-message {
+    color: #e94560;
+    font-size: 14px;
+    margin-top: 12px;
+    padding: 12px;
+    background: rgba(233, 69, 96, 0.1);
+    border-radius: 8px;
+  }
 </style>   
     <!-- <Main></Main> -->
     <!-- {:else if error}
@@ -271,6 +295,14 @@
     </div>
 
     <Main />
+  {:else if !isOnline}
+    <!-- Нет сети -->
+    <div class="auth-section">
+      <h1 class="welcome-title">📡 Нет подключения</h1>
+      <p class="welcome-text">
+        Для авторизации и игры требуется интернет-соединение. Проверьте подключение и попробуйте снова.
+      </p>
+    </div>
   {:else}
     <!-- Аутентификация -->
     <div class="auth-section">

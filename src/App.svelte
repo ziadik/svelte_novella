@@ -108,11 +108,13 @@
   />
 {:else if editor.showEditor}
   <button 
+    class="btn-back-to-game"
     onclick={editorActions.toggleEditor}
-    style="position:fixed; top:10px; right:500px; z-index:9999;"
+     title="Назад к игре"
   >
     ← Назад к игре
   </button>
+  
   <Editor />
 {:else}
   <UserMenu />
@@ -121,7 +123,7 @@
 
 <!-- Отладочная панель -->
 {#if import.meta.env.DEV}
-  <div style="position: fixed; bottom: 10px; left: 10px; background: rgba(0,0,0,0.8); color: #0f0; padding: 10px; font-size: 12px; z-index: 9999; border-radius: 4px;">
+  <div style="position: fixed; bottom: 100px; left: 10px; background: rgba(0,0,0,0.8); color: #0f0; padding: 10px; font-size: 12px; z-index: 9999; border-radius: 4px;">
     <div><strong>Auth Status:</strong> {authDerivedState.isAuthenticated ? '✅' : '❌'}</div>
     <div><strong>User:</strong> {authState.user?.email || 'none'}</div>
     <div><strong>App Initialized:</strong> {appInitialized ? '✅' : '❌'}</div>
@@ -156,5 +158,27 @@
 
   @keyframes spin {
     to { transform: rotate(360deg); }
+  }
+
+   .btn-back-to-game {
+    position: fixed;
+    bottom: 64px;
+    right: 16px;
+    padding: 10px 16px;
+    background: rgba(102, 126, 234, 0.8);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+    z-index: 1000;
+  }
+
+  .btn-back-to-game:hover {
+    background: rgba(102, 126, 234, 1);
+    transform: scale(1.05);
   }
 </style>

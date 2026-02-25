@@ -80,11 +80,15 @@ const FALLBACK_STORIES: Story[] = [
 
 // Публичные истории - видят ВСЕ (гости, игроки, авторы)
 export function getPublicStories(): Story[] {
+  console.log('[getPublicStories] initialized:', stories.initialized, 'stories.length:', stories.stories.length);
   // Если stories не загружены - возвращаем fallback
   if (!stories.initialized || stories.stories.length === 0) {
+    console.log('[getPublicStories] Возвращаем fallback, count:', FALLBACK_STORIES.length);
     return FALLBACK_STORIES;
   }
-  return stories.stories.filter(s => s.is_public);
+  const filtered = stories.stories.filter(s => s.is_public);
+  console.log('[getPublicStories] Публичных историй:', filtered.length);
+  return filtered;
 }
 
 // Истории, доступные конкретному игроку (публичные + персональный доступ)
@@ -94,13 +98,17 @@ export function getPlayerStories(): Story[] {
   // Если пользователь не авторизован - показываем fallback или публичные
   if (!userId) {
     const publicStories = getPublicStories();
-    return publicStories.length > 0 ? publicStories : FALLBACK_STORIES;
+    const result = publicStories.length > 0 ? publicStories : FALLBACK_STORIES;
+    console.log('[getPlayerStories] Гость, результат:', result.length);
+    return result;
   }
   
   // Авторизованный игрок видит публичные + те, где он в списке allowed_players
-  return stories.stories.filter(s => 
+  const result = stories.stories.filter(s => 
     s.is_public || (s.allowed_players && s.allowed_players.includes(userId))
   );
+  console.log('[getPlayerStories] Авторизован, результат:', result.length);
+  return result;
 }
 
 // Истории автора (только свои + все для админа)
@@ -126,6 +134,16 @@ export async function loadStories(): Promise<void> {
 
   try {
     console.log('[storiesStore] Загрузка историй из таблицы...');
+    
+    // Проверяем наличие сети
+    if (!navigator.onLine) {
+      console.log('[storiesStore] Нет сети - используем fallback');
+      stories.stories = [];
+      stories.loading = false;
+      stories.initialized = true;
+      return;
+    }
+    
     const { data, error } = await supabase
       .from('stories')
       .select('*')
@@ -147,6 +165,7 @@ export async function loadStories(): Promise<void> {
 
   stories.loading = false;
   stories.initialized = true;
+  console.log('[storiesStore] Готово. Историй в сторе:', stories.stories.length);
 }
 
 // Создание истории (для авторов)

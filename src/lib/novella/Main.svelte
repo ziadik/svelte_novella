@@ -9,6 +9,24 @@
   import { editorActions } from "../editor/stores/editorStore.svelte";
   import { authState } from "../store/authStore.svelte";
 
+  let isOnline = $state(true);
+
+  onMount(() => {
+    // Проверка наличия сети
+    isOnline = navigator.onLine;
+    
+    const handleOnline = () => { isOnline = true; };
+    const handleOffline = () => { isOnline = false; };
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  });
+
   // Загрузка истории при выборе
   $effect(async () => {
     if (gameState.selectedStory && gameState.selectedStoryData) {
@@ -27,6 +45,10 @@
   });
 
   function openEditor() {
+    if (!isOnline) {
+      alert('Редактирование недоступно без интернета');
+      return;
+    }
     editorActions.toggleEditor();
   }
 </script>
@@ -64,8 +86,8 @@
         📚
       </button>
 
-      <!-- Кнопка редактирования (только для авторизованных на десктопах) -->
-      {#if authState.user}
+      <!-- Кнопка редактирования (только для авторизованных на десктопах с интернетом) -->
+      {#if authState.user && isOnline}
         <button 
           class="btn-edit desktop-only"
           onclick={openEditor}
