@@ -10,8 +10,9 @@
   import { authState } from "../store/authStore.svelte";
 
   let isOnline = $state(true);
+  let initialized = $state(false);
 
-  onMount(() => {
+  onMount(async () => {
     // Проверка наличия сети
     isOnline = navigator.onLine;
     
@@ -21,22 +22,28 @@
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
     
+    // Инициализируем истории (включая URL параметр)
+    await gameState.initStories();
+    initialized = true;
+    
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
   });
 
-  // Загрузка истории при выборе
+  // Загрузка истории при выборе (включая URL параметр)
   $effect(async () => {
-    if (gameState.selectedStory && gameState.selectedStoryData) {
+    if (initialized && gameState.selectedStory && gameState.selectedStoryData) {
       const story = gameState.selectedStoryData;
+      console.log('[Main] Загрузка истории:', story.title);
       const storyData = await loadStoryJson(story);
       
       if (storyData) {
         gameState.storyData = storyData;
         gameState.currentDialogueId = storyData.dialogues?.[0]?.id || "0";
         gameState.isLoading = false;
+        console.log('[Main] История загружена, диалогов:', storyData.dialogues?.length);
       } else {
         gameState.error = "Не удалось загрузить историю";
         gameState.isLoading = false;

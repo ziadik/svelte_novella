@@ -130,6 +130,7 @@ export function hasAuthorStories(): boolean {
 
 // Загрузка историй
 export async function loadStories(): Promise<void> {
+  console.log('[storiesStore] loadStories начало');
   stories.loading = true;
 
   try {
@@ -141,6 +142,7 @@ export async function loadStories(): Promise<void> {
       stories.stories = [];
       stories.loading = false;
       stories.initialized = true;
+      console.log('[storiesStore] loadStories завершено (офлайн)');
       return;
     }
     
@@ -165,7 +167,7 @@ export async function loadStories(): Promise<void> {
 
   stories.loading = false;
   stories.initialized = true;
-  console.log('[storiesStore] Готово. Историй в сторе:', stories.stories.length);
+  console.log('[storiesStore] loadStories завершено. Историй в сторе:', stories.stories.length);
 }
 
 // Создание истории (для авторов)
@@ -305,14 +307,15 @@ export async function loadStoryJson(story: Story): Promise<StoryData | null> {
     // Если json_url содержит путь (stories/file.json), извлекаем имя файла
     const fileName = jsonPath.split('/').pop() || 'story.json';
 
-    console.log(`[storiesStore] Загрузка истории ${story.title} из bucket: ${bucket}, файл: ${fileName}`);
+    console.log(`[storiesStore] Загрузка истории "${story.title}" из bucket: ${bucket}, файл: ${fileName}`);
 
+    // Пробуем загрузить из storage
     const { data, error } = await supabase.storage
       .from(bucket)
       .download(fileName);
 
     if (error) {
-      console.error('[storiesStore] Error downloading story:', error);
+      console.error('[storiesStore] Error downloading story:', error.message);
       
       // Fallback: пробуем загрузить напрямую из публичного URL
       const fallbackUrl = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/${bucket}/${fileName}`;
@@ -321,15 +324,32 @@ export async function loadStoryJson(story: Story): Promise<StoryData | null> {
       try {
         const response = await fetch(fallbackUrl);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        return await response.json();
+        const jsonData = await response.json();
+        console.log('[storiesStore] Загружено через fallback URL');
+        return jsonData;
       } catch (fetchError) {
         console.error('[storiesStore] Fallback also failed:', fetchError);
+        
+        // Дополнительный fallback: пробуем загрузить из локальной папки public/stories
+        const localUrl = `/stories/${fileName}`;
+        console.log('[storiesStore] Пробуем локальный URL:', localUrl);
+        try {
+          const localResponse = await fetch(localUrl);
+          if (localResponse.ok) {
+            return await localResponse.json();
+          }
+        } catch (localError) {
+          console.error('[storiesStore] Локальный fallback тоже не работает');
+        }
+        
         return null;
       }
     }
 
     const text = await data.text();
-    return JSON.parse(text);
+    const jsonData = JSON.parse(text);
+    console.log('[storiesStore] История загружена успешно');
+    return jsonData;
   } catch (error) {
     console.error('[storiesStore] Error loading story JSON:', error);
     return null;

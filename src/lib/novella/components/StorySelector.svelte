@@ -1,10 +1,11 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { gameState } from '../../store/gameStore.svelte';
-  import { storiesState, getPlayerStories } from '../../store/storiesStore.svelte';
+  import { storiesState, getPlayerStories, loadStoryJson } from '../../store/storiesStore.svelte';
   import type { Story } from '../../store/storiesStore.svelte';
 
   let loading = $state(true);
+  let autoSelected = $state(false);
 
   onMount(async () => {
     console.log('[StorySelector] Инициализация...');
@@ -12,8 +13,21 @@
     console.log('[StorySelector] Истории загружены:', {
       initialized: storiesState.initialized,
       count: storiesState.stories.length,
-      available: getPlayerStories().length
+      available: getPlayerStories().length,
+      urlStoryId: gameState.urlStoryId
     });
+    
+    // Если история была выбрана через URL - загружаем её
+    if (gameState.urlStoryId && gameState.selectedStoryData && !autoSelected) {
+      autoSelected = true;
+      const storyData = await loadStoryJson(gameState.selectedStoryData);
+      if (storyData) {
+        gameState.storyData = storyData;
+        gameState.currentDialogueId = storyData.dialogues?.[0]?.id || "0";
+        gameState.isLoading = false;
+      }
+    }
+    
     loading = false;
   });
 
@@ -37,19 +51,20 @@
 </script>
 
 <div class="story-selector">
-  <div class="selector-header">
-    <h1>🎭 Визуальные новеллы</h1>
-    <p>Выберите историю для прохождения</p>
-  </div>
-
   {#if loading}
     <div class="loading">Загрузка историй...</div>
-  {:else if gameState.availableStories.length === 0}
-    <div class="empty-state">
-      <p>Историй пока нет</p>
-      <p class="hint">Создайте свою историю в редакторе!</p>
-    </div>
   {:else}
+    <div class="selector-header">
+      <h1>🎭 Визуальные новеллы</h1>
+      <p>Выберите историю для прохождения</p>
+    </div>
+
+    {#if gameState.availableStories.length === 0}
+      <div class="empty-state">
+        <p>Историй пока нет</p>
+        <p class="hint">Создайте свою историю в редакторе!</p>
+      </div>
+    {:else}
     <div class="stories-grid">
       {#each gameState.availableStories as story (story.id)}
         {@const icon = defaultIcons[story.title.toLowerCase()] || '📖'}
@@ -74,11 +89,12 @@
         </div>
       {/each}
     </div>
-  {/if}
+    {/if}
 
-  <div class="selector-footer">
-    <p class="hint">💡 Совет: Вы можете создать свою историю в редакторе</p>
-  </div>
+    <div class="selector-footer">
+      <p class="hint">💡 Совет: Вы можете создать свою историю в редакторе</p>
+    </div>
+  {/if}
 </div>
 
 <style>

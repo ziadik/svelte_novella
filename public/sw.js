@@ -8,7 +8,11 @@ const STATIC_ASSETS = [
   '/index.html',
   '/manifest.json',
   '/icon-192.png',
-  '/icon-512.png'
+  '/icon-512.png',
+  '/stories/dracula_story.json',
+  '/stories/zombie_story.json',
+  '/stories/fairy_tale_story.json',
+  '/stories/minigames_story.json'
 ];
 
 // Установка Service Worker
