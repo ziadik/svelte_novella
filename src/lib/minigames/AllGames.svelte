@@ -13,6 +13,10 @@
   import LightOut from './LightOut.svelte';
   import FloodIt from './FloodIt.svelte';
   import Bones421 from './Bones421.svelte';
+  import CrystalsOfTime from './CrystalsOfTime.svelte';
+  import RunesOfFate from './RunesOfFate.svelte';
+  import WitchesCauldrons from './WitchesCauldrons.svelte';
+  import AlchemicalCalculator from './AlchemicalCalculator.svelte';
   
   const gameComponents: Record<string, any> = {
     'memo-monsters': MemoMonsters,
@@ -28,6 +32,10 @@
     'light-out': LightOut,
     'flood-it': FloodIt,
     'bones-421': Bones421,
+    'crystals-of-time': CrystalsOfTime,
+    'runes-of-fate': RunesOfFate,
+    'witches-cauldrons': WitchesCauldrons,
+    'alchemical-calculator': AlchemicalCalculator,
   };
 
   let { onBack, onSelectGame }: { 

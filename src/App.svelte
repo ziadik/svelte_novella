@@ -146,14 +146,14 @@
 {/if}
 
 <!-- Отладочная панель -->
-{#if import.meta.env.DEV}
+<!-- {#if import.meta.env.DEV}
   <div style="position: fixed; bottom: 100px; left: 10px; background: rgba(0,0,0,0.8); color: #0f0; padding: 10px; font-size: 12px; z-index: 9999; border-radius: 4px;">
     <div><strong>Auth Status:</strong> {authDerivedState.isAuthenticated ? '✅' : '❌'}</div>
     <div><strong>User:</strong> {authState.user?.email || 'none'}</div>
     <div><strong>App Initialized:</strong> {appInitialized ? '✅' : '❌'}</div>
     <div><strong>Auth Initialized:</strong> {authState.initialized ? '✅' : '❌'}</div>
   </div>
-{/if}
+{/if} -->
 
 <style>
   .loading-screen {

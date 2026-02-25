@@ -1,5 +1,10 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import BodyWrapper from './components/BodyWrapper.svelte';
+  import GameHeader from './components/GameHeader.svelte';
+  import GameFooter from './components/GameFooter.svelte';
+  import MinigameModal from './components/MinigameModal.svelte';
+  import type { MinigameProps, ModalState } from './types';
 
   let {
     integrated = false,
@@ -8,7 +13,7 @@
     rewardItem = null,
     items = [],
     bucketName = "dracula",
-  } = $props();
+  } = $props<MinigameProps>();
 
   const CRYSTALS = [
     { color: '#e94560', name: 'Рубин', icon: '🔴' },
@@ -17,6 +22,9 @@
     { color: '#fdcb6e', name: 'Топаз', icon: '🟡' },
   ];
 
+  const TIMEOUT = 1000;
+  const WIN_ROUNDS = 10;
+
   let sequence = $state<number[]>([]);
   let playerSequence = $state<number[]>([]);
   let round = $state(1);
@@ -24,6 +32,8 @@
   let activeCrystal = $state<number | null>(null);
   let gameOver = $state(false);
   let highScore = $state(0);
+
+  let modal = $state<ModalState>({ show: false, title: "", text: "", actions: [] });
 
   function startNewGame() {
     sequence = [];
@@ -74,7 +84,12 @@
       }
       
       if (integrated) {
-        setTimeout(() => onLose?.(), 1000);
+        showModal("💀 Поражение", "Время распалось...", []);
+        setTimeout(() => { hideModal(); onLose?.(); }, TIMEOUT);
+      } else {
+        showModal("💀 Время распалось", `Раунд ${round - 1}`, [
+          { text: "Начать заново", action: startNewGame },
+        ]);
       }
       return;
     }
@@ -82,16 +97,22 @@
     playerSequence = [...playerSequence, index];
 
     if (playerSequence.length === sequence.length) {
-      // Раунд пройден
       round++;
       if (round > highScore) {
         highScore = round;
       }
       
-      if (round === 10) { // Победа при 10 раундах
+      if (round > WIN_ROUNDS) {
+        gameOver = true;
         if (integrated) {
-          setTimeout(() => onWin?.(), 1000);
+          showModal("🎉 Победа!", "Время под контролем!", []);
+          setTimeout(() => { hideModal(); onWin?.(); }, TIMEOUT);
+        } else {
+          showModal("🎉 Победа!", "Ты покорил время!", [
+            { text: "Играть снова", action: startNewGame },
+          ]);
         }
+        return;
       }
       
       setTimeout(() => {
@@ -101,69 +122,107 @@
   }
 
   function playSound(index: number) {
-    // Здесь можно добавить звуковые эффекты
-    // Например, через Web Audio API
     console.log(`Play sound for crystal ${index}`);
   }
 
-  function getButtonStyle(index: number) {
+  function getButtonStyle(index: number): string {
     const crystal = CRYSTALS[index];
-    return {
-      backgroundColor: crystal.color,
-      boxShadow: activeCrystal === index 
-        ? `0 0 50px ${crystal.color}, 0 0 100px ${crystal.color}`
-        : `0 8px 0 ${adjustBrightness(crystal.color, -40)}`,
-      transform: activeCrystal === index ? 'translateY(2px)' : 'none',
-    };
+    const isActive = activeCrystal === index;
+    const boxShadow = isActive 
+      ? `0 0 50px ${crystal.color}, 0 0 100px ${crystal.color}`
+      : `0 8px 0 ${crystal.color}`;
+    return `background-color: ${crystal.color}; box-shadow: ${boxShadow}; transform: ${isActive ? 'translateY(2px)' : 'none'};`;
   }
 
   function adjustBrightness(hex: string, percent: number): string {
-    // Упрощенная функция затемнения цвета
-    return hex; // В реальном проекте нужно реализовать
+    return hex;
   }
+
+  function showModal(title: string, text: string, actions: Array<{ text: string; action: () => void; class?: string }>): void {
+    modal = { show: true, title, text, actions };
+  }
+
+  function hideModal(): void {
+    modal.show = false;
+  }
+
+  function showRules(): void {
+    showModal("📖 Правила", `Кристаллы времени:
+
+🎯 Цель: Повтори последовательность кристаллов.
+
+🔮 Смотри внимательно на последовательность.
+
+👆 Кликай кристаллы в том же порядке.
+
+💀 Если ошибся - игра окончена.
+
+✨ Пройди 10 раундов для победы!`, [
+      { text: "Понятно", action: hideModal },
+    ]);
+  }
+
+  onMount(() => {
+    startNewGame();
+  });
 </script>
 
-<div id="game-container">
-  <div class="stats-panel">
-    <div class="round">Раунд: <strong>{round}</strong></div>
-    <div class="high-score">Рекорд: <strong>{highScore}</strong></div>
-  </div>
+<BodyWrapper>
+  <GameHeader
+    onRestart={startNewGame}
+    onGiveUp={integrated ? () => { gameOver = true; showModal("💀 Сдаюсь", "Вы сдались...", []); setTimeout(() => { hideModal(); onLose?.(); }, TIMEOUT); } : undefined}
+    showGiveUp={integrated}
+    onShowRules={showRules}
+  />
 
-  <div class="crystals-grid">
-    {#each CRYSTALS as crystal, i}
-      <button
-        class="crystal-btn"
-        style={getButtonStyle(i)}
-        onclick={() => handleCrystalClick(i)}
-        disabled={isPlaying || gameOver}
-      >
-        <span class="crystal-icon">{crystal.icon}</span>
-        <span class="crystal-name">{crystal.name}</span>
-      </button>
-    {/each}
-  </div>
+  <div id="game-container">
+    <div class="stats-panel">
+      <div class="round">Раунд: <strong>{round}</strong></div>
+      <div class="high-score">Рекорд: <strong>{highScore}</strong></div>
+    </div>
 
-  <div class="status-area">
-    {#if gameOver}
-      <div class="game-over-message">
-        <span>💀 Время распалось... Раунд {round - 1}</span>
-        <button class="restart-btn" onclick={startNewGame}>
-          🔮 Начать заново
+    <div class="crystals-grid">
+      {#each CRYSTALS as crystal, i}
+        <button
+          type="button"
+          class="crystal-btn"
+          style={getButtonStyle(i)}
+          onclick={() => handleCrystalClick(i)}
+          disabled={isPlaying || gameOver}
+        >
+          <span class="crystal-icon">{crystal.icon}</span>
+          <span class="crystal-name">{crystal.name}</span>
         </button>
+      {/each}
+    </div>
+
+    <div class="status-area">
+      {#if gameOver}
+        <div class="game-over-message">
+          <span>💀 Время распалось... Раунд {round - 1}</span>
+        </div>
+      {:else if isPlaying}
+        <div class="status-message">✨ Кристаллы показывают путь... ✨</div>
+      {:else}
+        <div class="status-message">👆 Повтори последовательность</div>
+      {/if}
+    </div>
+
+    {#if sequence.length > 0 && !gameOver && !isPlaying}
+      <div class="progress">
+        Прогресс: {playerSequence.length} / {sequence.length}
       </div>
-    {:else if isPlaying}
-      <div class="status-message">✨ Кристаллы показывают путь... ✨</div>
-    {:else}
-      <div class="status-message">👆 Повтори последовательность</div>
     {/if}
   </div>
 
-  {#if sequence.length > 0 && !gameOver && !isPlaying}
-    <div class="progress">
-      Прогресс: {playerSequence.length} / {sequence.length}
+  <GameFooter {rewardItem} {items} {bucketName}>
+    <div class="footer-stats">
+      <span class="target-info">Раунд: <strong>{round}/{WIN_ROUNDS}</strong></span>
     </div>
-  {/if}
-</div>
+  </GameFooter>
+
+  <MinigameModal {modal} />
+</BodyWrapper>
 
 <style>
   #game-container {
@@ -171,6 +230,7 @@
     padding: 20px;
     border-radius: 15px;
     border: 1px solid rgba(255, 255, 255, 0.1);
+    margin-bottom: 15px;
   }
 
   .stats-panel {
@@ -219,6 +279,7 @@
     box-shadow: 0 8px 0 rgba(0, 0, 0, 0.5);
     position: relative;
     overflow: hidden;
+    font-family: inherit;
   }
 
   .crystal-btn::before {
@@ -285,28 +346,32 @@
     border: 1px solid #e94560;
   }
 
-  .restart-btn {
-    padding: 12px 30px;
-    background: linear-gradient(135deg, #e94560, #c0394d);
-    border: none;
-    border-radius: 25px;
-    color: white;
-    font-size: 1.1rem;
-    cursor: pointer;
-    transition: all 0.2s;
-    box-shadow: 0 4px 0 #962d3a;
-  }
-
-  .restart-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 0 #962d3a;
-  }
-
   .progress {
     text-align: center;
     padding: 10px;
     background: #3d3b5c;
     border-radius: 20px;
+    color: #ff9f43;
+    font-size: 1.1rem;
+  }
+
+  .footer-stats {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .target-info {
+    font-size: 0.9rem;
+    color: #ececec;
+  }
+
+  .target-info strong {
     color: #ff9f43;
     font-size: 1.1rem;
   }

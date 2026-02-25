@@ -1,5 +1,10 @@
 <script lang="ts">
-  import { onMount, onDestroy } from "svelte";
+  import { onDestroy } from "svelte";
+  import BodyWrapper from './components/BodyWrapper.svelte';
+  import GameHeader from './components/GameHeader.svelte';
+  import GameFooter from './components/GameFooter.svelte';
+  import MinigameModal from './components/MinigameModal.svelte';
+  import type { MinigameProps, ModalState } from './types';
 
   let {
     integrated = false,
@@ -8,7 +13,7 @@
     rewardItem = null,
     items = [],
     bucketName = "dracula",
-  } = $props();
+  } = $props<MinigameProps>();
 
   const INGREDIENTS = [
     { id: 'frog', icon: '🐸', name: 'Лягушачья лапка' },
@@ -28,19 +33,27 @@
     { name: 'Эликсир жизни', ingredients: ['🦇', '🦴', '🧪'] },
   ];
 
+  const TIMEOUT = 1000;
+  const WIN_SCORE = 20;
+  const GAME_TIME = 60;
+
   let currentRecipe = $state<typeof RECIPES[0] | null>(null);
   let collectedIngredients = $state<string[]>([]);
   let score = $state(0);
-  let timeLeft = $state(60);
+  let timeLeft = $state(GAME_TIME);
   let gameActive = $state(false);
   let floatingItems = $state<Array<{ id: string; icon: string; x: number; y: number }>>([]);
-  let timerInterval: NodeJS.Timeout;
-  let spawnInterval: NodeJS.Timeout;
+  let timerInterval: ReturnType<typeof setInterval>;
+  let spawnInterval: ReturnType<typeof setInterval>;
+  let gameStarted = $state(false);
+
+  let modal = $state<ModalState>({ show: false, title: "", text: "", actions: [] });
 
   function startGame() {
     gameActive = true;
+    gameStarted = true;
     score = 0;
-    timeLeft = 60;
+    timeLeft = GAME_TIME;
     collectedIngredients = [];
     selectNewRecipe();
     
@@ -63,11 +76,23 @@
     clearInterval(timerInterval);
     clearInterval(spawnInterval);
     
-    if (integrated) {
-      if (score >= 20) {
-        setTimeout(() => onWin?.(), 500);
+    if (score >= WIN_SCORE) {
+      if (integrated) {
+        showModal("🧪 Зелье сварено!", `Счёт: ${score}`, []);
+        setTimeout(() => { hideModal(); onWin?.(); }, TIMEOUT);
       } else {
-        setTimeout(() => onLose?.(), 500);
+        showModal("🧪 Зелье сварено!", `Счёт: ${score}`, [
+          { text: "Играть снова", action: startGame },
+        ]);
+      }
+    } else {
+      if (integrated) {
+        showModal("💀 Котёл взорвался", `Счёт: ${score}`, []);
+        setTimeout(() => { hideModal(); onLose?.(); }, TIMEOUT);
+      } else {
+        showModal("💀 Котёл взорвался", `Счёт: ${score}`, [
+          { text: "Испытать снова", action: startGame },
+        ]);
       }
     }
   }
@@ -80,43 +105,37 @@
 
   function spawnIngredient() {
     const randomIngredient = INGREDIENTS[Math.floor(Math.random() * INGREDIENTS.length)];
-    const x = Math.random() * 80 + 10; // % от ширины контейнера
-    const y = -10; // Начинаем сверху
+    const x = Math.random() * 80 + 10;
+    const y = -10;
     
-    floatingItems = [
-      ...floatingItems,
-      {
-        id: `${randomIngredient.id}-${Date.now()}-${Math.random()}`,
-        icon: randomIngredient.icon,
-        x,
-        y,
-      }
-    ];
+    const newItem = {
+      id: `${randomIngredient.id}-${Date.now()}-${Math.random()}`,
+      icon: randomIngredient.icon,
+      x,
+      y,
+    };
     
-    // Удаляем старые предметы
+    floatingItems = [...floatingItems, newItem];
+    
     setTimeout(() => {
-      floatingItems = floatingItems.filter(item => item.id !== floatingItems[floatingItems.length - 1]?.id);
+      floatingItems = floatingItems.filter(item => item.id !== newItem.id);
     }, 5000);
   }
 
   function collectIngredient(icon: string, itemId: string) {
     if (!gameActive || !currentRecipe) return;
 
-    // Удаляем предмет
     floatingItems = floatingItems.filter(item => item.id !== itemId);
 
-    // Проверяем, нужен ли ингредиент
     if (currentRecipe.ingredients.includes(icon) && !collectedIngredients.includes(icon)) {
       collectedIngredients = [...collectedIngredients, icon];
       score += 10;
       
-      // Проверяем, собран ли весь рецепт
       if (collectedIngredients.length === currentRecipe.ingredients.length) {
-        score += 50; // Бонус за рецепт
+        score += 50;
         selectNewRecipe();
       }
     } else {
-      // Неправильный ингредиент - штраф
       score = Math.max(0, score - 5);
     }
   }
@@ -128,70 +147,108 @@
     ).join(' + ');
   }
 
+  function showModal(title: string, text: string, actions: Array<{ text: string; action: () => void; class?: string }>): void {
+    modal = { show: true, title, text, actions };
+  }
+
+  function hideModal(): void {
+    modal.show = false;
+  }
+
+  function showRules(): void {
+    showModal("📖 Правила", `Котёл ведьмы:
+
+🎯 Цель: Набери {WIN_SCORE} очков за {GAME_TIME} секунд.
+
+🧪 Собирай нужные ингредиенты для рецепта.
+
+👆 Кликай на падающие ингредиенты.
+
+✅ Правильный ингредиент: +10 очков.
+
+✨ Полный рецепт: +50 очков.
+
+❌ Неправильный ингредиент: -5 очков.`, [
+      { text: "Понятно", action: hideModal },
+    ]);
+  }
+
   onDestroy(() => {
     clearInterval(timerInterval);
     clearInterval(spawnInterval);
   });
 </script>
 
-<div id="game-container">
-  {#if !gameActive && timeLeft === 60}
-    <div class="start-screen">
-      <h2>🧙 Котлы Ведьмы 🧙</h2>
-      <p>Помоги ведьме собрать нужные ингредиенты!</p>
-      <button class="start-btn" onclick={startGame}>Начать варить</button>
-    </div>
-  {:else if gameActive}
-    <div class="game-header">
-      <div class="score">✨ {score}</div>
-      <div class="timer">⏳ {timeLeft}с</div>
-    </div>
+<BodyWrapper>
+  <GameHeader
+    onRestart={startGame}
+    onGiveUp={integrated ? () => { gameActive = false; clearInterval(timerInterval); clearInterval(spawnInterval); showModal("💀 Сдаюсь", "Вы сдались...", []); setTimeout(() => { hideModal(); onLose?.(); }, TIMEOUT); } : undefined}
+    showGiveUp={integrated}
+    onShowRules={showRules}
+  />
 
-    {#if currentRecipe}
-      <div class="current-recipe">
-        <div class="recipe-name">{currentRecipe.name}</div>
-        <div class="recipe-ingredients">
-          {#each currentRecipe.ingredients as ing}
-            <span class="ingredient-icon" class:collected={collectedIngredients.includes(ing)}>
-              {collectedIngredients.includes(ing) ? ing : '❓'}
-            </span>
-          {/each}
-        </div>
-        <div class="recipe-progress">{getRecipeProgress()}</div>
+  <div id="game-container">
+    {#if !gameStarted}
+      <div class="start-screen">
+        <h2>🧙 Котлы Ведьмы 🧙</h2>
+        <p>Помоги ведьме собрать нужные ингредиенты!</p>
+        <button type="button" class="start-btn" onclick={startGame}>Начать варить</button>
       </div>
-    {/if}
-
-    <div class="game-area">
-      <div class="cauldron">
-        🧙‍♀️
-        <div class="cauldron-fire">🔥</div>
+    {:else if gameActive}
+      <div class="game-header">
+        <div class="score">✨ {score}</div>
+        <div class="timer" class:danger={timeLeft <= 10}>⏳ {timeLeft}с</div>
       </div>
       
-      <div class="floating-items">
-        {#each floatingItems as item}
-          <button
-            class="floating-item"
-            style="left: {item.x}%; top: {item.y}px;"
-            onclick={() => collectIngredient(item.icon, item.id)}
-          >
-            {item.icon}
-          </button>
-        {/each}
-      </div>
-    </div>
+      {#if currentRecipe}
+        <div class="current-recipe">
+          <div class="recipe-name">{currentRecipe.name}</div>
+          <div class="recipe-ingredients">
+            {#each currentRecipe.ingredients as ing}
+              <span class="ingredient-icon" class:collected={collectedIngredients.includes(ing)}>
+                {collectedIngredients.includes(ing) ? ing : '❓'}
+              </span>
+            {/each}
+          </div>
+          <div class="recipe-progress">{getRecipeProgress()}</div>
+        </div>
+      {/if}
 
-    <div class="instructions">
-      <p>Кликай на нужные ингредиенты!</p>
-      <p>Лишние уменьшают счёт 👎</p>
+      <div class="game-area">
+        <div class="cauldron">
+          🧙‍♀️
+          <div class="cauldron-fire">🔥</div>
+        </div>
+        
+        <div class="floating-items">
+          {#each floatingItems as item}
+            <button
+              type="button"
+              class="floating-item"
+              style="left: {item.x}%; top: {item.y}%;"
+              onclick={() => collectIngredient(item.icon, item.id)}
+            >
+              {item.icon}
+            </button>
+          {/each}
+        </div>
+      </div>
+
+      <div class="instructions">
+        <p>Кликай на нужные ингредиенты!</p>
+        <p>Лишние уменьшают счёт 👎</p>
+      </div>
+    {/if}
+  </div>
+
+  <GameFooter {rewardItem} {items} {bucketName}>
+    <div class="footer-stats">
+      <span class="target-info">Цель: <strong>{WIN_SCORE}</strong> очков</span>
     </div>
-  {:else}
-    <div class="game-over">
-      <h2>{score >= 20 ? '🧪 Зелье сварено! 🧪' : '💀 Котёл взорвался... 💀'}</h2>
-      <div class="final-score">Счёт: {score}</div>
-      <button class="restart-btn" onclick={startGame}>Испытать снова</button>
-    </div>
-  {/if}
-</div>
+  </GameFooter>
+
+  <MinigameModal {modal} />
+</BodyWrapper>
 
 <style>
   #game-container {
@@ -202,21 +259,22 @@
     min-height: 500px;
     position: relative;
     overflow: hidden;
+    margin-bottom: 15px;
   }
 
-  .start-screen, .game-over {
+  .start-screen {
     text-align: center;
     padding: 40px 20px;
   }
 
-  .start-screen h2, .game-over h2 {
+  .start-screen h2 {
     color: #e94560;
     font-size: 2rem;
     margin-bottom: 20px;
     text-shadow: 0 0 10px rgba(233, 69, 96, 0.5);
   }
 
-  .start-btn, .restart-btn {
+  .start-btn {
     padding: 15px 40px;
     background: linear-gradient(135deg, #e94560, #c0394d);
     border: none;
@@ -227,9 +285,10 @@
     transition: all 0.2s;
     margin-top: 20px;
     box-shadow: 0 4px 0 #962d3a;
+    font-family: inherit;
   }
 
-  .start-btn:hover, .restart-btn:hover {
+  .start-btn:hover {
     transform: translateY(-2px);
     box-shadow: 0 6px 0 #962d3a;
   }
@@ -250,6 +309,10 @@
 
   .timer {
     color: #e94560;
+  }
+
+  .timer.danger {
+    animation: pulse-danger 0.5s ease-in-out infinite;
   }
 
   .current-recipe {
@@ -333,10 +396,10 @@
     background: none;
     border: none;
     cursor: pointer;
-    animation: fall linear forwards;
-    animation-duration: 5s;
+    animation: fall 5s linear forwards;
     transition: transform 0.1s;
     padding: 0;
+    font-family: inherit;
   }
 
   .floating-item:hover {
@@ -353,10 +416,25 @@
     border-radius: 5px;
   }
 
-  .final-score {
-    font-size: 3rem;
+  .footer-stats {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .target-info {
+    font-size: 0.9rem;
+    color: #ececec;
+  }
+
+  .target-info strong {
     color: #ff9f43;
-    margin: 20px 0;
+    font-size: 1.1rem;
   }
 
   @keyframes fall {
@@ -367,5 +445,10 @@
   @keyframes flicker {
     0%, 100% { opacity: 1; transform: translateX(-50%) scale(1); }
     50% { opacity: 0.8; transform: translateX(-50%) scale(1.1); }
+  }
+
+  @keyframes pulse-danger {
+    0%, 100% { color: #e94560; }
+    50% { color: #ff0000; }
   }
 </style>
