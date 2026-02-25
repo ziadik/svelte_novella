@@ -5,16 +5,59 @@
   import Inventory from "./components/Inventory.svelte";
   import { gameState } from "../store/gameStore.svelte";
   import { supabaseUrlFile } from "../store/store.svelte";
+  import { loadStoryJson } from "../store/storiesStore.svelte";
+  import { editorActions } from "../editor/stores/editorStore.svelte";
+  import { authState } from "../store/authStore.svelte";
 
-  // Ссылка на JSON формируется динамически на основе выбранной истории
+  let isOnline = $state(true);
+  let initialized = $state(false);
+
+  onMount(async () => {
+    // Проверка наличия сети
+    isOnline = navigator.onLine;
+    
+    const handleOnline = () => { isOnline = true; };
+    const handleOffline = () => { isOnline = false; };
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    // Инициализируем истории (включая URL параметр)
+    await gameState.initStories();
+    initialized = true;
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  });
+
+  // Загрузка истории при выборе (включая URL параметр)
   $effect(async () => {
-    if (gameState.selectedStory) {
-      const storyName = `${gameState.selectedStory}_story.json`;
-      const dialogLink = `${supabaseUrlFile}/storage/v1/object/public/${gameState.selectedStory}/${storyName}`;
-      console.log("Загружаем историю из:", dialogLink);
-      await gameState.loadStory(dialogLink);
+    if (initialized && gameState.selectedStory && gameState.selectedStoryData) {
+      const story = gameState.selectedStoryData;
+      console.log('[Main] Загрузка истории:', story.title);
+      const storyData = await loadStoryJson(story);
+      
+      if (storyData) {
+        gameState.storyData = storyData;
+        gameState.currentDialogueId = storyData.dialogues?.[0]?.id || "0";
+        gameState.isLoading = false;
+        console.log('[Main] История загружена, диалогов:', storyData.dialogues?.length);
+      } else {
+        gameState.error = "Не удалось загрузить историю";
+        gameState.isLoading = false;
+      }
     }
   });
+
+  function openEditor() {
+    if (!isOnline) {
+      alert('Редактирование недоступно без интернета');
+      return;
+    }
+    editorActions.toggleEditor();
+  }
 </script>
 
 <div class="app">
@@ -40,16 +83,31 @@
       <!-- Кнопка возврата к выбору истории -->
       <button 
         class="btn-change-story"
-        onclick={() => gameState.selectedStory = null}
+        onclick={() => {
+          gameState.selectedStory = null;
+          gameState.selectedStoryData = null;
+          gameState.storyData = null;
+        }}
         title="Сменить историю"
       >
         📚
       </button>
 
+      <!-- Кнопка редактирования (только для авторизованных на десктопах с интернетом) -->
+      {#if authState.user && isOnline}
+        <button 
+          class="btn-edit desktop-only"
+          onclick={openEditor}
+          title="Редактор историй"
+        >
+          ✏️ Редактор
+        </button>
+      {/if}
+
       <!-- Контейнер диалогов -->
       <div class="dialogues-container">
         {#if gameState.storyData}
-          <DialogueCard bucketName={gameState.selectedStory as string | undefined} />
+          <DialogueCard bucketName={gameState.selectedStoryData?.bucket || 'stories'} />
         {/if}
       </div>
     </div>
@@ -90,8 +148,8 @@
 
   .btn-change-story {
     position: fixed;
-    top: 16px;
-    right: 16px;
+    bottom: 16px;
+    left: 16px;
     width: 44px;
     height: 44px;
     border-radius: 50%;
@@ -108,6 +166,48 @@
   .btn-change-story:hover {
     background: rgba(233, 69, 96, 0.8);
     transform: scale(1.1);
+  }
+
+  /* Кнопка редактирования - только для десктопов, в правом нижнем углу */
+  .btn-edit {
+    position: fixed;
+    bottom: 16px;
+    right: 16px;
+    padding: 10px 16px;
+    border-radius: 8px;
+    border: none;
+    background: rgba(102, 126, 234, 0.8);
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+    z-index: 1000;
+  }
+
+  .btn-edit:hover {
+    background: rgba(102, 126, 234, 1);
+    transform: scale(1.05);
+  }
+
+  /* Адаптивная видимость */
+  .mobile-only {
+    display: flex;
+  }
+
+  .desktop-only {
+    display: none;
+  }
+
+  @media (min-width: 769px) {
+    .mobile-only {
+      display: none;
+    }
+
+    .desktop-only {
+      display: flex;
+    }
   }
 
   .btn-back {

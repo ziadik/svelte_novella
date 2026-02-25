@@ -1,78 +1,100 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { gameState } from '../../store/gameStore.svelte';
-  import { supabaseUrlFile } from '../../store/store.svelte';
+  import { storiesState, getPlayerStories, loadStoryJson } from '../../store/storiesStore.svelte';
+  import type { Story } from '../../store/storiesStore.svelte';
 
-  // Информация об историях
-  const storiesInfo = {
-    dracula: {
-      title: 'Дракула',
-      description: 'Тёмная готическая история о вампире и его жертве',
-      icon: '🧛'
-    },
-    zombie: {
-      title: 'Выживание',
-      description: 'Постапокалиптическая история о зомби',
-      icon: '🧟'
-    },
-    fairy_tale: {
-      title: 'Сказка',
-      description: 'Волшебная история с феями и драконами',
-      icon: '🧚'
-    },
-    minigames: {
-      title: 'Мини-игры',
-      description: 'Демонстрация мини-игр в визуальной новелле',
-      icon: '🎮'
+  let loading = $state(true);
+  let autoSelected = $state(false);
+
+  onMount(async () => {
+    console.log('[StorySelector] Инициализация...');
+    await gameState.initStories();
+    console.log('[StorySelector] Истории загружены:', {
+      initialized: storiesState.initialized,
+      count: storiesState.stories.length,
+      available: getPlayerStories().length,
+      urlStoryId: gameState.urlStoryId
+    });
+    
+    // Если история была выбрана через URL - загружаем её
+    if (gameState.urlStoryId && gameState.selectedStoryData && !autoSelected) {
+      autoSelected = true;
+      const storyData = await loadStoryJson(gameState.selectedStoryData);
+      if (storyData) {
+        gameState.storyData = storyData;
+        gameState.currentDialogueId = storyData.dialogues?.[0]?.id || "0";
+        gameState.isLoading = false;
+      }
     }
+    
+    loading = false;
+  });
+
+  // Информация об историях (fallback для историй без preview)
+  const defaultIcons: Record<string, string> = {
+    dracula: '🧛',
+    zombie: '🧟',
+    fairy_tale: '🧚',
+    minigames: '🎮'
   };
 
-  function handleSelectStory(storyName: string) {
-    gameState.selectedStory = storyName;
+  function handleSelectStory(story: Story) {
+    gameState.selectedStory = story.id;
+    gameState.selectedStoryData = story;
   }
 
   function handleBack() {
     gameState.selectedStory = null;
+    gameState.selectedStoryData = null;
   }
 </script>
 
 <div class="story-selector">
-  <div class="selector-header">
-    <h1>🎭 Визуальные новеллы</h1>
-    <p>Выберите историю для прохождения</p>
-  </div>
+  {#if loading}
+    <div class="loading">Загрузка историй...</div>
+  {:else}
+    <div class="selector-header">
+      <h1>🎭 Визуальные новеллы</h1>
+      <p>Выберите историю для прохождения</p>
+    </div>
 
-  <div class="stories-grid">
-    {#each gameState.availableStories as story (story)}
-      {@const info = storiesInfo[story as keyof typeof storiesInfo] || {
-        title: story,
-        description: 'Интерактивная история',
-        icon: '📖'
-      }}
-      <div 
-        class="story-card"
-        role="button"
-        tabindex="0"
-        onclick={() => handleSelectStory(story)}
-        onkeydown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            handleSelectStory(story);
-          }
-        }}
-      >
-        <div class="story-icon">{info.icon}</div>
-        <div class="story-content">
-          <h3 class="story-title">{info.title}</h3>
-          <p class="story-description">{info.description}</p>
-        </div>
-        <div class="story-arrow">→</div>
+    {#if gameState.availableStories.length === 0}
+      <div class="empty-state">
+        <p>Историй пока нет</p>
+        <p class="hint">Создайте свою историю в редакторе!</p>
       </div>
-    {/each}
-  </div>
+    {:else}
+    <div class="stories-grid">
+      {#each gameState.availableStories as story (story.id)}
+        {@const icon = defaultIcons[story.title.toLowerCase()] || '📖'}
+        <div 
+          class="story-card"
+          role="button"
+          tabindex="0"
+          onclick={() => handleSelectStory(story)}
+          onkeydown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              handleSelectStory(story);
+            }
+          }}
+        >
+          <div class="story-icon">{icon}</div>
+          <div class="story-content">
+            <h3 class="story-title">{story.title}</h3>
+            <p class="story-description">{story.preview_image_url ? 'Нажмите для начала' : 'Интерактивная история'}</p>
+          </div>
+          <div class="story-arrow">→</div>
+        </div>
+      {/each}
+    </div>
+    {/if}
 
-  <div class="selector-footer">
-    <p class="hint">💡 Совет: Вы можете создать свою историю в редакторе</p>
-  </div>
+    <div class="selector-footer">
+      <p class="hint">💡 Совет: Вы можете создать свою историю в редакторе</p>
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -189,6 +211,22 @@
     font-size: 14px;
     color: #666;
     margin: 0;
+  }
+
+  .loading {
+    font-size: 18px;
+    color: #aaa;
+    padding: 40px;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 40px;
+    color: #aaa;
+  }
+
+  .empty-state p {
+    margin: 8px 0;
   }
 
   @media (max-width: 400px) {

@@ -11,32 +11,60 @@
   import { storyActions } from './stores/storyStore';
   import { getStoriesList } from './stores/bucketStore';
 
+  // Функция загрузки истории по bucket
+  async function loadStoryForBucket(bucketName: string) {
+    console.log(`[Editor] Загрузка для bucket: ${bucketName}`);
+    try {
+      // Добавляем timeout для загрузки ресурсов
+      const resourcesPromise = resourceActions.loadStoredResources();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout loading resources')), 15000)
+      );
+      
+      await Promise.race([resourcesPromise, timeoutPromise]);
+      
+      const storyFileName = `${bucketName}_story.json`;
+      editor.currentFileName = storyFileName;
+      
+      // Таймаут для загрузки истории
+      const storyPromise = storyActions.loadStory(storyFileName);
+      const storyTimeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout loading story')), 15000)
+      );
+      
+      await Promise.race([storyPromise, storyTimeoutPromise]);
+      
+      console.log(`[Editor] История загружена: ${storyFileName}`);
+    } catch (err) {
+      console.error('[Editor] Ошибка загрузки истории:', err);
+    }
+  }
+
   onMount(async () => {
     // Загружаем список историй
     getStoriesList();
     
-    // Если есть истории и ни одна не выбрана, выбираем первую
+    // Если есть истории и ни одна не выбрана, выбираем первую и загружаем
     if (editor.availableBuckets.length > 0 && !editor.selectedBucket) {
       editor.selectedBucket = editor.availableBuckets[0].name;
+      await loadStoryForBucket(editor.selectedBucket);
     }
   });
 
-  // Реагируем на изменение выбранного bucket
+  // Реагируем на изменение выбранного bucket (только для старых bucket'ов)
   $effect(() => {
-    if (editor.selectedBucket) {
-      console.log(`[Editor] Bucket выбран: ${editor.selectedBucket}`);
-
-      // Загружаем ресурсы
-      resourceActions.loadStoredResources().then(() => {
-        // Формируем имя файла и загружаем историю напрямую
-        const storyFileName = `${editor.selectedBucket}_story.json`;
-        editor.currentFileName = storyFileName;
-        return storyActions.loadStory(storyFileName);
-      }).catch((err) => {
-        console.error('[Editor] Ошибка загрузки истории:', err);
-      });
+    if (editor.selectedBucket && !editor.manualStorySelected) {
+      loadStoryForBucket(editor.selectedBucket);
     }
   });
+
+  // Сброс флага при смене истории через кнопку "Сменить историю"
+  function handleChangeStory() {
+    editor.manualStorySelected = false;
+    editor.selectedBucket = null;
+    editor.currentFileName = '';
+    editor.data = null;
+  }
 </script>
 
 <!-- Экран выбора истории -->
@@ -47,12 +75,6 @@
     <!-- Верхняя панель -->
     <header class="toolbar">
       <div class="logo">
-        <button 
-          class="btn-link" 
-          onclick={() => editor.selectedBucket = null}
-        >
-          ← Сменить историю
-        </button>
         <h2>Story Editor v3.1 - {editor.selectedBucket}</h2>
       </div>
       <div class="stories-control">
@@ -116,6 +138,15 @@
       <!-- Правая панель: Предпросмотр -->
       <PreviewPanel />
     </div>
+
+    <!-- Кнопка выбора истории в правом нижнем углу -->
+    <button 
+      class="btn-back-to-game"
+      onclick={handleChangeStory}
+      title="Выбрать другую историю"
+    >
+      📚 Выбрать историю
+    </button>
   </div>
 {/if}
 
@@ -277,4 +308,26 @@
   
   .btn-icon:hover { background: #555; }
   .btn-icon.danger { background: #b71c1c; }
+
+  .btn-back-to-game {
+    position: fixed;
+    bottom: 16px;
+    right: 16px;
+    padding: 10px 16px;
+    background: rgba(102, 126, 234, 0.8);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+    z-index: 1000;
+  }
+
+  .btn-back-to-game:hover {
+    background: rgba(102, 126, 234, 1);
+    transform: scale(1.05);
+  }
 </style>

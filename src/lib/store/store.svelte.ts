@@ -2,5 +2,5 @@
 // Эти значения не изменяются во время работы приложения
 
 export const bucketName = 'dracula';
-export const storyName = "dracula_story.json";
+export const storyName = "dracula.json";
 export const supabaseUrlFile = import.meta.env.VITE_SUPABASE_URL_FILE;

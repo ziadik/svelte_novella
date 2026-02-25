@@ -1,3 +1,5 @@
+import { getPlayerStories, loadStories, storiesState, type Story } from './storiesStore.svelte';
+
 // Определение типов для нашей новой JSON структуры
 export interface Item {
   id: string;
@@ -87,11 +89,86 @@ class GameState {
   isLoading = $state<boolean>(true);
   error = $state<string>("");
 
-  // Выбранная история (bucket name)
+  // Выбранная история (id истории из БД)
   selectedStory = $state<string | null>(null);
 
-  // Доступные истории
-  availableStories = $state<string[]>(['dracula', 'zombie', 'fairy_tale', 'minigames']);
+  // Выбранный объект истории (полная информация из БД)
+  selectedStoryData = $state<Story | null>(null);
+
+  // URL параметр для автоматического выбора истории
+  urlStoryId = $state<string | null>(null);
+
+  // Доступные истории - вычисляемое свойство из Supabase
+  get availableStories(): Story[] {
+    return getPlayerStories();
+  }
+
+  // Загрузка историй при инициализации
+  async initStories(): Promise<void> {
+    console.log('[GameState] initStories начало');
+    
+    // Проверяем URL параметр story
+    const params = new URLSearchParams(window.location.search);
+    const storyParam = params.get('story');
+    if (storyParam) {
+      this.urlStoryId = storyParam;
+      console.log('[GameState] URL параметр story:', storyParam);
+    }
+
+    if (!storiesState.initialized) {
+      console.log('[GameState] Загружаем истории...');
+      await loadStories();
+      console.log('[GameState] Истории загружены, initialized:', storiesState.initialized);
+    } else {
+      console.log('[GameState] Истории уже загружены');
+    }
+
+    // Если указан URL параметр, автоматически выбираем историю
+    if (this.urlStoryId) {
+      console.log('[GameState] Выбираем историю:', this.urlStoryId);
+      this.selectStoryById(this.urlStoryId);
+    }
+    
+    console.log('[GameState] initStories завершено');
+  }
+
+  // Выбрать историю по ID (включая из fallback)
+  selectStoryById(id: string): boolean {
+    console.log('[GameState] selectStoryById:', id);
+    console.log('[GameState] storiesState.stories:', storiesState.stories.length);
+    console.log('[GameState] storiesState.initialized:', storiesState.initialized);
+    
+    // Сначала ищем в загруженных историях из БД
+    let story = storiesState.stories.find(s => s.id === id);
+    console.log('[GameState] Найдена в БД:', story?.title);
+    
+    // Если не найдена в БД, используем FALLBACK_STORIES напрямую
+    if (!story) {
+      const FALLBACK_STORIES = [
+        { id: 'dracula', title: 'Дракула', bucket: 'dracula', json_url: 'dracula_story.json' },
+        { id: 'zombie', title: 'Выживание', bucket: 'zombie', json_url: 'zombie_story.json' },
+        { id: 'fairy_tale', title: 'Сказка', bucket: 'fairy_tale', json_url: 'fairy_tale_story.json' },
+        { id: 'minigames', title: 'Мини-игры', bucket: 'minigames', json_url: 'minigames_story.json' }
+      ];
+      story = FALLBACK_STORIES.find(s => s.id === id) as unknown as Story;
+      console.log('[GameState] Найдена в fallback:', story?.title);
+    }
+
+    if (story) {
+      this.selectedStory = story.id;
+      this.selectedStoryData = story as unknown as Story;
+      console.log('[GameState] Выбрана история:', (story as any).title);
+      return true;
+    }
+
+    console.warn('[GameState] История не найдена:', id);
+    return false;
+  }
+
+  // Получить историю по ID
+  getStoryById(id: string): Story | undefined {
+    return storiesState.stories.find(s => s.id === id);
+  }
 
   // Компьютерное свойство для получения текущего диалога
   get currentDialogue(): Dialogue | undefined {

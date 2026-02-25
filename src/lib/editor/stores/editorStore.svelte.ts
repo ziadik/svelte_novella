@@ -12,6 +12,9 @@ interface EditorState {
   editingItemIndex: number | null;
   editingChapterId: string | null;
 
+  // Флаг ручного выбора истории из списка (из БД)
+  manualStorySelected: boolean;
+
   // Выбранные элементы
   selectedChapterId: string | null;
   selectedDialogueId: string | null;
@@ -39,6 +42,9 @@ export const editor = $state<EditorState>({
   editingOptionIndex: null,
   editingItemIndex: null,
   editingChapterId: null,
+
+  // Флаг ручного выбора истории из списка (из БД)
+  manualStorySelected: false,
 
   // Выбранные элементы
   selectedChapterId: null,
