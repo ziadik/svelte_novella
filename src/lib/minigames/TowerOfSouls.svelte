@@ -49,6 +49,8 @@
 
   let modal = $state<ModalState>({ show: false, title: "", text: "", actions: [] });
 
+  const TIMEOUT = 1000;    
+
   onMount(() => initGame());
 
   let isWin = $derived(foundations.every((f) => f.length === 13));
@@ -227,7 +229,7 @@
         setTimeout(() => {
           hideModal();
           onWin?.();
-        }, 3000);
+        }, TIMEOUT);
       } else {
         showModal("🎉 Победа!", `Вы собрали все души за ${moves} ходов!`, [
           { text: "Играть снова", action: initGame },
@@ -242,7 +244,7 @@
       setTimeout(() => {
         hideModal();
         onLose?.();
-      }, 3000);
+      }, TIMEOUT);
     } else {
       showModal("Конец", "Попробуйте ещё раз!", [
         { text: "Новая игра", action: initGame },

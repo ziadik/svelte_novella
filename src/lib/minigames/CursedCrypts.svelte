@@ -18,6 +18,7 @@
   const ROWS = 8;
   const COLS = 8;
   const MINES = 10;
+  const TIMEOUT = 1000;
 
   let board = $state<Array<{ isMine: boolean; revealed: boolean; flagged: boolean; adjacentMines: number }>>([]);
   let isGameOver = $state(false);
@@ -99,7 +100,7 @@
         setTimeout(() => {
           hideModal();
           onLose?.();
-        }, 3000);
+        }, TIMEOUT);
       } else {
         showModal("💥 БУМ!", "Вы наткнулись на проклятую мину!", [
           { text: "Попробовать снова", action: initGame },
@@ -159,7 +160,7 @@
         setTimeout(() => {
           hideModal();
           onWin?.();
-        }, 3000);
+        }, TIMEOUT);
       } else {
         showModal("🎉 Победа!", "Вы нашли все проклятые мины!", [
           { text: "Играть снова", action: initGame },
@@ -174,7 +175,7 @@
       setTimeout(() => {
         hideModal();
         onLose?.();
-      }, 3000);
+      }, TIMEOUT);
     } else {
       showModal("Конец", "Попробуйте ещё раз!", [
         { text: "Новая игра", action: initGame },

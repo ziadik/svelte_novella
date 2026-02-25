@@ -18,6 +18,7 @@
   const ROWS = 5;
   const COLS = 5;
   const SHUFFLE_MOVES = 15;
+  const TIMEOUT = 1000;
 
   let board = $state<boolean[][]>([]);
   let moves = $state(0);
@@ -68,7 +69,7 @@
         setTimeout(() => {
           hideModal();
           onWin?.();
-        }, 3000);
+        }, TIMEOUT);
       } else {
         showModal("🕯️ Тьма наступила", `Вы погасили все свечи за ${moves} ходов!`, [
           { text: "Играть снова", action: initGame },
@@ -83,7 +84,7 @@
       setTimeout(() => {
         hideModal();
         onLose?.();
-      }, 3000);
+      }, TIMEOUT);
     } else {
       showModal("Конец", "Попробуйте ещё раз!", [
         { text: "Новая игра", action: initGame },

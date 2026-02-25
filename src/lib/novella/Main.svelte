@@ -36,7 +36,11 @@
   $effect(async () => {
     if (initialized && gameState.selectedStory && gameState.selectedStoryData) {
       const story = gameState.selectedStoryData;
-      console.log('[Main] Загрузка истории:', story.title);
+      if (!story || !story.id) {
+        console.warn('[Main] История не выбрана или некорректна');
+        return;
+      }
+      console.log('[Main] Загрузка истории:', story?.title || story.id);
       const storyData = await loadStoryJson(story);
       
       if (storyData) {
