@@ -16,7 +16,8 @@
   // Получение данных о награде
   function getRewardItemData(): Item | null {
     if (!rewardItem || !items || items.length === 0) return null;
-    const itemId = typeof rewardItem === "string" ? rewardItem : rewardItem.id;
+    const itemId = typeof rewardItem === "string" ? rewardItem : rewardItem?.id;
+    if (!itemId) return null;
     return items.find((item: Item) => item.id === itemId) || null;
   }
 
@@ -25,7 +26,7 @@
 
   // Fallback данные если rewardItem передан как объект без описания
   let fallbackName = $derived(
-    typeof rewardItem === "object" && rewardItem.name ? rewardItem.name : null
+    typeof rewardItem === "object" && rewardItem?.name ? rewardItem.name : null
   );
 
   function handleImageError(e: Event): void {

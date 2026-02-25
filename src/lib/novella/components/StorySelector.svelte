@@ -4,6 +4,12 @@
   import { storiesState, getPlayerStories, loadStoryJson } from '../../store/storiesStore.svelte';
   import type { Story } from '../../store/storiesStore.svelte';
 
+  // В App.svelte управляется через window или dispatch event
+  // Для простоты используем кастомное событие
+  function openAllGames() {
+    window.dispatchEvent(new CustomEvent('open-all-games'));
+  }
+
   let loading = $state(true);
   let autoSelected = $state(false);
 
@@ -58,6 +64,13 @@
       <h1>🎭 Визуальные новеллы</h1>
       <p>Выберите историю для прохождения</p>
     </div>
+
+    <!-- Кнопка перехода к мини-играм -->
+    <button type="button" class="btn-all-games" onclick={openAllGames}>
+      <span class="games-icon">🎮</span>
+      <span class="games-text">Все мини-игры</span>
+      <span class="games-arrow">→</span>
+    </button>
 
     {#if gameState.availableStories.length === 0}
       <div class="empty-state">
@@ -227,6 +240,51 @@
 
   .empty-state p {
     margin: 8px 0;
+  }
+
+  .btn-all-games {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    max-width: 400px;
+    padding: 16px 20px;
+    margin-bottom: 24px;
+    background: linear-gradient(135deg, rgba(233, 69, 96, 0.2), rgba(233, 69, 96, 0.1));
+    border: 2px solid rgba(233, 69, 96, 0.5);
+    border-radius: 16px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-family: inherit;
+    color: white;
+  }
+
+  .btn-all-games:hover {
+    background: linear-gradient(135deg, rgba(233, 69, 96, 0.3), rgba(233, 69, 96, 0.2));
+    border-color: #e94560;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(233, 69, 96, 0.3);
+  }
+
+  .games-icon {
+    font-size: 28px;
+  }
+
+  .games-text {
+    flex: 1;
+    font-size: 16px;
+    font-weight: 600;
+    text-align: left;
+  }
+
+  .games-arrow {
+    font-size: 20px;
+    color: #e94560;
+    transition: transform 0.3s ease;
+  }
+
+  .btn-all-games:hover .games-arrow {
+    transform: translateX(4px);
   }
 
   @media (max-width: 400px) {
