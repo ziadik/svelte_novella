@@ -169,6 +169,7 @@
             <option value="evolution2048">Evolution 2048</option>
             <option value="cursed_crypts">Проклятый Сапер</option>
             <option value="tower_of_souls">Три пика</option>
+            <option value="alchemists_cross">Алхимический Крест</option>
           </select>
         </div>
 

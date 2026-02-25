@@ -7,6 +7,11 @@
   import Evolution2048 from '../minigames/Evolution2048.svelte';
   import CursedCrypts from '../minigames/CursedCrypts.svelte';
   import TowerOfSouls from '../minigames/TowerOfSouls.svelte';
+  import AlchemistsCross from '../minigames/AlchemistsCross.svelte';
+  import WhisperOfSpiders from '../minigames/WhisperOfSpiders.svelte';
+  import SoulCycle from '../minigames/SoulCycle.svelte';
+  import LabyrinthOfMinotaur from '../minigames/LabyrinthOfMinotaur.svelte';
+  import Bones421 from '../minigames/Bones421.svelte';
 
   interface Props {
     gameId: string;
@@ -96,6 +101,51 @@
     />
   {:else if gameId === 'tower_of_souls'}
     <TowerOfSouls
+      onWin={handleWin}
+      onLose={handleLose}
+      integrated={true}
+      rewardItem={rewardItem}
+      items={items}
+      bucketName={bucketName}
+    />
+  {:else if gameId === 'alchemists_cross'}
+    <AlchemistsCross
+      onWin={handleWin}
+      onLose={handleLose}
+      integrated={true}
+      rewardItem={rewardItem}
+      items={items}
+      bucketName={bucketName}
+    />
+  {:else if gameId === 'whisper_of_spiders'}
+    <WhisperOfSpiders
+      onWin={handleWin}
+      onLose={handleLose}
+      integrated={true}
+      rewardItem={rewardItem}
+      items={items}
+      bucketName={bucketName}
+    />
+  {:else if gameId === 'soul_cycle'}
+    <SoulCycle
+      onWin={handleWin}
+      onLose={handleLose}
+      integrated={true}
+      rewardItem={rewardItem}
+      items={items}
+      bucketName={bucketName}
+    />
+  {:else if gameId === 'labyrinth_of_minotaur'}
+    <LabyrinthOfMinotaur
+      onWin={handleWin}
+      onLose={handleLose}
+      integrated={true}
+      rewardItem={rewardItem}
+      items={items}
+      bucketName={bucketName}
+    />
+  {:else if gameId === 'bones421'}
+    <Bones421
       onWin={handleWin}
       onLose={handleLose}
       integrated={true}

@@ -4,11 +4,13 @@
   import Main from './lib/novella/Main.svelte';
   import UserMenu from './lib/components/UserMenu.svelte';
   import ResetPasswordPage from './lib/components/ResetPasswordPage.svelte';
+  import AllGames from './lib/minigames/AllGames.svelte';
   import { editor, editorActions } from './lib/editor/stores/editorStore.svelte';
   import { initAuth, authState, authDerivedState } from './lib/store/authStore.svelte';
 
   let appInitialized = $state(false);
   let showResetPassword = $state(false);
+  let showAllGames = $state(false);
   let resetPasswordError = $state('');
   let resetPasswordToken = $state('');
   
@@ -66,6 +68,12 @@
   onMount(async () => {
     console.log('[App] Mounted');
     
+    // Обработчик открытия страницы игр
+    const handleOpenAllGames = () => {
+      showAllGames = true;
+    };
+    window.addEventListener('open-all-games', handleOpenAllGames);
+    
     try {
       // Проверяем callback от Supabase
       await handleAuthCallback();
@@ -84,6 +92,10 @@
       appInitialized = true;
       console.log('[App] App ready');
     }
+
+    return () => {
+      window.removeEventListener('open-all-games', handleOpenAllGames);
+    };
   });
 
   function handleCloseResetPassword() {
@@ -91,6 +103,14 @@
     resetPasswordError = '';
     resetPasswordToken = '';
     window.history.replaceState({}, '', '/');
+  }
+
+  function openAllGames() {
+    showAllGames = true;
+  }
+
+  function closeAllGames() {
+    showAllGames = false;
   }
 </script>
 
@@ -116,6 +136,10 @@
   </button>
   
   <Editor />
+{:else if showAllGames}
+  <AllGames 
+    onBack={closeAllGames} 
+  />
 {:else}
   <UserMenu />
   <Main />
