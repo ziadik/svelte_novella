@@ -17,6 +17,7 @@
 
   const SIZE = 12;
   const MAX_MOVES = 25;
+  const TIMEOUT = 1000;
 
   const COLORS = [
     { name: "unicorn", value: "#e94560", icon: "🦄" },
@@ -86,7 +87,7 @@
         setTimeout(() => {
           hideModal();
           onWin?.();
-        }, 3000);
+        }, TIMEOUT);
       } else {
         showModal("🎉 Победа!", `Вы захватили мир за ${moves} ходов!`, [
           { text: "Играть снова", action: initGame },
@@ -99,7 +100,7 @@
         setTimeout(() => {
           hideModal();
           onLose?.();
-        }, 3000);
+        }, TIMEOUT);
       } else {
         showModal("💀 Поражение", "Ходы закончились!", [
           { text: "Заново", action: initGame },
@@ -114,7 +115,7 @@
       setTimeout(() => {
         hideModal();
         onLose?.();
-      }, 3000);
+      }, TIMEOUT);
     } else {
       showModal("Конец", "Попробуйте ещё раз!", [
         { text: "Новая игра", action: initGame },

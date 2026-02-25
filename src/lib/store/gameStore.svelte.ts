@@ -108,11 +108,15 @@ class GameState {
     console.log('[GameState] initStories начало');
     
     // Проверяем URL параметр story
-    const params = new URLSearchParams(window.location.search);
-    const storyParam = params.get('story');
-    if (storyParam) {
-      this.urlStoryId = storyParam;
-      console.log('[GameState] URL параметр story:', storyParam);
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const storyParam = params.get('story');
+      if (storyParam) {
+        this.urlStoryId = storyParam;
+        console.log('[GameState] URL параметр story:', storyParam);
+      }
+    } catch (e) {
+      console.log('[GameState] Нет window.location (SSR?)');
     }
 
     if (!storiesState.initialized) {
@@ -135,11 +139,11 @@ class GameState {
   // Выбрать историю по ID (включая из fallback)
   selectStoryById(id: string): boolean {
     console.log('[GameState] selectStoryById:', id);
-    console.log('[GameState] storiesState.stories:', storiesState.stories.length);
+    console.log('[GameState] storiesState.stories:', storiesState.stories?.length || 0);
     console.log('[GameState] storiesState.initialized:', storiesState.initialized);
     
     // Сначала ищем в загруженных историях из БД
-    let story = storiesState.stories.find(s => s.id === id);
+    let story = storiesState.stories?.find(s => s?.id === id);
     console.log('[GameState] Найдена в БД:', story?.title);
     
     // Если не найдена в БД, используем FALLBACK_STORIES напрямую
@@ -150,14 +154,27 @@ class GameState {
         { id: 'fairy_tale', title: 'Сказка', bucket: 'fairy_tale', json_url: 'fairy_tale_story.json' },
         { id: 'minigames', title: 'Мини-игры', bucket: 'minigames', json_url: 'minigames_story.json' }
       ];
-      story = FALLBACK_STORIES.find(s => s.id === id) as unknown as Story;
+      const fallbackStory = FALLBACK_STORIES.find(s => s.id === id);
+      if (fallbackStory) {
+        story = {
+          id: fallbackStory.id,
+          title: fallbackStory.title,
+          bucket: fallbackStory.bucket,
+          json_url: fallbackStory.json_url,
+          created_at: new Date().toISOString(),
+          author_id: null,
+          preview_image_url: null,
+          is_public: true,
+          allowed_players: []
+        };
+      }
       console.log('[GameState] Найдена в fallback:', story?.title);
     }
 
-    if (story) {
+    if (story && story.id) {
       this.selectedStory = story.id;
-      this.selectedStoryData = story as unknown as Story;
-      console.log('[GameState] Выбрана история:', (story as any).title);
+      this.selectedStoryData = story;
+      console.log('[GameState] Выбрана история:', story.title);
       return true;
     }
 

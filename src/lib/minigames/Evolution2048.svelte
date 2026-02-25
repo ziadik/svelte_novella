@@ -17,6 +17,7 @@
 
   const SIZE = 4;
   const WIN_TARGET = 2048;
+  const TIMEOUT = 1000;
 
   const EVOLUTION: Record<number, string> = {
     2: "🦇",
@@ -213,7 +214,7 @@
               setTimeout(() => {
                 hideModal();
                 onWin?.();
-              }, 3000);
+              }, TIMEOUT);
             } else {
               showModal("👑 Победа!", "Вы создали короля монстров!", [
                 { text: "Продолжить", action: hideModal },
@@ -233,7 +234,7 @@
         setTimeout(() => {
           hideModal();
           onLose?.();
-        }, 3000);
+        }, TIMEOUT);
       } else {
         showModal("💀 Конец", `Игра окончена. Очки: ${score}`, [
           { text: "Новая игра", action: initGame },
@@ -267,7 +268,7 @@
       setTimeout(() => {
         hideModal();
         onLose?.();
-      }, 3000);
+      }, TIMEOUT);
     } else {
       showModal("Конец", "Попробуйте ещё раз!", [
         { text: "Новая игра", action: initGame },

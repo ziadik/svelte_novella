@@ -20,6 +20,7 @@
   const ROWS = 4;
   const COLS = 4;
   const HINT_COOLDOWN_TIME = 5;
+  const TIMEOUT = 1000;
 
   const ICONS = [
     "🦄", "🧙", "👻", "💀", "🔥", "🕷️",
@@ -194,7 +195,7 @@
         setTimeout(() => {
           hideModal();
           onWin?.();
-        }, 3000);
+        }, TIMEOUT);
       } else {
         showModal("🎉 Победа!", "Все монстры пойманы!", [
           { text: "Играть снова", action: initGame },
@@ -210,7 +211,7 @@
       setTimeout(() => {
         hideModal();
         onLose?.();
-      }, 3000);
+      }, TIMEOUT);
     } else {
       showModal("Конец", "Попробуйте ещё раз!", [
         { text: "Новая игра", action: initGame },

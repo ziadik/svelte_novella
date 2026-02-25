@@ -16,6 +16,7 @@
   } = $props<MinigameProps>();
 
   const SIZE = 4;
+  const TIMEOUT = 1000;
 
   let board = $state<(number | null)[][]>([]);
   let moves = $state(0);
@@ -125,7 +126,7 @@
         setTimeout(() => {
           hideModal();
           onWin?.();
-        }, 3000);
+        }, TIMEOUT);
       } else {
         showModal("🪞 Зеркало восстановлено!", `Вы собрали осколки за ${moves} ходов!`, [
           { text: "Играть снова", action: initGame },
@@ -140,7 +141,7 @@
       setTimeout(() => {
         hideModal();
         onLose?.();
-      }, 3000);
+      }, TIMEOUT);
     } else {
       showModal("Конец", "Попробуйте ещё раз!", [
         { text: "Новая игра", action: initGame },
