@@ -111,6 +111,38 @@ export const gamesList: GameInfo[] = [
     icon: '🎴',
     filename: 'Bones421.svelte',
     category: 'board'
+  },
+  {
+    id: 'crystals-of-time',
+    name: 'Кристаллы времени',
+    description: 'Повтори последовательность кристаллов',
+    icon: '💎',
+    filename: 'CrystalsOfTime.svelte',
+    category: 'memory'
+  },
+  {
+    id: 'runes-of-fate',
+    name: 'Руны судьбы',
+    description: 'Победи духа в поединке рун',
+    icon: '🔮',
+    filename: 'RunesOfFate.svelte',
+    category: 'board'
+  },
+  {
+    id: 'witches-cauldrons',
+    name: 'Котёл ведьмы',
+    description: 'Собери ингредиенты для зелья',
+    icon: '🧙',
+    filename: 'WitchesCauldrons.svelte',
+    category: 'arcade'
+  },
+  {
+    id: 'alchemical-calculator',
+    name: 'Алхимический калькулятор',
+    description: 'Получи целевое число используя все числа',
+    icon: '⚗️',
+    filename: 'AlchemicalCalculator.svelte',
+    category: 'logic'
   }
 ];
 
