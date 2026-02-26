@@ -1,6 +1,8 @@
 <script lang="ts">
   import { gamesList, categoryNames, type GameInfo } from './gamesList';
+  import { userKeyStore } from '../store/userKeyStore';
   import MemoMonsters from './MemoMonsters.svelte';
+  import OnetMonsters144 from './OnetMonsters144.svelte';
   import OnetMonsters from './OnetMonsters.svelte';
   import Evolution2048 from './Evolution2048.svelte';
   import WhisperOfSpiders from './WhisperOfSpiders.svelte';
@@ -21,6 +23,7 @@
   const gameComponents: Record<string, any> = {
     'memo-monsters': MemoMonsters,
     'onet-monsters': OnetMonsters,
+    'onet-monsters-144': OnetMonsters144,
     'evolution-2048': Evolution2048,
     'whisper-of-spiders': WhisperOfSpiders,
     'tower-of-souls': TowerOfSouls,
@@ -55,6 +58,8 @@
   const categories: Array<GameInfo['category'] | 'all'> = ['all', 'puzzle', 'memory', 'logic', 'arcade', 'board'];
 
   function handleGameClick(game: GameInfo) {
+    // Аналитика: запуск игры из списка
+    userKeyStore.trackGameStart(game.id, game.name);
     activeGame = game;
   }
 
@@ -62,7 +67,15 @@
     activeGame = null;
   }
 
-  function handleGameEnd() {
+  async function handleGameEnd() {
+    if (activeGame) {
+      // Аналитика: игра завершена (по умолчанию считаем как "не победила" для свободного режима)
+      // В свободном режиме нет четкого результата, поэтому записываем как game_start для завершения сессии игры
+      await userKeyStore.trackEvent('session_time', {
+        game_id: activeGame.id,
+        game_title: activeGame.name,
+      });
+    }
     activeGame = null;
   }
 
@@ -77,8 +90,18 @@
     <svelte:component 
       this={ActiveGameComponent} 
       integrated={false}
-      onWin={() => handleGameEnd()}
-      onLose={() => handleGameEnd()}
+      onWin={() => {
+        if (activeGame) {
+          userKeyStore.trackGameResult(activeGame.id, activeGame.name, true);
+        }
+        handleGameEnd();
+      }}
+      onLose={() => {
+        if (activeGame) {
+          userKeyStore.trackGameResult(activeGame.id, activeGame.name, false);
+        }
+        handleGameEnd();
+      }}
       rewardItem={null}
       items={[]}
       bucketName="dracula"
