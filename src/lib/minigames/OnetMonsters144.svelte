@@ -16,10 +16,37 @@
   }: MinigameProps = $props();
 
   // --- Настройки ---
-  const ROWS = 16;
-  const COLS = 9;
   const HINT_COOLDOWN_TIME = 5;
   const TIMEOUT = 1000;
+
+  // Типы размеров поля
+  type BoardSize = 'auto' | '16x9' | '16x16';
+  
+  // Состояние выбора размера
+  let boardSize = $state<BoardSize>('auto');
+  
+  // Определение ориентации экрана
+  let isLandscape = $state(true);
+  function updateOrientation() {
+    if (typeof window !== 'undefined') {
+      isLandscape = window.innerWidth > window.innerHeight;
+    }
+  }
+
+  // Вычисляемые размеры поля
+  const ROWS = $derived.by(() => {
+    if (boardSize === '16x9') return 9;
+    if (boardSize === '16x16') return 16;
+    // auto: зависит от ориентации
+    return isLandscape ? 9 : 16;
+  });
+  
+  const COLS = $derived.by(() => {
+    if (boardSize === '16x9') return 16;
+    if (boardSize === '16x16') return 16;
+    // auto: зависит от ориентации (инвертировано)
+    return isLandscape ? 16 : 9;
+  });
 
   const ICONS = [
     // Монстры и нечисть (1-20)
@@ -29,13 +56,21 @@
     "🐺", "🐗", "🦊", "🦝", "🦁", "🐯", "🐆", "🐆", "🦓", "🦍",
     "🐘", "🦏", "🦛", "🐙", "🦑", "🐡", "🐠", "🐟", "🐬", "🐳",
     // Насекомые и пауки (41-50)
-    "🕷️", "🕸️", "🦂", "🐝", "🪲", "🐞", "🦗", "🦟", "🪳", "🐜",
+    "🕷️", "🕸️", "🦂", "🐝", "🧠", "🐞", "🦗", "🦟", "💔", "🐜",
     // Магия и ритуалы (51-65)
     "🔮", "🧪", "⚗️", "🧿", "🕯️", "🗝️", "🗡️", "⚔️", "🛡️", "🏺",
     "📜", "⚰️", "⚱️", "🪦", "🧬",
     // Природа и стихии (66-77)
-    "🔥", "🌊", "🌪️", "🌩️", "❄️", "🌙", "🌛", "🌜", "☀️", "🌞",
+    "🔥", "🌊", "🌪️", "🌩️", "❄️", "🌙", "🌛", "🌜", "☀️", "🍑",
     "⭐", "🌟", "💫",
+    // Зодиак (78-101)
+    "♈", "♉", "♊", "♋", "♌", "♍", "♎", "♏", "♐", "♑", "♒", "♓",
+    "☿", "♀", "♁", "♂", "♃", "♄", "♅", "⛢", "♆", "♇", "⚳", "⚴",
+    "⚵", "⚶", "⚷", "⚸",
+    // Небесные тела и космос (102-128)
+    "☀", "🌞", "🌑", "🌒", "🌓", "🌔", "🌕", "🌖", "🌗", "🌘",
+    "☄", "☊", "☋", "☌", "☍", "☉", "☽", "☾", "☼",
+    "🚀", "🛰", "🌌", "🪐", "📡", "🔭", "👾", "👽",
   ];
 
   // --- State (Runes) ---
@@ -58,15 +93,25 @@
 
   // Инициализация при монтировании
   onMount(() => {
+    updateOrientation();
+    window.addEventListener('resize', updateOrientation);
+    window.addEventListener('orientationchange', updateOrientation);
     initGame();
+    
+    return () => {
+      window.removeEventListener('resize', updateOrientation);
+      window.removeEventListener('orientationchange', updateOrientation);
+    };
   });
 
   // --- Вычисляемые свойства ---
   function getRemainingCount(): number {
     if (!matched || matched.length === 0) return 0;
     let count = 0;
-    for (let r = 0; r < ROWS; r++) {
-      for (let c = 0; c < COLS; c++) {
+    const rows = ROWS;
+    const cols = COLS;
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
         if (matched[r] && !matched[r][c]) count++;
       }
     }
@@ -75,6 +120,22 @@
 
   let remainingCount = $derived(getRemainingCount());
   let isHintAvailable = $derived(hintCooldown < 1);
+
+  // Переинициализация при смене ориентации (только в режиме auto)
+  let prevOrientation = $state(true);
+  $effect(() => {
+    if (boardSize === 'auto' && prevOrientation !== isLandscape && board.length > 0) {
+      // Ориентация изменилась в режиме auto - перезапускаем игру
+      initGame();
+    }
+    prevOrientation = isLandscape;
+  });
+
+  // Функция изменения размера поля
+  function setBoardSize(size: BoardSize) {
+    boardSize = size;
+    initGame();
+  }
 
   // --- Инициализация ---
   function initGame(): void {
@@ -89,22 +150,26 @@
     hintCooldown = 0;
     hideModal();
 
+    const rows = ROWS;
+    const cols = COLS;
+    const totalTiles = rows * cols;
+
     // Подготовка колоды
     let uniqueIcons = [...new Set(ICONS)];
-    while (uniqueIcons.length < (ROWS * COLS) / 2) {
+    while (uniqueIcons.length < totalTiles / 2) {
       uniqueIcons = [...uniqueIcons, ...uniqueIcons];
     }
-    let selectedIcons = uniqueIcons.sort(() => 0.5 - Math.random()).slice(0, (ROWS * COLS) / 2);
+    let selectedIcons = uniqueIcons.sort(() => 0.5 - Math.random()).slice(0, totalTiles / 2);
     let deck: string[] = [];
     selectedIcons.forEach((icon) => deck.push(icon, icon));
     deck.sort(() => Math.random() - 0.5);
 
     // Заполнение сетки
     let index = 0;
-    for (let r = 0; r < ROWS; r++) {
+    for (let r = 0; r < rows; r++) {
       let rowBoard: string[] = [];
       let rowMatched: boolean[] = [];
-      for (let c = 0; c < COLS; c++) {
+      for (let c = 0; c < cols; c++) {
         rowBoard.push(deck[index++]);
         rowMatched.push(false);
       }
@@ -177,9 +242,11 @@
   function showHint(): void {
     if (isProcessing || isGameOver || !isHintAvailable) return;
 
+    const rows = ROWS;
+    const cols = COLS;
     let remainingTiles: Array<{ r: number; c: number; icon: string }> = [];
-    for (let r = 0; r < ROWS; r++) {
-      for (let c = 0; c < COLS; c++) {
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
         if (!matched[r][c]) {
           remainingTiles.push({ r, c, icon: board[r][c] });
         }
@@ -254,9 +321,11 @@
   }
 
   function hasAvailableMoves(): boolean {
+    const rows = ROWS;
+    const cols = COLS;
     let remainingTiles: Array<{ r: number; c: number; icon: string }> = [];
-    for (let r = 0; r < ROWS; r++) {
-      for (let c = 0; c < COLS; c++) {
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
         if (!matched[r][c]) remainingTiles.push({ r, c, icon: board[r][c] });
       }
     }
@@ -284,11 +353,13 @@
 
   // --- Перемешивание ---
   function shuffleBoard(): void {
+    const rows = ROWS;
+    const cols = COLS;
     let remainingIcons: string[] = [];
     let remainingPositions: Array<{ r: number; c: number }> = [];
 
-    for (let r = 0; r < ROWS; r++) {
-      for (let c = 0; c < COLS; c++) {
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
         if (!matched[r][c]) {
           remainingIcons.push(board[r][c]);
           remainingPositions.push({ r, c });
@@ -320,7 +391,9 @@
 
   // --- Pathfinding (Логика пути) ---
   function isEmpty(r: number, c: number): boolean {
-    if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return true;
+    const rows = ROWS;
+    const cols = COLS;
+    if (r < 0 || r >= rows || c < 0 || c >= cols) return true;
     return matched[r][c];
   }
 
@@ -372,7 +445,9 @@
     }
 
     // 2 поворота
-    for (let r = -1; r <= ROWS; r++) {
+    const rows = ROWS;
+    const cols = COLS;
+    for (let r = -1; r <= rows; r++) {
       if (r === r1 || r === r2) continue;
       const p1 = { r: r, c: c1 };
       const p2 = { r: r, c: c2 };
@@ -387,7 +462,7 @@
       }
     }
 
-    for (let c = -1; c <= COLS; c++) {
+    for (let c = -1; c <= cols; c++) {
       if (c === c1 || c === c2) continue;
       const p1 = { r: r1, c: c };
       const p2 = { r: r2, c: c };
@@ -425,12 +500,14 @@
     const offsetX = gridRect.left - containerRect.left;
     const offsetY = gridRect.top - containerRect.top;
 
+    const rows = ROWS;
+    const cols = COLS;
     const points = path
       .map((p) => {
         let x: number, y: number;
-        if (p.r >= 0 && p.r < ROWS && p.c >= 0 && p.c < COLS) {
+        if (p.r >= 0 && p.r < rows && p.c >= 0 && p.c < cols) {
           // Реальная ячейка
-          const cell = gridEl.children[p.r * COLS + p.c];
+          const cell = gridEl.children[p.r * cols + p.c];
           const rect = cell.getBoundingClientRect();
           x = rect.left - containerRect.left + rect.width / 2;
           y = rect.top - containerRect.top + rect.height / 2;
@@ -538,6 +615,32 @@
   </div>
   <GameFooter {rewardItem} {items} {bucketName}>
     <div class="footer-stats">
+      <div class="size-selector">
+        <button 
+          class="size-btn" 
+          class:active={boardSize === 'auto'}
+          onclick={() => setBoardSize('auto')}
+          title="Авто (по ориентации экрана)"
+        >
+          Авто
+        </button>
+        <button 
+          class="size-btn" 
+          class:active={boardSize === '16x9'}
+          onclick={() => setBoardSize('16x9')}
+          title="16x9"
+        >
+          16×9
+        </button>
+        <button 
+          class="size-btn" 
+          class:active={boardSize === '16x16'}
+          onclick={() => setBoardSize('16x16')}
+          title="16x16"
+        >
+          16×16
+        </button>
+      </div>
       <span class="tiles-counter">Осталось: <strong>{remainingCount}</strong></span>
       <button
         class="btn btn-secondary"
@@ -582,52 +685,73 @@
   }
 
   .cell {
-    width: 11vmin;
-    height: 11vmin;
-    max-width: 60px;
-    max-height: 60px;
+    width: 10vmin;
+    height: 10vmin;
+    min-width: 18px;
+    min-height: 18px;
+    max-width: 55px;
+    max-height: 55px;
     background: linear-gradient(135deg, #4e4c75, #3d3b5c);
     border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: clamp(20px, 5vmin, 32px);
+    font-size: clamp(10px, 4vmin, 28px);
     cursor: pointer;
     border: 2px solid #5e5c8a;
     box-shadow: 0 4px 0 rgba(0, 0, 0, 0.3);
     transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275), background-color 0.2s, box-shadow 0.2s;
     position: relative;
+    user-select: none;
+    -webkit-user-select: none;
   }
 
-  @media (min-width: 800px) {
+  /* Адаптивность для 16x16 */
+  @media (min-width: 900px) {
     .cell {
-      width: 60px;
-      height: 60px;
-    }
-  }
-  @media (max-width: 800px) {
-    .cell {
-      width: 35px;
-      height: 35px;
+      width: 50px;
+      height: 50px;
+      font-size: 26px;
     }
   }
 
-  @media (max-width: 390px) {
+  @media (min-width: 600px) and (max-width: 900px) {
     .cell {
-      width: 28px;
-      height: 28px;
+      width: 40px;
+      height: 40px;
+      font-size: 20px;
+    }
+  }
+
+  @media (min-width: 400px) and (max-width: 600px) {
+    .cell {
+      width: 32px;
+      height: 32px;
       font-size: 16px;
     }
   }
 
-  @media (max-width: 340px) {
+  @media (max-width: 400px) {
     .cell {
-      width: 20px;
-      height: 20px;
-      font-size: 10px;
+      width: 22px;
+      height: 22px;
+      font-size: 11px;
+      border-radius: 4px;
     }
     #grid {
-      gap: 3px;
+      gap: 2px;
+    }
+  }
+
+  @media (max-width: 320px) {
+    .cell {
+      width: 18px;
+      height: 18px;
+      font-size: 9px;
+      border-width: 1px;
+    }
+    #grid {
+      gap: 1px;
     }
   }
 
@@ -711,11 +835,41 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     padding: 8px 10px;
     background: rgba(255, 255, 255, 0.05);
     border-radius: 15px;
     border: 1px solid rgba(255, 255, 255, 0.1);
+    flex-wrap: wrap;
+  }
+
+  .size-selector {
+    display: flex;
+    gap: 4px;
+  }
+
+  .size-btn {
+    padding: 4px 8px;
+    font-size: 0.75rem;
+    background: rgba(255, 255, 255, 0.1);
+    color: #ccc;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+
+  .size-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
+  }
+
+  .size-btn.active {
+    background: linear-gradient(135deg, #e94560, #c0394d);
+    color: white;
+    border-color: #e94560;
+    box-shadow: 0 2px 8px rgba(233, 69, 96, 0.4);
   }
 
   .tiles-counter {
