@@ -18,10 +18,18 @@ export const gamesList: GameInfo[] = [
   },
   {
     id: 'onet-monsters',
-    name: 'Связь монстров',
+    name: 'Связь монстров min',
     description: 'Соедини одинаковых монстров линией',
     icon: '🔗',
     filename: 'OnetMonsters.svelte',
+    category: 'puzzle'
+  },
+  {
+    id: 'onet-monsters-144',
+    name: 'Связь монстров middle',
+    description: 'Соедини одинаковых монстров линией (144 плитки)',
+    icon: '🔗',
+    filename: 'OnetMonsters144.svelte',
     category: 'puzzle'
   },
   {
