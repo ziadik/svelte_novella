@@ -32,6 +32,7 @@
   let showAllGames = $state(false);
   let resetPasswordError = $state("");
   let resetPasswordToken = $state("");
+  let showDebugPanel = $state(true);
 
   // Обработка внешней ссылки на историю
   async function handleExternalStoryLink() {
@@ -138,6 +139,7 @@
     
     if (typeof window !== 'undefined') {
       window.addEventListener('beforeunload', handleBeforeUnload);
+      window.addEventListener('keydown', handleKeydown);
     }
     
     try {
@@ -190,8 +192,17 @@
     return () => {
       window.removeEventListener("open-all-games", handleOpenAllGames);
       window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('keydown', handleKeydown);
     };
   });
+
+  // Горячая клавиша для показа debug-панели (Ctrl+Shift+D)
+  function handleKeydown(e: KeyboardEvent) {
+    if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+      e.preventDefault();
+      showDebugPanel = !showDebugPanel;
+    }
+  }
 
   const handleRegenerateKey = async (): Promise<void> => {
     isLoading = true;
@@ -257,8 +268,9 @@
 {/if}
 
 <!-- Отладочная панель (DEV only) -->
-{#if import.meta.env.DEV && appInitialized}
+{#if import.meta.env.DEV && appInitialized && showDebugPanel}
   <div class="debug-panel">
+    <button class="debug-close" onclick={() => showDebugPanel = false}>✕</button>
     <div><strong>Auth:</strong> {authDerivedState.isAuthenticated ? '✅' : '❌'}</div>
     <div><strong>User:</strong> {authState.user?.email || 'guest'}</div>
     <div><strong>Key:</strong> {userKey ? userKey.substring(0, 8) + '...' : 'none'}</div>
@@ -266,6 +278,7 @@
   
   <!-- Панель аналитики (показываем только в специальном режиме) -->
   <div class="analytics-panel">
+    <button class="debug-close" onclick={() => showDebugPanel = false}>✕</button>
     <h3>📊 Аналитика пользователя</h3>
     
     {#if userKey}
@@ -360,6 +373,23 @@
     z-index: 9998;
     border-radius: 4px;
     font-family: monospace;
+  }
+
+  .debug-close {
+    position: absolute;
+    top: 2px;
+    right: 4px;
+    background: none;
+    border: none;
+    color: #666;
+    font-size: 12px;
+    cursor: pointer;
+    padding: 2px 6px;
+    line-height: 1;
+  }
+
+  .debug-close:hover {
+    color: #fff;
   }
 
   .analytics-panel {
