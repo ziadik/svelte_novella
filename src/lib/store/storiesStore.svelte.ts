@@ -111,6 +111,24 @@ export function getPlayerStories(): Story[] {
   return result;
 }
 
+// Получить историю по ID (включая fallback)
+export function getStoryById(storyId: string): Story | undefined {
+  // Сначала ищем в загруженных из БД
+  const fromDb = stories.stories.find(s => s.id === storyId);
+  if (fromDb) return fromDb;
+  
+  // Потом в fallback
+  return FALLBACK_STORIES.find(s => s.id === storyId);
+}
+
+// Получить историю по имени bucket (для обратной совместимости)
+export function getStoryByBucket(bucketName: string): Story | undefined {
+  const fromDb = stories.stories.find(s => s.bucket === bucketName);
+  if (fromDb) return fromDb;
+  
+  return FALLBACK_STORIES.find(s => s.bucket === bucketName);
+}
+
 // Истории автора (только свои + все для админа)
 export function getAuthorStories(): Story[] {
   const userId = authState.user?.id;
