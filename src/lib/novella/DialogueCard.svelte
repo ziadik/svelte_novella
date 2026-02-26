@@ -4,6 +4,7 @@
   import Rive from "./Rive.svelte";
   import MinigameLauncher from "./MinigameLauncher.svelte";
   import { bucketName as defaultBucketName, supabaseUrlFile } from "../store/store.svelte";
+  import { userKeyStore } from "../store/userKeyStore";
 
   let { index, dialogue: propDialogue, bucketName = defaultBucketName }: { index?: number; dialogue?: any; bucketName?: string } = $props(); // bucketName может быть передан из редактора
 console.log(bucketName);
@@ -42,6 +43,14 @@ const currentDialogue = $derived(propDialogue || gameState.findDialogue(gameStat
     // Если это запуск мини-игры
     if (option.miniGame) {
       console.log("Запуск мини-игры:", option.miniGame.id);
+      
+      // Аналитика: запуск игры
+      userKeyStore.trackGameStart(
+        option.miniGame.id,
+        option.miniGame.id,
+        gameState.selectedStory || undefined
+      );
+      
       activeMinigame = {
         gameId: option.miniGame.id,
         onWinDialogueId: option.miniGame.onWinDialogueId,
@@ -59,6 +68,17 @@ const currentDialogue = $derived(propDialogue || gameState.findDialogue(gameStat
 
   function handleMinigameWin() {
     console.log('[DialogueCard] Mini-game won!');
+    
+    // Аналитика: победа
+    if (activeMinigame) {
+      userKeyStore.trackGameResult(
+        activeMinigame.gameId,
+        activeMinigame.gameId,
+        true,
+        gameState.selectedStory || undefined
+      );
+    }
+    
     if (activeMinigame?.rewardItem) {
       gameState.addItem(activeMinigame.rewardItem);
     }
@@ -70,6 +90,17 @@ const currentDialogue = $derived(propDialogue || gameState.findDialogue(gameStat
 
   function handleMinigameLose() {
     console.log('[DialogueCard] Mini-game lost!');
+    
+    // Аналитика: поражение
+    if (activeMinigame) {
+      userKeyStore.trackGameResult(
+        activeMinigame.gameId,
+        activeMinigame.gameId,
+        false,
+        gameState.selectedStory || undefined
+      );
+    }
+    
     if (activeMinigame?.onLoseDialogueId) {
       gameState.goToDialogue(activeMinigame.onLoseDialogueId);
     }
