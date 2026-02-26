@@ -8,6 +8,7 @@
   import { loadStoryJson } from "../store/storiesStore.svelte";
   import { editorActions } from "../editor/stores/editorStore.svelte";
   import { authState } from "../store/authStore.svelte";
+  import { userKeyStore } from "../store/userKeyStore";
 
   let isOnline = $state(true);
   let initialized = $state(false);
@@ -41,6 +42,10 @@
         return;
       }
       console.log('[Main] Загрузка истории:', story?.title || story.id);
+      
+      // Отслеживаем запуск истории
+      await userKeyStore.trackStoryStart(story.id, story.title || story.id);
+      
       const storyData = await loadStoryJson(story);
       
       if (storyData) {
@@ -52,6 +57,25 @@
         gameState.error = "Не удалось загрузить историю";
         gameState.isLoading = false;
       }
+    }
+  });
+
+  // Отслеживание завершения истории (возврат к выбору)
+  let previousStoryId: string | null = null;
+  
+  $effect(() => {
+    // Когда пользователь возвращается к выбору историй (selectedStory = null)
+    // а ранее была активна история
+    if (previousStoryId && !gameState.selectedStory && gameState.storyData) {
+      const dialogueCount = gameState.storyData.dialogues?.length || 0;
+      userKeyStore.trackStoryComplete(
+        previousStoryId, 
+        gameState.selectedStoryData?.title || previousStoryId,
+        dialogueCount
+      );
+      previousStoryId = null;
+    } else if (gameState.selectedStory) {
+      previousStoryId = gameState.selectedStory;
     }
   });
 

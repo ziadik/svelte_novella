@@ -125,9 +125,22 @@
     }
   }
 
+  // Обработчик закрытия страницы
+  const handleBeforeUnload = async () => {
+    await userKeyStore.stopSessionTimer();
+  };
+  
   onMount(async () => {
     console.log("[App] Mounted");
-     try {
+    
+    // Запускаем таймер сессии
+    userKeyStore.startSessionTimer();
+    
+    if (typeof window !== 'undefined') {
+      window.addEventListener('beforeunload', handleBeforeUnload);
+    }
+    
+    try {
       // Инициализируем ключ при загрузке приложения
       const key = await userKeyStore.init();
       
@@ -176,6 +189,7 @@
 
     return () => {
       window.removeEventListener("open-all-games", handleOpenAllGames);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
     };
   });
 
@@ -190,7 +204,7 @@
     
     isLoading = false;
   };
-  
+
   const handleClearKey = (): void => {
     userKeyStore.clearKey();
     userKey = null;

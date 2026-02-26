@@ -1,7 +1,8 @@
 // stores/userKeyStore.ts
-import { writable, type Writable } from "svelte/store";
+import { writable, type Writable, get } from "svelte/store";
 import { supabase } from "../supabaseClient";
 import { v4 as uuid } from "uuid";
+import type { Json } from "../types/supabase";
 
 // Интерфейсы для типизации
 interface UserKeyData {
@@ -26,6 +27,24 @@ interface UserStats {
   country: string | null;
 }
 
+// Типы событий аналитики
+type AnalyticsEventType = 
+  | 'story_start' 
+  | 'story_complete' 
+  | 'game_start' 
+  | 'game_win' 
+  | 'game_lose'
+  | 'session_time';
+
+interface AnalyticsEventData {
+  story_id?: string;
+  story_title?: string;
+  game_id?: string;
+  game_title?: string;
+  duration_seconds?: number;
+  dialogue_count?: number;
+}
+
 // Тип для хранилища
 interface UserKeyStore {
   subscribe: Writable<string | null>["subscribe"];
@@ -33,6 +52,16 @@ interface UserKeyStore {
   getUserStats: (userKey: string) => Promise<UserStats | null>;
   regenerateKey: () => Promise<string | null>;
   clearKey: () => void;
+  // Аналитика
+  trackEvent: (eventType: AnalyticsEventType, eventData?: AnalyticsEventData) => Promise<void>;
+  trackStoryStart: (storyId: string, storyTitle: string) => Promise<void>;
+  trackStoryComplete: (storyId: string, storyTitle: string, dialogueCount: number) => Promise<void>;
+  trackGameStart: (gameId: string, gameTitle: string, storyId?: string) => Promise<void>;
+  trackGameResult: (gameId: string, gameTitle: string, won: boolean, storyId?: string) => Promise<void>;
+  // Трекинг времени
+  startSessionTimer: () => void;
+  stopSessionTimer: () => Promise<void>;
+  getCurrentKey: () => string | null;
 }
 
 // Функция для обновления статистики
@@ -70,6 +99,40 @@ async function updateUserStats(
     }
   } catch (error) {
     console.error("Error in updateUserStats:", error);
+  }
+}
+
+// Трекер времени сессии
+let sessionStartTime: number | null = null;
+
+// Функция для записи события аналитики
+async function trackAnalyticsEvent(
+  eventType: AnalyticsEventType,
+  eventData?: AnalyticsEventData
+): Promise<void> {
+  const userKey = get(userKeyStore);
+  if (!userKey) {
+    console.warn("[Analytics] No user key, skipping event:", eventType);
+    return;
+  }
+
+  try {
+    const { error } = await supabase.from("user_events").insert([
+      {
+        user_key: userKey,
+        event_type: eventType,
+        page_url: typeof window !== 'undefined' ? window.location.href : null,
+        event_data: eventData || {},
+      },
+    ]);
+
+    if (error) {
+      console.error("[Analytics] Error tracking event:", error);
+    } else {
+      console.log("[Analytics] Event tracked:", eventType, eventData);
+    }
+  } catch (error) {
+    console.error("[Analytics] Exception:", error);
   }
 }
 
@@ -210,6 +273,99 @@ function createUserKeyStore(): UserKeyStore {
       }
       set(null);
       console.log("User key cleared");
+    },
+
+    // Записать событие аналитики
+    trackEvent: async (
+      eventType: AnalyticsEventType,
+      eventData?: AnalyticsEventData
+    ): Promise<void> => {
+      await trackAnalyticsEvent(eventType, eventData);
+    },
+
+    // Запуск истории
+    trackStoryStart: async (
+      storyId: string,
+      storyTitle: string
+    ): Promise<void> => {
+      await trackAnalyticsEvent("story_start", {
+        story_id: storyId,
+        story_title: storyTitle,
+      });
+    },
+
+    // Завершение истории
+    trackStoryComplete: async (
+      storyId: string,
+      storyTitle: string,
+      dialogueCount: number
+    ): Promise<void> => {
+      await trackAnalyticsEvent("story_complete", {
+        story_id: storyId,
+        story_title: storyTitle,
+        dialogue_count: dialogueCount,
+      });
+    },
+
+    // Запуск мини-игры
+    trackGameStart: async (
+      gameId: string,
+      gameTitle: string,
+      storyId?: string
+    ): Promise<void> => {
+      await trackAnalyticsEvent("game_start", {
+        game_id: gameId,
+        game_title: gameTitle,
+        story_id: storyId,
+      });
+    },
+
+    // Результат мини-игры
+    trackGameResult: async (
+      gameId: string,
+      gameTitle: string,
+      won: boolean,
+      storyId?: string
+    ): Promise<void> => {
+      await trackAnalyticsEvent(won ? "game_win" : "game_lose", {
+        game_id: gameId,
+        game_title: gameTitle,
+        story_id: storyId,
+      });
+    },
+
+    // Начать таймер сессии
+    startSessionTimer: (): void => {
+      sessionStartTime = Date.now();
+      console.log("[Analytics] Session timer started");
+    },
+
+    // Остановить таймер и записать время
+    stopSessionTimer: async (): Promise<void> => {
+      if (!sessionStartTime) {
+        console.warn("[Analytics] No session start time");
+        return;
+      }
+
+      const durationSeconds = Math.floor(
+        (Date.now() - sessionStartTime) / 1000
+      );
+
+      await trackAnalyticsEvent("session_time", {
+        duration_seconds: durationSeconds,
+      });
+
+      console.log(
+        "[Analytics] Session time recorded:",
+        durationSeconds,
+        "seconds"
+      );
+      sessionStartTime = null;
+    },
+
+    // Получить текущий ключ
+    getCurrentKey: (): string | null => {
+      return get(userKeyStore);
     },
   };
 }
