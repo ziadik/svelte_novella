@@ -8,6 +8,7 @@
   let isOpen = $state(false);
   let showTrophies = $state(false);
   let isOnline = $state(true);
+  let isDesktop = $state(false);
 
   function handleTrophiesClick() {
     isOpen = false;
@@ -28,24 +29,29 @@
     editorActions.toggleEditor();
   }
 
-  // Check online status
+  // Check online status and desktop
   $effect(() => {
     isOnline = navigator.onLine;
+    isDesktop = window.innerWidth >= 769;
+    
     const handleOnline = () => { isOnline = true; };
     const handleOffline = () => { isOnline = false; };
+    const handleResize = () => { isDesktop = window.innerWidth >= 769; };
     
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
+    window.addEventListener('resize', handleResize);
     
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('resize', handleResize);
     };
   });
 </script>
 
-<!-- Кнопка редактирования (desktop only, для авторизованных) -->
-<!-- {#if authDerivedState.isAuthenticated && (authDerivedState.isAuthor || authDerivedState.isAdmin) && isOnline}
+<!-- Кнопка редактирования (desktop only, для авторизованных авторов) -->
+{#if authDerivedState.isAuthenticated && (authDerivedState.isAuthor || authDerivedState.isAdmin) && isOnline && isDesktop}
   <button 
     class="editor-btn desktop-only"
     onclick={handleEditorClick}
@@ -53,7 +59,7 @@
   >
     ✏️
   </button>
-{/if} -->
+{/if}
 
 <div class="user-menu">
   {#if authDerivedState.isAuthenticated}
@@ -74,7 +80,7 @@
         <button class="trophies-btn" onclick={handleTrophiesClick}>
           🏆 Трофеи
         </button>
-        {#if (authDerivedState.isAuthor || authDerivedState.isAdmin) && isOnline}
+        {#if (authDerivedState.isAuthor || authDerivedState.isAdmin) && isOnline && isDesktop}
           <button class="editor-btn-dropdown" onclick={handleEditorClick}>
             ✏️ Редактор
           </button>
