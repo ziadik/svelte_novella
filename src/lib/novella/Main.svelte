@@ -108,7 +108,7 @@
       <!-- Инвентарь -->
       <Inventory />
 
-      <!-- Кнопка возврата к выбору истории -->
+      <!-- Кнопка возврата к выбору истории (под кнопкой инвентаря) -->
       <button 
         class="btn-change-story"
         onclick={() => {
@@ -176,7 +176,7 @@
 
   .btn-change-story {
     position: fixed;
-    bottom: 16px;
+    top: 70px;
     left: 16px;
     width: 44px;
     height: 44px;

@@ -247,9 +247,11 @@ const currentDialogue = $derived(propDialogue || gameState.findDialogue(gameStat
 
 <style>
   .dialogue-container {
-    position: relative;
+    position: fixed;
+    top: 0;
+    left: 0;
     width: 100%;
-    height: 100vh;
+    height: 100%;
     height: 100dvh;
     overflow: hidden;
     background: #1a1a2e;
@@ -294,33 +296,35 @@ const currentDialogue = $derived(propDialogue || gameState.findDialogue(gameStat
     left: 0;
     right: 0;
     z-index: 3;
-    background: rgba(29, 43, 56, 1);
-    padding: 16px;
-    padding-bottom: max(16px, env(safe-area-inset-bottom));
+    background: rgba(29, 43, 56, 0.95);
+    padding: 12px;
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
     box-sizing: border-box;
+    max-height: 50vh;
+    overflow-y: auto;
   }
 
   .dialogue-text {
-    font-size: 16px;
+    font-size: 15px;
     color: #fff;
-    margin-bottom: 16px;
+    margin-bottom: 12px;
     line-height: 1.4;
   }
 
   .options-container {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
   }
 
   .option-button {
-    background: rgba(233, 69, 96, 0.8);
+    background: rgba(233, 69, 96, 0.9);
     color: white;
     border: none;
-    padding: 14px 16px;
-    border-radius: 8px;
+    padding: 12px 14px;
+    border-radius: 6px;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 13px;
     text-align: left;
     transition: background 0.2s;
   }
@@ -337,9 +341,10 @@ const currentDialogue = $derived(propDialogue || gameState.findDialogue(gameStat
 
   .swipe-hint {
     text-align: center;
-    color: rgba(255,255,255,0.4);
-    font-size: 12px;
-    padding: 8px;
+    color: rgba(255,255,255,0.3);
+    font-size: 11px;
+    padding: 6px;
+    margin-top: 8px;
   }
 
   /* Адаптация для десктопов */
@@ -351,6 +356,11 @@ const currentDialogue = $derived(propDialogue || gameState.findDialogue(gameStat
     .option-button {
       font-size: 15px;
       padding: 12px 20px;
+    }
+
+    .dialogue-content {
+      padding: 16px;
+      padding-bottom: max(16px, env(safe-area-inset-bottom));
     }
 
     .swipe-hint {
