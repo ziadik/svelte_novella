@@ -83,7 +83,7 @@
                 >
                   <div class="item-icon">
                    <img
-              src={`${import.meta.env.VITE_SUPABASE_URL_FILE}/storage/v1/object/public/${gameState.selectedStory}/${item.icon}`}
+              src={`${import.meta.env.VITE_SUPABASE_URL_FILE}/storage/v1/object/public/${gameState.selectedStoryData?.bucket || 'stories'}/${item.icon}`}
               alt={item.icon}
               class="icon-preview"
               height="64px"

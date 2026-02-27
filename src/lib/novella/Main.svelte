@@ -8,33 +8,16 @@
   import { gameState } from "../store/gameStore.svelte";
   import { supabaseUrlFile } from "../store/store.svelte";
   import { loadStoryJson } from "../store/storiesStore.svelte";
-  import { editorActions } from "../editor/stores/editorStore.svelte";
-  import { authState } from "../store/authStore.svelte";
   import { userKeyStore } from "../store/userKeyStore";
 
-  let isOnline = $state(true);
   let initialized = $state(false);
 
   onMount(async () => {
-    // Проверка наличия сети
-    isOnline = navigator.onLine;
-    
-    const handleOnline = () => { isOnline = true; };
-    const handleOffline = () => { isOnline = false; };
-    
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    
     // Инициализируем истории (включая URL параметр)
     await gameState.initStories();
     initialized = true;
-    
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
   });
-
+    
   // Загрузка истории при выборе (включая URL параметр)
   $effect(async () => {
     if (initialized && gameState.selectedStory && gameState.selectedStoryData) {
@@ -80,14 +63,6 @@
       previousStoryId = gameState.selectedStory;
     }
   });
-
-  function openEditor() {
-    if (!isOnline) {
-      alert('Редактирование недоступно без интернета');
-      return;
-    }
-    editorActions.toggleEditor();
-  }
 </script>
 
 <div class="app">
@@ -124,17 +99,6 @@
           title="Сменить историю"
         >
           📚
-        </button>
-      {/if}
-
-      <!-- Кнопка редактирования (скрываем во время мини-игры) -->
-      {#if authState.user && isOnline && !gameState.isMinigameActive}
-        <button 
-          class="btn-edit desktop-only"
-          onclick={openEditor}
-          title="Редактор историй"
-        >
-          ✏️ Редактор
         </button>
       {/if}
 
@@ -220,29 +184,6 @@
   .btn-change-story:hover {
     background: rgba(233, 69, 96, 0.8);
     transform: scale(1.1);
-  }
-
-  /* Кнопка редактирования - только для десктопов, в правом нижнем углу */
-  .btn-edit {
-    position: fixed;
-    bottom: calc(16px + var(--safe-area-bottom));
-    right: calc(16px + var(--safe-area-right));
-    padding: 10px 16px;
-    border-radius: 8px;
-    border: none;
-    background: rgba(102, 126, 234, 0.8);
-    color: white;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    backdrop-filter: blur(10px);
-    z-index: 1000;
-  }
-
-  .btn-edit:hover {
-    background: rgba(102, 126, 234, 1);
-    transform: scale(1.05);
   }
 
   /* Адаптивная видимость */
