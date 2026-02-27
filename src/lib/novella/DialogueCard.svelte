@@ -6,7 +6,7 @@
   import { bucketName as defaultBucketName, supabaseUrlFile } from "../store/store.svelte";
   import { userKeyStore } from "../store/userKeyStore";
 
-  let { index, dialogue: propDialogue, bucketName = defaultBucketName }: { index?: number; dialogue?: any; bucketName?: string } = $props();
+  let { index, dialogue: propDialogue, bucketName = defaultBucketName, isPreview = false }: { index?: number; dialogue?: any; bucketName?: string; isPreview?: boolean } = $props();
 
 // Если пропс dialogue не передан, берем из стора (режим игры)
 const currentDialogue = $derived(propDialogue || gameState.findDialogue(gameState.currentDialogueId));
@@ -160,6 +160,7 @@ const currentDialogue = $derived(propDialogue || gameState.findDialogue(gameStat
   <!-- Основной контейнер с поддержкой свайпа и клика -->
   <div 
     class="dialogue-container"
+    class:preview-mode={isPreview}
     onclick={handleContainerClick}
     ontouchstart={handleTouchStart}
     ontouchmove={handleTouchMove}
@@ -256,6 +257,14 @@ const currentDialogue = $derived(propDialogue || gameState.findDialogue(gameStat
     overflow: hidden;
     background: #1a1a2e;
     touch-action: pan-y;
+  }
+
+  /* Режим предпросмотра - относительное позиционирование */
+  .dialogue-container.preview-mode {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 400px;
   }
 
   .background-media {

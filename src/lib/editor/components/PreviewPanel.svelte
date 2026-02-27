@@ -25,6 +25,7 @@
           dialogue={editorDerived.currentDialogue} 
           index={0} 
           bucketName={editor.selectedBucket as string | undefined}
+          isPreview={true}
         />
         
         <!-- Дополнительная информация -->
