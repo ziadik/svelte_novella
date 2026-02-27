@@ -381,6 +381,7 @@ function createUserKeyStore(): UserKeyStore {
     },
 
     // Получить статистику игр (трофеи) - только игры с победами
+    // Учитывает все связанные userKey для авторизованных пользователей
     getGameStats: async (): Promise<GameStats[]> => {
       const userKey = get(userKeyStore);
       if (!userKey) {
@@ -388,11 +389,22 @@ function createUserKeyStore(): UserKeyStore {
       }
 
       try {
-        // Используем view для получения трофеев (только игры с победами)
-        const { data, error } = await supabase
+        // Проверяем, авторизован ли пользователь через authStore
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        let query = supabase
           .from("user_game_trophies")
-          .select("*")
-          .eq("user_key", userKey);
+          .select("*");
+
+        if (user) {
+          // Авторизованный пользователь - получаем трофеи по profile_id
+          query = query.eq("user_id", user.id);
+        } else {
+          // Гость - получаем трофеи по конкретному userKey
+          query = query.eq("user_key", userKey);
+        }
+
+        const { data, error } = await query;
 
         if (error) {
           console.error("[Trophies] Error fetching trophies:", error);

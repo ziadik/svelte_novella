@@ -1,4 +1,5 @@
 import { supabase } from "../supabaseClient";
+import { userKeyStore } from "./userKeyStore";
 import type { User, Session } from "@supabase/supabase-js";
 
 interface UserProfile {
@@ -89,6 +90,9 @@ async function loadProfile(userId: string): Promise<void> {
 
     authStateObj.profile = data;
     console.log("[Auth] Profile loaded:", data);
+
+    // Связываем userKey с профилем
+    await linkUserKeyToProfile(userId);
   } catch (error) {
     console.error("[Auth] Error in loadProfile:", error);
   }
@@ -114,8 +118,49 @@ async function createProfile(userId: string): Promise<void> {
     }
 
     authStateObj.profile = data;
+
+    // Связываем userKey с новым профилем
+    await linkUserKeyToProfile(userId);
   } catch (error) {
     console.error("[Auth] Error in createProfile:", error);
+  }
+}
+
+// Связывание userKey с профилем при авторизации
+async function linkUserKeyToProfile(profileId: string): Promise<void> {
+  const currentUserKey = userKeyStore.getCurrentKey();
+  if (!currentUserKey) {
+    console.log("[Auth] No userKey to link");
+    return;
+  }
+
+  try {
+    // Вызываем функцию для связывания
+    const { data, error } = await supabase.rpc(
+      "link_user_key_to_profile",
+      {
+        p_user_key: currentUserKey,
+        p_profile_id: profileId,
+      }
+    );
+
+    if (error) {
+      console.error("[Auth] Error linking userKey:", error);
+      return;
+    }
+
+    // Если функция вернула новый ключ, обновляем localStorage
+    if (data && data !== currentUserKey) {
+      console.log("[Auth] New userKey generated:", data);
+      // Сохраняем новый ключ в localStorage
+      if (typeof localStorage !== "undefined") {
+        localStorage.setItem("userKey", data);
+      }
+    }
+
+    console.log("[Auth] UserKey linked to profile:", data || currentUserKey);
+  } catch (error) {
+    console.error("[Auth] Exception linking userKey:", error);
   }
 }
 
