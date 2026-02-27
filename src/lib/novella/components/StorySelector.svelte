@@ -299,6 +299,17 @@
     transform: translateX(4px);
   }
 
+  .trophies-btn {
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 170, 0, 0.1));
+    border-color: rgba(255, 215, 0, 0.5);
+  }
+
+  .trophies-btn:hover {
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.3), rgba(255, 170, 0, 0.2));
+    border-color: #ffd700;
+    box-shadow: 0 8px 24px rgba(255, 215, 0, 0.3);
+  }
+
   @media (max-width: 400px) {
     .selector-header h1 {
       font-size: 24px;

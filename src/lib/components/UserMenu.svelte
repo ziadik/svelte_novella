@@ -1,9 +1,21 @@
 <script lang="ts">
   import { authState, authDerivedState, signOut } from '../store/authStore.svelte';
   import AuthModal from './AuthModal.svelte';
+  import Trophies from '../novella/components/Trophies.svelte';
   
   let showAuthModal = $state(false);
   let isOpen = $state(false);
+  let showTrophies = $state(false);
+
+  function handleTrophiesClick() {
+    isOpen = false;
+    showTrophies = true;
+  }
+
+  function handleLoginClick() {
+    isOpen = false;
+    showAuthModal = true;
+  }
 </script>
 
 <div class="user-menu">
@@ -22,22 +34,43 @@
         {#if authDerivedState.isAuthor}
           <span class="author-badge">Автор</span>
         {/if}
+        <button class="trophies-btn" onclick={handleTrophiesClick}>
+          🏆 Трофеи
+        </button>
         <button class="signout-btn" onclick={signOut}>
           Выйти
         </button>
       </div>
     {/if}
   {:else}
+    <!-- Для гостей - кнопка профиля с выпадающим меню -->
     <button 
       class="user-btn login-btn"
-      onclick={() => showAuthModal = true}
+      onclick={() => isOpen = !isOpen}
+      title="Профиль"
     >
-      🔑
+      👤
     </button>
+    
+    {#if isOpen}
+      <div class="user-dropdown">
+        <div class="guest-label">Гость</div>
+        <button class="trophies-btn" onclick={handleTrophiesClick}>
+          🏆 Мои трофеи
+        </button>
+        <button class="login-btn-dropdown" onclick={handleLoginClick}>
+          🔑 Войти
+        </button>
+      </div>
+    {/if}
   {/if}
   
   {#if showAuthModal}
     <AuthModal onClose={() => showAuthModal = false} />
+  {/if}
+
+  {#if showTrophies}
+    <Trophies onClose={() => showTrophies = false} />
   {/if}
 </div>
 
@@ -119,6 +152,24 @@
     align-self: flex-start;
   }
 
+  .trophies-btn {
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 170, 0, 0.1));
+    color: #ffd700;
+    border: 1px solid rgba(255, 215, 0, 0.3);
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    text-align: left;
+  }
+
+  .trophies-btn:hover {
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.3), rgba(255, 170, 0, 0.2));
+    border-color: #ffd700;
+  }
+
   .signout-btn {
     background: rgba(233, 69, 96, 0.8);
     color: white;
@@ -133,6 +184,33 @@
 
   .signout-btn:hover {
     background: #e94560;
+    transform: translateY(-1px);
+  }
+
+  .guest-label {
+    color: #888;
+    font-size: 0.85rem;
+    text-align: center;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    margin-bottom: 4px;
+  }
+
+  .login-btn-dropdown {
+    background: rgba(102, 126, 234, 0.8);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    text-align: left;
+  }
+
+  .login-btn-dropdown:hover {
+    background: rgba(102, 126, 234, 1);
     transform: translateY(-1px);
   }
 </style>
