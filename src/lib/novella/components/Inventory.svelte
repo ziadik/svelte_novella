@@ -111,6 +111,13 @@
 </div>
 
 <style>
+  :root {
+    --safe-area-top: env(safe-area-inset-top, 0px);
+    --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-area-left: env(safe-area-inset-left, 0px);
+    --safe-area-right: env(safe-area-inset-right, 0px);
+  }
+
   .inventory-wrapper {
     position: fixed;
     z-index: 1001;
@@ -119,8 +126,8 @@
   /* Кнопка инвентаря */
   .inventory-button {
     position: fixed;
-    top: 16px;
-    left: 16px;
+    top: calc(16px + var(--safe-area-top));
+    left: calc(16px + var(--safe-area-left));
     width: 44px;
     height: 44px;
     border-radius: 50%;
@@ -172,6 +179,8 @@
     justify-content: center;
     z-index: 1002;
     padding: 20px;
+    padding-top: calc(20px + var(--safe-area-top));
+    padding-bottom: calc(20px + var(--safe-area-bottom));
     backdrop-filter: blur(5px);
   }
 

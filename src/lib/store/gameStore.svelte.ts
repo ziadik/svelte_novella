@@ -98,6 +98,19 @@ class GameState {
   // URL параметр для автоматического выбора истории
   urlStoryId = $state<string | null>(null);
 
+  // Активная мини-игра (для скрытия UI элементов)
+  activeMinigame = $state<{
+    gameId: string;
+    onWinDialogueId: string;
+    onLoseDialogueId: string;
+    rewardItem?: string;
+  } | null>(null);
+
+  // Computed: активна ли мини-игра
+  get isMinigameActive(): boolean {
+    return this.activeMinigame !== null;
+  }
+
   // Доступные истории - вычисляемое свойство из Supabase
   get availableStories(): Story[] {
     return getPlayerStories();

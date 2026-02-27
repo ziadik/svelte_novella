@@ -111,6 +111,13 @@
 </div>
 
 <style>
+  :root {
+    --safe-area-top: env(safe-area-inset-top, 0px);
+    --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-area-left: env(safe-area-inset-left, 0px);
+    --safe-area-right: env(safe-area-inset-right, 0px);
+  }
+
   .story-selector {
     display: flex;
     flex-direction: column;
@@ -118,6 +125,10 @@
     justify-content: center;
     min-height: 100vh;
     padding: 10px;
+    padding-top: calc(10px + var(--safe-area-top));
+    padding-bottom: calc(10px + var(--safe-area-bottom));
+    padding-left: calc(10px + var(--safe-area-left));
+    padding-right: calc(10px + var(--safe-area-right));
     background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
     color: white;
     font-family: sans-serif;
@@ -125,20 +136,21 @@
 
   .selector-header {
     text-align: center;
-    margin-bottom: 20px;
+    margin-bottom: 16px;
   }
 
   .selector-header h1 {
-    font-size: 34px;
-    margin: 0 0 12px 0;
+    font-size: 28px;
+    margin: 0 0 8px 0;
     background: linear-gradient(90deg, #e94560, #ff6b6b);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
+    line-height: 1.2;
   }
 
   .selector-header p {
-    font-size: 14px;
+    font-size: 13px;
     color: #aaa;
     margin: 0;
   }
@@ -289,23 +301,69 @@
 
   @media (max-width: 400px) {
     .selector-header h1 {
-      font-size: 32px;
+      font-size: 24px;
     }
 
     .selector-header p {
-      font-size: 14px;
+      font-size: 12px;
     }
 
     .stories-grid {
       grid-template-columns: 1fr;
+      gap: 12px;
     }
 
     .story-card {
-      padding: 16px;
+      padding: 12px;
     }
 
     .story-icon {
-      font-size: 36px;
+      font-size: 32px;
+    }
+
+    .story-title {
+      font-size: 16px;
+    }
+
+    .btn-all-games {
+      padding: 12px 16px;
+      gap: 10px;
+    }
+
+    .games-icon {
+      font-size: 24px;
+    }
+
+    .games-text {
+      font-size: 14px;
+    }
+
+    .games-arrow {
+      font-size: 18px;
+    }
+  }
+
+  /* Для очень узких экранов (< 360px) */
+  @media (max-width: 360px) {
+    .selector-header h1 {
+      font-size: 20px;
+    }
+
+    .story-card {
+      padding: 10px;
+      gap: 10px;
+    }
+
+    .story-icon {
+      font-size: 28px;
+    }
+
+    .story-title {
+      font-size: 14px;
+    }
+
+    .story-description {
+      font-size: 11px;
     }
   }
 </style>
