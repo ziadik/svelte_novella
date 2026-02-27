@@ -263,7 +263,10 @@
 {:else if showAllGames}
   <AllGames onBack={closeAllGames} />
 {:else}
-  <UserMenu />
+  <!-- UserMenu скрываем во время мини-игры -->
+  {#if !gameState.isMinigameActive}
+    <UserMenu />
+  {/if}
   <Main />
 {/if}
 
@@ -310,6 +313,13 @@
 {/if}
 
 <style>
+  :root {
+    --safe-area-top: env(safe-area-inset-top, 0px);
+    --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-area-left: env(safe-area-inset-left, 0px);
+    --safe-area-right: env(safe-area-inset-right, 0px);
+  }
+
   .loading-screen {
     position: fixed;
     top: 0;
@@ -323,6 +333,8 @@
     background: #1a1a2e;
     color: #ececec;
     gap: 20px;
+    padding-top: var(--safe-area-top);
+    padding-bottom: var(--safe-area-bottom);
   }
 
   .loader {
@@ -342,8 +354,8 @@
 
   .btn-back-to-game {
     position: fixed;
-    bottom: 64px;
-    right: 16px;
+    bottom: calc(64px + var(--safe-area-bottom));
+    right: calc(16px + var(--safe-area-right));
     padding: 10px 16px;
     background: rgba(102, 126, 234, 0.8);
     color: white;
@@ -364,8 +376,8 @@
 
   .debug-panel {
     position: fixed;
-    bottom: 80px;
-    left: 10px;
+    bottom: calc(80px + var(--safe-area-bottom));
+    left: calc(10px + var(--safe-area-left));
     background: rgba(0, 0, 0, 0.85);
     color: #0f0;
     padding: 8px 12px;
@@ -394,8 +406,8 @@
 
   .analytics-panel {
     position: fixed;
-    bottom: 80px;
-    right: 10px;
+    bottom: calc(80px + var(--safe-area-bottom));
+    right: calc(10px + var(--safe-area-right));
     background: rgba(255, 255, 255, 0.95);
     color: #333;
     padding: 15px;

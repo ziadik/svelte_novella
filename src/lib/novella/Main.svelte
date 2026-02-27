@@ -1,5 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { fly } from "svelte/transition";
+  import { cubicOut } from "svelte/easing";
   import DialogueCard from "./DialogueCard.svelte";
   import StorySelector from "./components/StorySelector.svelte";
   import Inventory from "./components/Inventory.svelte";
@@ -105,24 +107,28 @@
     </div>
   {:else}
     <div class="game-container">
-      <!-- Инвентарь -->
-      <Inventory />
+      <!-- Инвентарь (скрываем во время мини-игры) -->
+      {#if !gameState.isMinigameActive}
+        <Inventory />
+      {/if}
 
-      <!-- Кнопка возврата к выбору истории (под кнопкой инвентаря) -->
-      <button 
-        class="btn-change-story"
-        onclick={() => {
-          gameState.selectedStory = null;
-          gameState.selectedStoryData = null;
-          gameState.storyData = null;
-        }}
-        title="Сменить историю"
-      >
-        📚
-      </button>
+      <!-- Кнопка возврата к выбору истории (скрываем во время мини-игры) -->
+      {#if !gameState.isMinigameActive}
+        <button 
+          class="btn-change-story"
+          onclick={() => {
+            gameState.selectedStory = null;
+            gameState.selectedStoryData = null;
+            gameState.storyData = null;
+          }}
+          title="Сменить историю"
+        >
+          📚
+        </button>
+      {/if}
 
-      <!-- Кнопка редактирования (только для авторизованных на десктопах с интернетом) -->
-      {#if authState.user && isOnline}
+      <!-- Кнопка редактирования (скрываем во время мини-игры) -->
+      {#if authState.user && isOnline && !gameState.isMinigameActive}
         <button 
           class="btn-edit desktop-only"
           onclick={openEditor}
@@ -135,7 +141,14 @@
       <!-- Контейнер диалогов -->
       <div class="dialogues-container">
         {#if gameState.storyData}
-          <DialogueCard bucketName={gameState.selectedStoryData?.bucket || 'stories'} />
+          {#key gameState.currentDialogueId}
+            <div 
+              class="dialogue-wrapper"
+              in:fly={{ y: 20, duration: 500, easing: cubicOut }}
+            >
+              <DialogueCard bucketName={gameState.selectedStoryData?.bucket || 'stories'} />
+            </div>
+          {/key}
         {/if}
       </div>
     </div>
@@ -143,6 +156,13 @@
 </div>
 
 <style>
+  :root {
+    --safe-area-top: env(safe-area-inset-top, 0px);
+    --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-area-left: env(safe-area-inset-left, 0px);
+    --safe-area-right: env(safe-area-inset-right, 0px);
+  }
+
   .app {
     width: 400px;
     height: 600px;
@@ -150,6 +170,8 @@
     background: #1a1a1a;
     color: white;
     font-family: sans-serif;
+    padding-top: var(--safe-area-top);
+    padding-bottom: var(--safe-area-bottom);
   }
 
   .loading, .error {
@@ -160,6 +182,8 @@
     min-height: 100vh;
     text-align: center;
     padding: 20px;
+    padding-top: calc(20px + var(--safe-area-top));
+    padding-bottom: calc(20px + var(--safe-area-bottom));
   }
 
   .error {
@@ -172,12 +196,14 @@
     justify-content: center;
     min-height: 100vh;
     padding: 0px;
+    padding-top: var(--safe-area-top);
+    padding-bottom: var(--safe-area-bottom);
   }
 
   .btn-change-story {
     position: fixed;
-    top: 70px;
-    left: 16px;
+    top: calc(70px + var(--safe-area-top));
+    left: calc(16px + var(--safe-area-left));
     width: 44px;
     height: 44px;
     border-radius: 50%;
@@ -199,8 +225,8 @@
   /* Кнопка редактирования - только для десктопов, в правом нижнем углу */
   .btn-edit {
     position: fixed;
-    bottom: 16px;
-    right: 16px;
+    bottom: calc(16px + var(--safe-area-bottom));
+    right: calc(16px + var(--safe-area-right));
     padding: 10px 16px;
     border-radius: 8px;
     border: none;
@@ -263,5 +289,10 @@
     width: 100%;
     max-width: 500px;
     height: 600px;
+  }
+
+  .dialogue-wrapper {
+    width: 100%;
+    height: 100%;
   }
 </style>

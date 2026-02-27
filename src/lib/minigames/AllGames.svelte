@@ -160,7 +160,7 @@
 <style>
   .all-games {
     min-height: 100vh;
-    padding: 16px;
+    padding: 6px;
     background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
     color: white;
     font-family: sans-serif;
@@ -168,12 +168,12 @@
 
   .header {
     text-align: center;
-    margin-bottom: 20px;
+    margin-bottom: 10px;
   }
 
   .header h1 {
-    font-size: 28px;
-    margin: 12px 0 8px;
+    font-size: 18px;
+    margin: 5px 0 5px;
     background: linear-gradient(90deg, #e94560, #ff6b6b);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -348,9 +348,9 @@
     z-index: 101;
   }
 
-  @media (max-width: 400px) {
+  @media (max-width: 600px) {
     .header h1 {
-      font-size: 24px;
+      font-size: 12px;
     }
 
     .games-grid {

@@ -11,14 +11,6 @@
 // Если пропс dialogue не передан, берем из стора (режим игры)
 const currentDialogue = $derived(propDialogue || gameState.findDialogue(gameState.currentDialogueId));
 
-  // Состояние мини-игры
-  let activeMinigame = $state<{
-    gameId: string;
-    onWinDialogueId: string;
-    onLoseDialogueId: string;
-    rewardItem?: string;
-  } | null>(null);
-
   // Состояние свайпа
   let touchStartX = $state(0);
   let touchEndX = $state(0);
@@ -97,7 +89,7 @@ const currentDialogue = $derived(propDialogue || gameState.findDialogue(gameStat
         gameState.selectedStory || undefined
       );
       
-      activeMinigame = {
+      gameState.activeMinigame = {
         gameId: option.miniGame.id,
         onWinDialogueId: option.miniGame.onWinDialogueId,
         onLoseDialogueId: option.miniGame.onLoseDialogueId,
@@ -112,38 +104,38 @@ const currentDialogue = $derived(propDialogue || gameState.findDialogue(gameStat
   }
 
   function handleMinigameWin() {
-    if (activeMinigame) {
+    if (gameState.activeMinigame) {
       userKeyStore.trackGameResult(
-        activeMinigame.gameId,
-        activeMinigame.gameId,
+        gameState.activeMinigame.gameId,
+        gameState.activeMinigame.gameId,
         true,
         gameState.selectedStory || undefined
       );
     }
     
-    if (activeMinigame?.rewardItem) {
-      gameState.addItem(activeMinigame.rewardItem);
+    if (gameState.activeMinigame?.rewardItem) {
+      gameState.addItem(gameState.activeMinigame.rewardItem);
     }
-    if (activeMinigame?.onWinDialogueId) {
-      gameState.goToDialogue(activeMinigame.onWinDialogueId);
+    if (gameState.activeMinigame?.onWinDialogueId) {
+      gameState.goToDialogue(gameState.activeMinigame.onWinDialogueId);
     }
-    activeMinigame = null;
+    gameState.activeMinigame = null;
   }
 
   function handleMinigameLose() {
-    if (activeMinigame) {
+    if (gameState.activeMinigame) {
       userKeyStore.trackGameResult(
-        activeMinigame.gameId,
-        activeMinigame.gameId,
+        gameState.activeMinigame.gameId,
+        gameState.activeMinigame.gameId,
         false,
         gameState.selectedStory || undefined
       );
     }
     
-    if (activeMinigame?.onLoseDialogueId) {
-      gameState.goToDialogue(activeMinigame.onLoseDialogueId);
+    if (gameState.activeMinigame?.onLoseDialogueId) {
+      gameState.goToDialogue(gameState.activeMinigame.onLoseDialogueId);
     }
-    activeMinigame = null;
+    gameState.activeMinigame = null;
   }
 
   function isOptionVisible(option: any): boolean {
@@ -167,12 +159,12 @@ const currentDialogue = $derived(propDialogue || gameState.findDialogue(gameStat
     ontouchend={handleTouchEnd}
   >
     <!-- Мини-игра -->
-    {#if activeMinigame}
+    {#if gameState.activeMinigame}
       <MinigameLauncher
-        gameId={activeMinigame.gameId}
+        gameId={gameState.activeMinigame.gameId}
         onWin={handleMinigameWin}
         onLose={handleMinigameLose}
-        rewardItem={activeMinigame.rewardItem}
+        rewardItem={gameState.activeMinigame.rewardItem}
         items={gameState.storyData?.items}
         bucketName={bucketName} 
       />
