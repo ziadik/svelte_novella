@@ -1,17 +1,5 @@
 <script lang="ts">
-  import OnetMonsters from '../minigames/OnetMonsters.svelte';
-  import MemoMonsters from '../minigames/MemoMonsters.svelte';
-  import LightOut from '../minigames/LightOut.svelte';
-  import FloodIt from '../minigames/FloodIt.svelte';
-  import BrokenMirror from '../minigames/BrokenMirror.svelte';
-  import Evolution2048 from '../minigames/Evolution2048.svelte';
-  import CursedCrypts from '../minigames/CursedCrypts.svelte';
-  import TowerOfSouls from '../minigames/TowerOfSouls.svelte';
-  import AlchemistsCross from '../minigames/AlchemistsCross.svelte';
-  import WhisperOfSpiders from '../minigames/WhisperOfSpiders.svelte';
-  import SoulCycle from '../minigames/SoulCycle.svelte';
-  import LabyrinthOfMinotaur from '../minigames/LabyrinthOfMinotaur.svelte';
-  import Bones421 from '../minigames/Bones421.svelte';
+  import { gameComponents, getGameById } from '../minigames/gamesList';
 
   interface Props {
     gameId: string;
@@ -23,6 +11,9 @@
   }
 
   let { gameId, onWin, onLose, rewardItem, items, bucketName = "dracula" }: Props = $props();
+
+  const GameComponent = $derived(gameComponents[gameId] || null);
+  const gameInfo = $derived(getGameById(gameId));
 
   function handleWin() {
     console.log('[MinigameLauncher] Game won!');
@@ -36,116 +27,9 @@
 </script>
 
 <div class="minigame-container">
-  {#if gameId === 'onet_monsters'}
-    <OnetMonsters
-      onWin={handleWin}
-      onLose={handleLose}
-      integrated={true}
-      rewardItem={rewardItem}
-      items={items}
-      bucketName={bucketName}
-    />
-  {:else if gameId === 'memo_monsters'}
-    <MemoMonsters
-      onWin={handleWin}
-      onLose={handleLose}
-      integrated={true}
-      rewardItem={rewardItem}
-      items={items}
-      bucketName={bucketName}
-    />
-  {:else if gameId === 'light_out'}
-    <LightOut
-      onWin={handleWin}
-      onLose={handleLose}
-      integrated={true}
-      rewardItem={rewardItem}
-      items={items}
-      bucketName={bucketName}
-    />
-  {:else if gameId === 'flood_it'}
-    <FloodIt
-      onWin={handleWin}
-      onLose={handleLose}
-      integrated={true}
-      rewardItem={rewardItem}
-      items={items}
-      bucketName={bucketName}
-    />
-  {:else if gameId === 'broken_mirror'}
-    <BrokenMirror
-      onWin={handleWin}
-      onLose={handleLose}
-      integrated={true}
-      rewardItem={rewardItem}
-      items={items}
-      bucketName={bucketName}
-    />
-  {:else if gameId === 'evolution2048'}
-    <Evolution2048
-      onWin={handleWin}
-      onLose={handleLose}
-      integrated={true}
-      rewardItem={rewardItem}
-      items={items}
-      bucketName={bucketName}
-    />
-  {:else if gameId === 'cursed_crypts'}
-    <CursedCrypts
-      onWin={handleWin}
-      onLose={handleLose}
-      integrated={true}
-      rewardItem={rewardItem}
-      items={items}
-      bucketName={bucketName}
-    />
-  {:else if gameId === 'tower_of_souls'}
-    <TowerOfSouls
-      onWin={handleWin}
-      onLose={handleLose}
-      integrated={true}
-      rewardItem={rewardItem}
-      items={items}
-      bucketName={bucketName}
-    />
-  {:else if gameId === 'alchemists_cross'}
-    <AlchemistsCross
-      onWin={handleWin}
-      onLose={handleLose}
-      integrated={true}
-      rewardItem={rewardItem}
-      items={items}
-      bucketName={bucketName}
-    />
-  {:else if gameId === 'whisper_of_spiders'}
-    <WhisperOfSpiders
-      onWin={handleWin}
-      onLose={handleLose}
-      integrated={true}
-      rewardItem={rewardItem}
-      items={items}
-      bucketName={bucketName}
-    />
-  {:else if gameId === 'soul_cycle'}
-    <SoulCycle
-      onWin={handleWin}
-      onLose={handleLose}
-      integrated={true}
-      rewardItem={rewardItem}
-      items={items}
-      bucketName={bucketName}
-    />
-  {:else if gameId === 'labyrinth_of_minotaur'}
-    <LabyrinthOfMinotaur
-      onWin={handleWin}
-      onLose={handleLose}
-      integrated={true}
-      rewardItem={rewardItem}
-      items={items}
-      bucketName={bucketName}
-    />
-  {:else if gameId === 'bones421'}
-    <Bones421
+  {#if GameComponent}
+    <svelte:component 
+      this={GameComponent}
       onWin={handleWin}
       onLose={handleLose}
       integrated={true}
@@ -154,7 +38,12 @@
       bucketName={bucketName}
     />
   {:else}
-    <div class="loading">Загрузка игры...</div>
+    <div class="loading">
+      <p>Игра не найдена: {gameId}</p>
+      {#if gameInfo}
+        <p class="game-name">{gameInfo.name}</p>
+      {/if}
+    </div>
   {/if}
 </div>
 

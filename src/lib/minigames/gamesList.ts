@@ -1,3 +1,22 @@
+import MemoMonsters from './MemoMonsters.svelte';
+import OnetMonsters from './OnetMonsters.svelte';
+import OnetMonsters144 from './OnetMonsters144.svelte';
+import Evolution2048 from './Evolution2048.svelte';
+import WhisperOfSpiders from './WhisperOfSpiders.svelte';
+import TowerOfSouls from './TowerOfSouls.svelte';
+import SoulCycle from './SoulCycle.svelte';
+import LabyrinthOfMinotaur from './LabyrinthOfMinotaur.svelte';
+import CursedCrypts from './CursedCrypts.svelte';
+import BrokenMirror from './BrokenMirror.svelte';
+import AlchemistsCross from './AlchemistsCross.svelte';
+import LightOut from './LightOut.svelte';
+import FloodIt from './FloodIt.svelte';
+import Bones421 from './Bones421.svelte';
+import CrystalsOfTime from './CrystalsOfTime.svelte';
+import RunesOfFate from './RunesOfFate.svelte';
+import WitchesCauldrons from './WitchesCauldrons.svelte';
+import AlchemicalCalculator from './AlchemicalCalculator.svelte';
+
 export interface GameInfo {
   id: string;
   name: string;
@@ -7,9 +26,31 @@ export interface GameInfo {
   category: 'puzzle' | 'memory' | 'logic' | 'arcade' | 'board' | 'other';
 }
 
+// Карта компонентов игр для динамического рендеринга
+export const gameComponents: Record<string, any> = {
+  'memo_monsters': MemoMonsters,
+  'onet_monsters': OnetMonsters,
+  'onet_monsters_144': OnetMonsters144,
+  'evolution_2048': Evolution2048,
+  'whisper_of_spiders': WhisperOfSpiders,
+  'tower_of_souls': TowerOfSouls,
+  'soul_cycle': SoulCycle,
+  'labyrinth_of_minotaur': LabyrinthOfMinotaur,
+  'cursed_crypts': CursedCrypts,
+  'broken_mirror': BrokenMirror,
+  'alchemists_cross': AlchemistsCross,
+  'light_out': LightOut,
+  'flood_it': FloodIt,
+  'bones_421': Bones421,
+  'crystals_of_time': CrystalsOfTime,
+  'runes_of_fate': RunesOfFate,
+  'witches_cauldrons': WitchesCauldrons,
+  'alchemical_calculator': AlchemicalCalculator,
+};
+
 export const gamesList: GameInfo[] = [
   {
-    id: 'memo-monsters',
+    id: 'memo_monsters',
     name: 'Память монстров',
     description: 'Найди все пары одинаковых монстров',
     icon: '👾',
@@ -17,7 +58,7 @@ export const gamesList: GameInfo[] = [
     category: 'memory'
   },
   {
-    id: 'onet-monsters',
+    id: 'onet_monsters',
     name: 'Связь монстров min',
     description: 'Соедини одинаковых монстров линией',
     icon: '🔗',
@@ -25,7 +66,7 @@ export const gamesList: GameInfo[] = [
     category: 'puzzle'
   },
   {
-    id: 'onet-monsters-144',
+    id: 'onet_monsters_144',
     name: 'Связь монстров middle',
     description: 'Соедини одинаковых монстров линией (144 плитки)',
     icon: '🔗',
@@ -33,7 +74,7 @@ export const gamesList: GameInfo[] = [
     category: 'puzzle'
   },
   {
-    id: 'evolution-2048',
+    id: 'evolution_2048',
     name: 'Эволюция 2048',
     description: 'Объединяй плитки и достигни 2048',
     icon: '🎲',
@@ -41,7 +82,7 @@ export const gamesList: GameInfo[] = [
     category: 'puzzle'
   },
   {
-    id: 'whisper-of-spiders',
+    id: 'whisper_of_spiders',
     name: 'Шёпот пауков',
     description: 'Реши математические примеры за 30 секунд',
     icon: '🕷️',
@@ -49,7 +90,7 @@ export const gamesList: GameInfo[] = [
     category: 'arcade'
   },
   {
-    id: 'tower-of-souls',
+    id: 'tower_of_souls',
     name: 'Башня душ',
     description: 'Классический пасьянс - собери карты по мастям',
     icon: '🃏',
@@ -57,7 +98,7 @@ export const gamesList: GameInfo[] = [
     category: 'board'
   },
   {
-    id: 'soul-cycle',
+    id: 'soul_cycle',
     name: 'Цикл душ',
     description: 'Повторяй последовательность символов',
     icon: '🔥',
@@ -65,7 +106,7 @@ export const gamesList: GameInfo[] = [
     category: 'memory'
   },
   {
-    id: 'labyrinth-of-minotaur',
+    id: 'labyrinth_of_minotaur',
     name: 'Лабиринт Минотавра',
     description: 'Найди выход из лабиринта',
     icon: '🌀',
@@ -73,7 +114,7 @@ export const gamesList: GameInfo[] = [
     category: 'puzzle'
   },
   {
-    id: 'cursed-crypts',
+    id: 'cursed_crypts',
     name: 'Проклятые склепы',
     description: 'Сапёр - найди все безопасные ячейки',
     icon: '💀',
@@ -81,7 +122,7 @@ export const gamesList: GameInfo[] = [
     category: 'puzzle'
   },
   {
-    id: 'broken-mirror',
+    id: 'broken_mirror',
     name: 'Разбитое зеркало',
     description: 'Собери числа от 1 до 15',
     icon: '🪞',
@@ -89,7 +130,7 @@ export const gamesList: GameInfo[] = [
     category: 'puzzle'
   },
   {
-    id: 'alchemists-cross',
+    id: 'alchemists_cross',
     name: 'Алхимический крестик',
     description: 'Крестики-нолики - первым выстрой 3 в ряд',
     icon: '🧪',
@@ -97,7 +138,7 @@ export const gamesList: GameInfo[] = [
     category: 'board'
   },
   {
-    id: 'light-out',
+    id: 'light_out',
     name: 'Погаси свет',
     description: 'Погаси все клетки на поле',
     icon: '💡',
@@ -105,7 +146,7 @@ export const gamesList: GameInfo[] = [
     category: 'logic'
   },
   {
-    id: 'flood-it',
+    id: 'flood_it',
     name: 'Затопи поле',
     description: 'Заливай поле одним цветом за минимальное количество ходов',
     icon: '🌊',
@@ -113,7 +154,7 @@ export const gamesList: GameInfo[] = [
     category: 'logic'
   },
   {
-    id: 'bones-421',
+    id: 'bones_421',
     name: 'Кости 4-2-1',
     description: 'Брось кости и набери комбинацию 4-2-1',
     icon: '🎴',
@@ -121,7 +162,7 @@ export const gamesList: GameInfo[] = [
     category: 'board'
   },
   {
-    id: 'crystals-of-time',
+    id: 'crystals_of_time',
     name: 'Кристаллы времени',
     description: 'Повтори последовательность кристаллов',
     icon: '💎',
@@ -129,7 +170,7 @@ export const gamesList: GameInfo[] = [
     category: 'memory'
   },
   {
-    id: 'runes-of-fate',
+    id: 'runes_of_fate',
     name: 'Руны судьбы',
     description: 'Победи духа в поединке рун',
     icon: '🔮',
@@ -137,7 +178,7 @@ export const gamesList: GameInfo[] = [
     category: 'board'
   },
   {
-    id: 'witches-cauldrons',
+    id: 'witches_cauldrons',
     name: 'Котёл ведьмы',
     description: 'Собери ингредиенты для зелья',
     icon: '🧙',
@@ -145,7 +186,7 @@ export const gamesList: GameInfo[] = [
     category: 'arcade'
   },
   {
-    id: 'alchemical-calculator',
+    id: 'alchemical_calculator',
     name: 'Алхимический калькулятор',
     description: 'Получи целевое число используя все числа',
     icon: '⚗️',

@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Option, Condition } from '../types';
+  import { gamesList, getGameById } from '../../minigames/gamesList';
   
   // Используем $props() вместо export let
   const { 
@@ -161,15 +162,9 @@
             class="input select"
           >
             <option value="">-- Выберите игру --</option>
-            <option value="onet_monsters">Onet: Monsters (поиск пар)</option>
-            <option value="memo_monsters">Memo: Monsters (поиск пар)</option>
-            <option value="light_out">LightOut: Свечи в склепе (Выключи свет)</option>
-            <option value="flood_it">Flood It: Мора Красной Смерти</option>
-            <option value="broken_mirror">Boken Mirror: Пятнашки</option>
-            <option value="evolution2048">Evolution 2048</option>
-            <option value="cursed_crypts">Проклятый Сапер</option>
-            <option value="tower_of_souls">Три пика</option>
-            <option value="alchemists_cross">Алхимический Крест</option>
+            {#each gamesList as game (game.id)}
+              <option value={game.id}>{game.icon} {game.name}</option>
+            {/each}
           </select>
         </div>
 
