@@ -45,6 +45,16 @@ interface AnalyticsEventData {
   dialogue_count?: number;
 }
 
+// Интерфейс для статистики игры
+interface GameStats {
+  gameId: string;
+  gameTitle: string;
+  totalPlays: number;
+  wins: number;
+  losses: number;
+  winRate: number;
+}
+
 // Тип для хранилища
 interface UserKeyStore {
   subscribe: Writable<string | null>["subscribe"];
@@ -58,6 +68,8 @@ interface UserKeyStore {
   trackStoryComplete: (storyId: string, storyTitle: string, dialogueCount: number) => Promise<void>;
   trackGameStart: (gameId: string, gameTitle: string, storyId?: string) => Promise<void>;
   trackGameResult: (gameId: string, gameTitle: string, won: boolean, storyId?: string) => Promise<void>;
+  // Трофеи
+  getGameStats: () => Promise<GameStats[]>;
   // Трекинг времени
   startSessionTimer: () => void;
   stopSessionTimer: () => Promise<void>;
@@ -366,6 +378,40 @@ function createUserKeyStore(): UserKeyStore {
     // Получить текущий ключ
     getCurrentKey: (): string | null => {
       return get(userKeyStore);
+    },
+
+    // Получить статистику игр (трофеи) - только игры с победами
+    getGameStats: async (): Promise<GameStats[]> => {
+      const userKey = get(userKeyStore);
+      if (!userKey) {
+        return [];
+      }
+
+      try {
+        // Используем view для получения трофеев (только игры с победами)
+        const { data, error } = await supabase
+          .from("user_game_trophies")
+          .select("*")
+          .eq("user_key", userKey);
+
+        if (error) {
+          console.error("[Trophies] Error fetching trophies:", error);
+          return [];
+        }
+
+        // Маппим данные из view
+        return (data || []).map(row => ({
+          gameId: row.game_id,
+          gameTitle: row.game_title,
+          totalPlays: row.total_plays,
+          wins: row.wins,
+          losses: row.losses,
+          winRate: row.win_rate
+        }));
+      } catch (error) {
+        console.error("[Trophies] Exception:", error);
+        return [];
+      }
     },
   };
 }
