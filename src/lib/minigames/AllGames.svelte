@@ -1,45 +1,6 @@
 <script lang="ts">
-  import { gamesList, categoryNames, type GameInfo } from './gamesList';
+  import { gamesList, categoryNames, gameComponents, type GameInfo } from './gamesList';
   import { userKeyStore } from '../store/userKeyStore';
-  import MemoMonsters from './MemoMonsters.svelte';
-  import OnetMonsters144 from './OnetMonsters144.svelte';
-  import OnetMonsters from './OnetMonsters.svelte';
-  import Evolution2048 from './Evolution2048.svelte';
-  import WhisperOfSpiders from './WhisperOfSpiders.svelte';
-  import TowerOfSouls from './TowerOfSouls.svelte';
-  import SoulCycle from './SoulCycle.svelte';
-  import LabyrinthOfMinotaur from './LabyrinthOfMinotaur.svelte';
-  import CursedCrypts from './CursedCrypts.svelte';
-  import BrokenMirror from './BrokenMirror.svelte';
-  import AlchemistsCross from './AlchemistsCross.svelte';
-  import LightOut from './LightOut.svelte';
-  import FloodIt from './FloodIt.svelte';
-  import Bones421 from './Bones421.svelte';
-  import CrystalsOfTime from './CrystalsOfTime.svelte';
-  import RunesOfFate from './RunesOfFate.svelte';
-  import WitchesCauldrons from './WitchesCauldrons.svelte';
-  import AlchemicalCalculator from './AlchemicalCalculator.svelte';
-  
-  const gameComponents: Record<string, any> = {
-    'memo-monsters': MemoMonsters,
-    'onet-monsters': OnetMonsters,
-    'onet-monsters-144': OnetMonsters144,
-    'evolution-2048': Evolution2048,
-    'whisper-of-spiders': WhisperOfSpiders,
-    'tower-of-souls': TowerOfSouls,
-    'soul-cycle': SoulCycle,
-    'labyrinth-of-minotaur': LabyrinthOfMinotaur,
-    'cursed-crypts': CursedCrypts,
-    'broken-mirror': BrokenMirror,
-    'alchemists-cross': AlchemistsCross,
-    'light-out': LightOut,
-    'flood-it': FloodIt,
-    'bones-421': Bones421,
-    'crystals-of-time': CrystalsOfTime,
-    'runes-of-fate': RunesOfFate,
-    'witches-cauldrons': WitchesCauldrons,
-    'alchemical-calculator': AlchemicalCalculator,
-  };
 
   let { onBack, onSelectGame }: { 
     onBack: () => void; 
