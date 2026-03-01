@@ -271,7 +271,7 @@ const currentDialogue = $derived(propDialogue || gameState.findDialogue(gameStat
   .background-image {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
   }
 
   .character-media {

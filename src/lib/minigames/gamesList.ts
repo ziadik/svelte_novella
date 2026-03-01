@@ -9,6 +9,7 @@ import LabyrinthOfMinotaur from './LabyrinthOfMinotaur.svelte';
 import CursedCrypts from './CursedCrypts.svelte';
 import BrokenMirror from './BrokenMirror.svelte';
 import AlchemistsCross from './AlchemistsCross.svelte';
+import TicTacToe from './TicTacToe.svelte';
 import LightOut from './LightOut.svelte';
 import FloodIt from './FloodIt.svelte';
 import Bones421 from './Bones421.svelte';
@@ -39,6 +40,7 @@ export const gameComponents: Record<string, any> = {
   'cursed_crypts': CursedCrypts,
   'broken_mirror': BrokenMirror,
   'alchemists_cross': AlchemistsCross,
+  'tic_tac_toe': TicTacToe,
   'light_out': LightOut,
   'flood_it': FloodIt,
   'bones_421': Bones421,
@@ -135,6 +137,14 @@ export const gamesList: GameInfo[] = [
     description: 'Крестики-нолики - первым выстрой 3 в ряд',
     icon: '🧪',
     filename: 'AlchemistsCross.svelte',
+    category: 'board'
+  },
+  {
+    id: 'tic_tac_toe',
+    name: 'Крестики-нолики',
+    description: 'Классические крестики-нолики 3x3',
+    icon: '❌',
+    filename: 'TicTacToe.svelte',
     category: 'board'
   },
   {
