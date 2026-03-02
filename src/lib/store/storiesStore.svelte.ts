@@ -13,6 +13,99 @@ export interface Story {
   is_public: boolean;
   allowed_players: string[];
   bucket: string; // bucket где хранятся ресурсы истории
+  version?: string; // Версия JSON для проверки изменений
+}
+
+// Ключ для хранения кэша историй в localStorage
+const STORIES_CACHE_KEY = 'novella_stories_cache';
+const STORIES_VERSIONS_KEY = 'novella_stories_versions';
+
+// Интерфейс кэшированной истории
+interface CachedStory {
+  data: StoryData;
+  timestamp: number;
+  contentHash?: string;
+}
+
+// Получить кэш историй из localStorage
+function getStoriesCache(): Record<string, CachedStory> {
+  try {
+    const cached = localStorage.getItem(STORIES_CACHE_KEY);
+    return cached ? JSON.parse(cached) : {};
+  } catch {
+    return {};
+  }
+}
+
+// Сохранить историю в кэш
+function setStoryCache(storyId: string, data: StoryData): void {
+  try {
+    const cache = getStoriesCache();
+    // Вычисляем хеш содержимого
+    const contentHash = simpleHash(JSON.stringify(data));
+    cache[storyId] = {
+      data,
+      timestamp: Date.now(),
+      contentHash
+    };
+    localStorage.setItem(STORIES_CACHE_KEY, JSON.stringify(cache));
+
+    // Также сохраняем версии
+    const versions = getStoriesVersions();
+    versions[storyId] = data.meta?.version || contentHash;
+    localStorage.setItem(STORIES_VERSIONS_KEY, JSON.stringify(versions));
+  } catch (e) {
+    console.warn('[storiesStore] Не удалось сохранить в кэш:', e);
+  }
+}
+
+// Получить историю из кэша
+function getStoryFromCache(storyId: string): StoryData | null {
+  const cache = getStoriesCache();
+  return cache[storyId]?.data || null;
+}
+
+// Получить хеш кэшированной истории
+function getCachedHash(storyId: string): string | undefined {
+  const cache = getStoriesCache();
+  return cache[storyId]?.contentHash;
+}
+
+// Получить версии историй
+function getStoriesVersions(): Record<string, string> {
+  try {
+    const versions = localStorage.getItem(STORIES_VERSIONS_KEY);
+    return versions ? JSON.parse(versions) : {};
+  } catch {
+    return {};
+  }
+}
+
+// Простая хеш-функция для проверки изменений
+function simpleHash(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return Math.abs(hash).toString(36);
+}
+
+// Проверить, изменилась ли история
+async function checkStoryChanged(story: Story, currentHash: string | undefined): Promise<boolean> {
+  if (!currentHash) return true;
+  
+  // Если есть version в метаданных - проверяем её
+  const versions = getStoriesVersions();
+  const cachedVersion = versions[story.id];
+  
+  if (cachedVersion && story.version) {
+    return cachedVersion !== story.version;
+  }
+  
+  // Иначе считаем, что история изменилась (нужно проверить)
+  return true;
 }
 
 // Состояние
@@ -41,7 +134,8 @@ const FALLBACK_STORIES: Story[] = [
     preview_image_url: null,
     is_public: true,
     allowed_players: [],
-    bucket: 'dracula'
+    bucket: 'dracula',
+    version: '1.0.0'
   },
   {
     id: 'zombie',
@@ -52,7 +146,8 @@ const FALLBACK_STORIES: Story[] = [
     preview_image_url: null,
     is_public: true,
     allowed_players: [],
-    bucket: 'zombie'
+    bucket: 'zombie',
+    version: '1.0.0'
   },
   {
     id: 'fairy_tale',
@@ -63,7 +158,8 @@ const FALLBACK_STORIES: Story[] = [
     preview_image_url: null,
     is_public: true,
     allowed_players: [],
-    bucket: 'fairy_tale'
+    bucket: 'fairy_tale',
+    version: '1.0.0'
   },
   {
     id: 'minigames',
@@ -74,7 +170,8 @@ const FALLBACK_STORIES: Story[] = [
     preview_image_url: null,
     is_public: true,
     allowed_players: [],
-    bucket: 'minigames'
+    bucket: 'minigames',
+    version: '1.0.0'
   }
 ];
 
@@ -163,7 +260,7 @@ export async function loadStories(): Promise<void> {
       console.log('[storiesStore] loadStories завершено (офлайн)');
       return;
     }
-    
+
     const { data, error } = await supabase
       .from('stories')
       .select('*')
@@ -316,7 +413,18 @@ export async function deleteStory(storyId: string): Promise<{ success: boolean; 
 }
 
 // Загрузка JSON истории из storage
-export async function loadStoryJson(story: Story): Promise<StoryData | null> {
+export async function loadStoryJson(story: Story, forceReload = false): Promise<StoryData | null> {
+  const storyId = story.id;
+  
+  // Если не требуется принудительная перезагрузка - пробуем кэш
+  if (!forceReload) {
+    const cachedData = getStoryFromCache(storyId);
+    if (cachedData) {
+      console.log(`[storiesStore] История "${story.title}" найдена в кэше`);
+      return cachedData;
+    }
+  }
+  
   try {
     // Используем bucket из истории, по умолчанию 'stories'
     const bucket = story.bucket || 'stories';
@@ -344,6 +452,10 @@ export async function loadStoryJson(story: Story): Promise<StoryData | null> {
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const jsonData = await response.json();
         console.log('[storiesStore] Загружено через fallback URL');
+        
+        // Сохраняем в кэш
+        setStoryCache(storyId, jsonData);
+        
         return jsonData;
       } catch (fetchError) {
         console.error('[storiesStore] Fallback also failed:', fetchError);
@@ -354,10 +466,19 @@ export async function loadStoryJson(story: Story): Promise<StoryData | null> {
         try {
           const localResponse = await fetch(localUrl);
           if (localResponse.ok) {
-            return await localResponse.json();
+            const localData = await localResponse.json();
+            setStoryCache(storyId, localData);
+            return localData;
           }
         } catch (localError) {
           console.error('[storiesStore] Локальный fallback тоже не работает');
+        }
+        
+        // Пробуем кэш как последний шанс
+        const cachedData = getStoryFromCache(storyId);
+        if (cachedData) {
+          console.log('[storiesStore] Используем кэш после ошибок сети');
+          return cachedData;
         }
         
         return null;
@@ -367,10 +488,69 @@ export async function loadStoryJson(story: Story): Promise<StoryData | null> {
     const text = await data.text();
     const jsonData = JSON.parse(text);
     console.log('[storiesStore] История загружена успешно');
+    
+    // Сохраняем в кэш
+    setStoryCache(storyId, jsonData);
+    
     return jsonData;
   } catch (error) {
     console.error('[storiesStore] Error loading story JSON:', error);
+    
+    // Пробуем кэш как последний шанс
+    const cachedData = getStoryFromCache(storyId);
+    if (cachedData) {
+      console.log('[storiesStore] Используем кэш после ошибки');
+      return cachedData;
+    }
+    
     return null;
+  }
+}
+
+// Предварительная загрузка всех историй в кэш (для быстрого первого запуска)
+export async function preloadAllStories(): Promise<void> {
+  console.log('[storiesStore] Предварительная загрузка историй...');
+  
+  const allStories = [...stories.stories, ...FALLBACK_STORIES];
+  const cachedHashes = getStoriesVersions();
+  
+  // Загружаем параллельно, но не блокируем
+  const loadPromises = allStories.map(async (story) => {
+    const currentHash = cachedHashes[story.id];
+    
+    // Пропускаем если уже есть в кэше и версия совпадает
+    const cached = getStoryFromCache(story.id);
+    if (cached && story.version) {
+      const versions = getStoriesVersions();
+      if (versions[story.id] === story.version) {
+        console.log(`[storiesStore] Пропускаем ${story.title} - версия не изменилась`);
+        return;
+      }
+    }
+    
+    // Пробуем загрузить (без блокировки)
+    try {
+      await loadStoryJson(story, true);
+      console.log(`[storiesStore] Предзагружена: ${story.title}`);
+    } catch (e) {
+      console.warn(`[storiesStore] Не удалось предзагрузить ${story.title}:`, e);
+    }
+  });
+  
+  // Не ждём завершения - загружаем в фоне
+  Promise.allSettled(loadPromises).then(() => {
+    console.log('[storiesStore] Предварительная загрузка завершена');
+  });
+}
+
+// Очистить кэш историй
+export function clearStoriesCache(): void {
+  try {
+    localStorage.removeItem(STORIES_CACHE_KEY);
+    localStorage.removeItem(STORIES_VERSIONS_KEY);
+    console.log('[storiesStore] Кэш историй очищен');
+  } catch (e) {
+    console.warn('[storiesStore] Не удалось очистить кэш:', e);
   }
 }
 

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { gameState } from '../../store/gameStore.svelte';
-  import { storiesState, getPlayerStories, loadStoryJson } from '../../store/storiesStore.svelte';
+  import { storiesState, getPlayerStories, loadStoryJson, preloadAllStories } from '../../store/storiesStore.svelte';
   import type { Story } from '../../store/storiesStore.svelte';
 
   // В App.svelte управляется через window или dispatch event
@@ -12,6 +12,7 @@
 
   let loading = $state(true);
   let autoSelected = $state(false);
+  let storyLoading = $state<string | null>(null); // ID истории, которая сейчас загружается
 
   onMount(async () => {
     console.log('[StorySelector] Инициализация...');
@@ -23,19 +24,39 @@
       urlStoryId: gameState.urlStoryId
     });
     
+    // Запускаем предзагрузку в фоне (не блокируем UI)
+    if (typeof window !== 'undefined') {
+      preloadAllStories();
+    }
+    
     // Если история была выбрана через URL - загружаем её
     if (gameState.urlStoryId && gameState.selectedStoryData && !autoSelected) {
       autoSelected = true;
-      const storyData = await loadStoryJson(gameState.selectedStoryData);
-      if (storyData) {
-        gameState.storyData = storyData;
-        gameState.currentDialogueId = storyData.dialogues?.[0]?.id || "0";
-        gameState.isLoading = false;
-      }
+      await selectAndLoadStory(gameState.selectedStoryData);
     }
     
     loading = false;
   });
+
+  // Выбрать историю и загрузить JSON (асинхронно)
+  async function selectAndLoadStory(story: Story) {
+    storyLoading = story.id;
+    
+    try {
+      const storyData = await loadStoryJson(story);
+      if (storyData) {
+        gameState.storyData = storyData;
+        gameState.currentDialogueId = storyData.dialogues?.[0]?.id || "0";
+        gameState.isLoading = false;
+      } else {
+        console.error('[StorySelector] Не удалось загрузить историю');
+      }
+    } catch (error) {
+      console.error('[StorySelector] Ошибка загрузки истории:', error);
+    } finally {
+      storyLoading = null;
+    }
+  }
 
   // Информация об историях (fallback для историй без preview)
   const defaultIcons: Record<string, string> = {
@@ -48,6 +69,7 @@
   function handleSelectStory(story: Story) {
     gameState.selectedStory = story.id;
     gameState.selectedStoryData = story;
+    selectAndLoadStory(story);
   }
 
   function handleBack() {
@@ -81,8 +103,10 @@
     <div class="stories-grid">
       {#each gameState.availableStories as story (story.id)}
         {@const icon = defaultIcons[story.title.toLowerCase()] || '📖'}
+        {@const isLoading = storyLoading === story.id}
         <div 
           class="story-card"
+          class:loading={isLoading}
           role="button"
           tabindex="0"
           onclick={() => handleSelectStory(story)}
@@ -93,7 +117,13 @@
             }
           }}
         >
-          <div class="story-icon">{icon}</div>
+          {#if isLoading}
+            <div class="story-loading">
+              <div class="spinner"></div>
+            </div>
+          {:else}
+            <div class="story-icon">{icon}</div>
+          {/if}
           <div class="story-content">
             <h3 class="story-title">{story.title}</h3>
             <p class="story-description">{story.preview_image_url ? 'Нажмите для начала' : 'Интерактивная история'}</p>
@@ -190,6 +220,35 @@
     border-color: #e94560;
     outline: 2px solid #e94560;
     outline-offset: 2px;
+  }
+
+  .story-card.loading {
+    opacity: 0.7;
+    pointer-events: none;
+  }
+
+  .story-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    flex-shrink: 0;
+  }
+
+  .spinner {
+    width: 24px;
+    height: 24px;
+    border: 3px solid rgba(233, 69, 96, 0.3);
+    border-top-color: #e94560;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
 
   .story-icon {

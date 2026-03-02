@@ -51,7 +51,7 @@ export interface Item {
 }
 
 export interface StoryData {
-  meta?: { version: string; title: string };
+  meta?: { version: string; title: string; contentHash?: string };
   chapters?: Chapter[];
   dialogues: Dialogue[];
   items?: Item[];

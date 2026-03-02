@@ -2,6 +2,7 @@ const BASE_PATH = '/svelte_novella';
 const CACHE_NAME = 'novella-v1';
 const STATIC_CACHE = 'novella-static-v1';
 const DYNAMIC_CACHE = 'novella-dynamic-v1';
+const STORIES_CACHE = 'novella-stories-v1';
 
 // Ресурсы для предварительного кэширования
 const STATIC_ASSETS = [
@@ -41,7 +42,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((keys) => {
       return Promise.all(
         keys
-          .filter((key) => key !== STATIC_CACHE && key !== DYNAMIC_CACHE)
+          .filter((key) => key !== STATIC_CACHE && key !== DYNAMIC_CACHE && key !== STORIES_CACHE)
           .map((key) => {
             console.log('[SW] Удаление старого кэша:', key);
             return caches.delete(key);
@@ -105,6 +106,12 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Для JSON историй - stale-while-revalidate (мгновенный кэш, фоновое обновление)
+  if (isStoryJson(url.pathname)) {
+    event.respondWith(staleWhileRevalidate(STORIES_CACHE, request));
+    return;
+  }
+
   // Для статических ресурсов - кэш с сетевым обновлением
   if (isStaticAsset(url.pathname)) {
     // Пробуем найти в кэше с учетом BASE_PATH
@@ -140,6 +147,40 @@ self.addEventListener('fetch', (event) => {
       })
   );
 });
+
+// Stale-while-revalidate для историй (мгновенный ответ из кэша, фоновое обновление)
+async function staleWhileRevalidate(cacheName, request) {
+  const cache = await caches.open(cacheName);
+  const cachedResponse = await cache.match(request);
+  
+  const fetchPromise = fetch(request).then((response) => {
+    // Клонируем ответ перед кэшированием
+    const responseClone = response.clone();
+    cache.put(request, responseClone).catch(() => {});
+    return response;
+  }).catch(() => null);
+  
+  // Если есть кэш - возвращаем сразу, иначе ждём сеть
+  if (cachedResponse) {
+    // Запускаем обновление в фоне, не ждём
+    fetchPromise;
+    return cachedResponse;
+  }
+  
+  // Нет кэша - ждём сеть или возвращаем null
+  const networkResponse = await fetchPromise;
+  return networkResponse || new Response(JSON.stringify({ error: 'offline' }), {
+    headers: { 'Content-Type': 'application/json' }
+  });
+}
+
+// Проверка, является ли ресурс JSON историей
+function isStoryJson(pathname) {
+  return (
+    pathname.includes('/stories/') && 
+    (pathname.endsWith('.json') || pathname.endsWith('_story.json'))
+  );
+}
 
 // Проверка, является ли ресурс статическим
 function isStaticAsset(pathname) {
