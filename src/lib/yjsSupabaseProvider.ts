@@ -32,7 +32,7 @@ export class YjsSupabaseProvider {
   }
 
   destroy() {
-    this.doc.off("update");
+    this.doc.destroy();//off("update");
     this.channel.unsubscribe();
   }
 }

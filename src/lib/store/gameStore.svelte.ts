@@ -1,4 +1,4 @@
-import { getPlayerStories, loadStories, storiesState, type Story } from './storiesStore.svelte';
+import { getPlayerStories, loadStories, storiesState, loadStoryJson, preloadAllStories, type Story } from './storiesStore.svelte';
 
 // Определение типов для нашей новой JSON структуры
 export interface Item {
@@ -140,6 +140,11 @@ class GameState {
       console.log('[GameState] Истории уже загружены');
     }
 
+    // Запускаем предзагрузку JSON в фоне (не блокируем UI)
+    if (typeof window !== 'undefined') {
+      preloadAllStories();
+    }
+    
     // Если указан URL параметр, автоматически выбираем историю
     if (this.urlStoryId) {
       console.log('[GameState] Выбираем историю:', this.urlStoryId);
@@ -162,10 +167,10 @@ class GameState {
     // Если не найдена в БД, используем FALLBACK_STORIES напрямую
     if (!story) {
       const FALLBACK_STORIES = [
-        { id: 'dracula', title: 'Дракула', bucket: 'dracula', json_url: 'dracula_story.json' },
-        { id: 'zombie', title: 'Выживание', bucket: 'zombie', json_url: 'zombie_story.json' },
-        { id: 'fairy_tale', title: 'Сказка', bucket: 'fairy_tale', json_url: 'fairy_tale_story.json' },
-        { id: 'minigames', title: 'Мини-игры', bucket: 'minigames', json_url: 'minigames_story.json' }
+        { id: 'dracula', title: 'Дракула', bucket: 'dracula', json_url: 'dracula_story.json', version: '1.0.0' },
+        { id: 'zombie', title: 'Выживание', bucket: 'zombie', json_url: 'zombie_story.json', version: '1.0.0' },
+        { id: 'fairy_tale', title: 'Сказка', bucket: 'fairy_tale', json_url: 'fairy_tale_story.json', version: '1.0.0' },
+        { id: 'minigames', title: 'Мини-игры', bucket: 'minigames', json_url: 'minigames_story.json', version: '1.0.0' }
       ];
       const fallbackStory = FALLBACK_STORIES.find(s => s.id === id);
       if (fallbackStory) {
@@ -174,6 +179,7 @@ class GameState {
           title: fallbackStory.title,
           bucket: fallbackStory.bucket,
           json_url: fallbackStory.json_url,
+          version: fallbackStory.version,
           created_at: new Date().toISOString(),
           author_id: null,
           preview_image_url: null,
@@ -188,11 +194,34 @@ class GameState {
       this.selectedStory = story.id;
       this.selectedStoryData = story;
       console.log('[GameState] Выбрана история:', story.title);
+      
+      // Асинхронно загружаем JSON
+      this.loadSelectedStoryJson(story);
+      
       return true;
     }
 
     console.warn('[GameState] История не найдена:', id);
     return false;
+  }
+
+  // Асинхронная загрузка JSON выбранной истории
+  async loadSelectedStoryJson(story: Story): Promise<void> {
+    this.isLoading = true;
+    try {
+      const storyData = await loadStoryJson(story);
+      if (storyData) {
+        this.storyData = storyData;
+        this.currentDialogueId = storyData.dialogues?.[0]?.id || "0";
+      } else {
+        this.error = 'Не удалось загрузить историю';
+      }
+    } catch (err) {
+      this.error = 'Ошибка загрузки истории';
+      console.error('[GameState] Ошибка загрузки JSON:', err);
+    } finally {
+      this.isLoading = false;
+    }
   }
 
   // Получить историю по ID
