@@ -61,6 +61,16 @@
 
   // Деструктивная функция для очистки
   async function cleanup() {
+    // Очищаем интервал сохранения
+    if (provider && (provider as any).saveInterval) {
+      clearInterval((provider as any).saveInterval);
+    }
+    
+    // Сохраняем最后一次 состояние перед выходом
+    if (provider) {
+      await provider.saveState();
+    }
+    
     // Удаляем игрока из комнаты по user_key
     if (roomId) {
       const userKey = userKeyStore.getCurrentKey();
@@ -89,6 +99,11 @@
   }
 
   onDestroy(() => {
+    // Очищаем интервал сохранения
+    if (provider && (provider as any).saveInterval) {
+      clearInterval((provider as any).saveInterval);
+    }
+    
     // Синхронная очистка без await
     if (provider) {
       provider.destroy();
@@ -113,20 +128,65 @@
     isLoadingRooms = true;
     try {
       // Получаем список комнат с количеством игроков
+      // Supabase RPC требует имена параметров, совпадающие с определением функции
       const { data, error } = await supabase
-        .rpc('get_active_rooms', { game_type: 'tic_tac_toe' });
+        .rpc('get_active_rooms', { p_game_type: 'tic_tac_toe' });
       
       if (error) {
         console.error('Error loading rooms:', error);
-        rooms = [];
+        // Если RPC не работает - пробуем получить комнаты напрямую из таблицы
+        await loadRoomsFromTable();
       } else {
         rooms = data || [];
       }
     } catch (e) {
       console.error('Error loading rooms:', e);
-      rooms = [];
+      // Пробуем получить комнаты напрямую из таблицы
+      await loadRoomsFromTable();
     }
     isLoadingRooms = false;
+  }
+
+  // Альтернативный способ загрузки комнат - напрямую из таблицы
+  async function loadRoomsFromTable() {
+    try {
+      // Получаем комнаты
+      const { data: roomsData, error: roomsError } = await supabase
+        .from('game_rooms')
+        .select('room_id, room_name, created_at')
+        .eq('game_type', 'tic_tac_toe')
+        .gt('created_at', new Date(Date.now() - 3600000).toISOString()) // последний час
+        .order('created_at', { ascending: false });
+
+      if (roomsError) {
+        console.error('Error loading rooms from table:', roomsError);
+        rooms = [];
+        return;
+      }
+
+      // Для каждой комнаты получаем количество игроков
+      const roomsWithPlayers = await Promise.all(
+        (roomsData || []).map(async (room) => {
+          const { count } = await supabase
+            .from('game_players')
+            .select('*', { count: 'exact', head: true })
+            .eq('room_id', room.room_id);
+          
+          return {
+            room_id: room.room_id,
+            room_name: room.room_name,
+            player_count: count || 0,
+            created_at: room.created_at
+          };
+        })
+      );
+
+      // Фильтруем комнаты с менее чем 2 игроками
+      rooms = roomsWithPlayers.filter(r => r.player_count < 2);
+    } catch (e) {
+      console.error('Error in loadRoomsFromTable:', e);
+      rooms = [];
+    }
   }
 
   function generateRoomId(): string {
@@ -148,7 +208,7 @@
 
     if (error) {
       console.error('Error creating room:', error);
-      showModal("⚠️ Ошибка", "Не удалось создать комнату.", [
+      showModal("⚠️ Ошибка", "Не удалось создать комнату. Возможно, таблица не настроена.", [
         { text: "OK", action: hideModal }
       ]);
       return;
@@ -273,6 +333,16 @@
     provider = new YjsSupabaseProvider(doc, roomId);
     isConnected = true;
     gameMode = 'online';
+    
+    // Сохраняем состояние каждые 5 секунд и после каждого хода
+    const saveInterval = setInterval(() => {
+      if (provider && !gameOver) {
+        provider.saveState();
+      }
+    }, 5000);
+    
+    // Сохраняем интервал для очистки
+    (provider as any).saveInterval = saveInterval;
   }
 
   function handleOnlineClick(index: number) {
@@ -283,6 +353,11 @@
     // Атомарное обновление через Yjs
     yBoard.delete(index, 1);
     yBoard.insert(index, [playerSymbol!]);
+    
+    // Сохраняем состояние после хода
+    if (provider) {
+      provider.saveState();
+    }
   }
 
   function endGameOnline(winnerPlayer: Player | null) {
