@@ -6,27 +6,15 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 // Имя файла истории по умолчанию (используется для загрузки данных внутри bucket)
 export const storyFileName = 'dracula_story.json';
 
-// Кастомный fetch с логированием
+// Кастомный fetch с логированием - только для логирования
 const customFetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
     const method = init?.method || 'GET';
     
     console.log(`[Supabase] ${method} ${url}`);
     
-    const startTime = performance.now();
-    
-    try {
-        const response = await fetch(input, init);
-        const duration = (performance.now() - startTime).toFixed(2);
-        
-        console.log(`[Supabase] ${method} ${url} - ${response.status} (${duration}ms)`);
-        
-        return response;
-    } catch (error) {
-        const duration = (performance.now() - startTime).toFixed(2);
-        console.error(`[Supabase] ${method} ${url} - ERROR (${duration}ms)`, error);
-        throw error;
-    }
+    // Supabase добавляет apikey через заголовки, не меняем их
+    return fetch(url, init);
 };
 
 // Инициализация клиента Supabase
@@ -37,10 +25,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
         detectSessionInUrl: true
     },
     global: {
-        fetch: customFetch,
-        headers: {
-            'Content-Type': 'application/json',
-        }
+        fetch: customFetch
     }
 })
 
