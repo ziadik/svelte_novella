@@ -354,31 +354,44 @@
 
     // Инициализируем Yjs
     doc = new Y.Doc();
-    yBoard = doc.getArray<string | null>('board');
+    yBoard = doc.getArray<{position: number, value: string | null}>('board');
 
     // Создаём пустой board если его нет (для новых комнат)
-    // Провайдер перезапишет если загрузит состояние из БД
-    if (yBoard.length === 0) {
-      console.log('[TicTacToe] Создаём пустой board');
-      yBoard.insert(0, Array(SIZE * SIZE).fill(null));
+    // Защита от задвоения - проверяем точный размер
+    if (yBoard.length !== SIZE * SIZE) {
+      console.log('[TicTacToe] Создаём board, текущий размер:', yBoard.length);
+      if (yBoard.length > 0) {
+        yBoard.delete(0, yBoard.length);
+      }
+      // Создаём массив объектов {position, value}
+      const initialBoard = Array.from({length: SIZE * SIZE}, (_, i) => ({position: i, value: null}));
+      yBoard.insert(0, initialBoard);
+      console.log('[TicTacToe] Board создан, размер:', yBoard.length);
     }
 
     // Наблюдатель за изменениями - конвертируем X/O -> ❌/⭕
     yBoard.observe((event) => {
       // ВСЕГДА получаем свежую ссылку на массив!
-      const freshYBoard = doc!.getArray<string | null>('board');
+      const freshYBoard = doc!.getArray<{position: number, value: string | null}>('board');
       if (!freshYBoard) return;
       
       // Конвертируем Yjs символы в отображаемые
       const yjsBoard = freshYBoard.toArray();
-      board = yjsBoard.map(s => fromYjsSymbol(s));
+      const sorted = yjsBoard.sort((a, b) => a.position - b.position);
+      board = sorted.map(item => fromYjsSymbol(item.value));
       const xCount = board.filter(c => c === PLAYERS[0]).length;
       const oCount = board.filter(c => c === PLAYERS[1]).length;
-      currentPlayer = xCount === oCount ? PLAYERS[0] : PLAYERS[1];
+      
+      // Логика определения хода:
+      // Если количества равны - ход первого (X/❌)
+      // Если X больше - ход второго (O/⭕)
+      currentPlayer = xCount === oCount ? PLAYERS[0] : (xCount > oCount ? PLAYERS[1] : PLAYERS[0]);
+      
+      console.log('[TicTacToe] Наблюдатель:', { xCount, oCount, currentPlayer });
       winner = checkWinner(board);
       console.log('[TicTacToe] Наблюдатель сработал, board:', JSON.stringify(board));
       
-      if (winner || board.every(cell => cell)) {
+      if (winner || (board.length == 9 && board.every(cell => cell))) {
         endGameOnline(winner);
       }
     });
@@ -393,28 +406,34 @@
         
         // Синхронизируем board
         syncBoardFromYjs();
-        
-        // Если мы первые и только что создали board - сохраняем в БД
-        if (waitingForOpponent && provider) {
-          console.log('[TicTacToe] Первый игрок, сохраняем начальное состояние');
-          provider.saveState();
-        }
       },
-      () => {
+      (boardData?: (string | null)[] | null) => {
         // Колбэк при удалённом обновлении (ход соперника)
-        console.log('[TicTacToe] Колбэк: получено обновление от соперника');
+        console.log('[TicTacToe] 📡 Колбэк: получено обновление от соперника', boardData);
         
-        // Проверяем и создаём board если его нет
-        if (doc) {
-          const yBoard = doc.getArray<string | null>('board');
-          if (yBoard.length === 0) {
-            console.log('[TicTacToe] Board пустой при получении обновления, создаём');
-            yBoard.insert(0, Array(SIZE * SIZE).fill(null));
-          }
-          console.log('[TicTacToe] Doc board ПЕРЕД syncBoardFromYjs:', JSON.stringify(yBoard.toArray()));
+        if (boardData && Array.isArray(boardData)) {
+          // Используем переданные данные напрямую из провайдера
+          board = boardData.map(s => fromYjsSymbol(s));
+        } else {
+          // Fallback - синхронизируем из Yjs
+          syncBoardFromYjs();
+          return;
         }
         
-        syncBoardFromYjs();
+        const xCount = board.filter(c => c === PLAYERS[0]).length;
+        const oCount = board.filter(c => c === PLAYERS[1]).length;
+        
+        // Определяем чей ход
+        currentPlayer = xCount === oCount ? PLAYERS[0] : (xCount > oCount ? PLAYERS[1] : PLAYERS[0]);
+        
+        console.log('[TicTacToe] Обновлено:', { xCount, oCount, currentPlayer, board: JSON.stringify(board) });
+        
+        winner = checkWinner(board);
+        if (winner || board.every(cell => cell)) {
+          endGameOnline(winner);
+        }
+        
+        console.log('[TicTacToe] Текущий игрок после синхронизации:', currentPlayer, 'Вы:', playerSymbol);
       }
     );
     isConnected = true;
@@ -424,7 +443,7 @@
     if (opponentJoined) {
       syncBoardFromYjs();
     }
-    
+
     // Сохраняем состояние ТОЛЬКО после хода игрока (не по таймеру)
     // Интервал убран - состояние сохраняется в handleOnlineClick
     
@@ -439,14 +458,22 @@
     if (!doc) return;
     
     // Получаем СВЕЖУЮ ссылку на массив board
-    const currentYBoard = doc.getArray<string | null>('board');
+    const currentYBoard = doc.getArray<{position: number, value: string | null}>('board');
     if (!currentYBoard) return;
     
     const yjsBoard = currentYBoard.toArray();
-    board = yjsBoard.map(s => fromYjsSymbol(s));
+    // Сортируем по position и извлекаем value
+    const sorted = yjsBoard.sort((a, b) => a.position - b.position);
+    board = sorted.map(item => fromYjsSymbol(item.value));
     const xCount = board.filter(c => c === PLAYERS[0]).length;
     const oCount = board.filter(c => c === PLAYERS[1]).length;
-    currentPlayer = xCount === oCount ? PLAYERS[0] : PLAYERS[1];
+    
+    // Логика определения хода:
+    // Если количества равны - ход первого (X/❌)
+    // Если X больше - ход второго (O/⭕)
+    currentPlayer = xCount === oCount ? PLAYERS[0] : (xCount > oCount ? PLAYERS[1] : PLAYERS[0]);
+    
+    console.log('[TicTacToe] Синхронизация:', { xCount, oCount, currentPlayer });
     winner = checkWinner(board);
     console.log('[TicTacToe] Board синхронизирован:', JSON.stringify(board));
   }
@@ -489,20 +516,40 @@
   }
 
   function handleOnlineClick(index: number) {
+    console.log('[TicTacToe] ХОД игрока:', playerSymbol, 'на позицию:', index);
+    
     // Нельзя ходить если ждём соперника или игра не началась
-    if (!isConnected || !yBoard || gameOver || !opponentJoined) return;
-    if (board[index] !== null) return;
-    if (currentPlayer !== playerSymbol) return;
+    if (!isConnected || !yBoard || gameOver || !opponentJoined) {
+      console.log('[TicTacToe] ❌ Ход заблокирован:', { isConnected, yBoard: !!yBoard, gameOver, opponentJoined });
+      return;
+    }
+    if (board[index] !== null) {
+      console.log('[TicTacToe] ❌ Ячейка занята');
+      return;
+    }
+    if (currentPlayer !== playerSymbol) {
+      console.log('[TicTacToe] ❌ Не ваш ход, сейчас:', currentPlayer, 'вы:', playerSymbol);
+      return;
+    }
 
     // Конвертируем ❌/⭕ в X/O для Yjs
     const yjsSymbol = toYjsSymbol(playerSymbol!);
+    console.log('[TicTacToe] Вставляем:', {position: index, value: yjsSymbol});
     
-    // Атомарное обновление через Yjs
-    yBoard.delete(index, 1);
-    yBoard.insert(index, [yjsSymbol]);
-    
+    // Атомарное обновление через Yjs - заменяем объект
+    const current = yBoard.toArray();
+    console.log('[TicTacToe] Board до хода:', JSON.stringify(current));
+    const itemToUpdate = current.find(item => item.position === index);
+    if (itemToUpdate) {
+      const idx = current.indexOf(itemToUpdate);
+      yBoard.delete(idx, 1);
+      yBoard.insert(idx, [{position: index, value: yjsSymbol}]);
+      console.log('[TicTacToe] Ход выполнен, board после:', JSON.stringify(yBoard.toArray()));
+    }
+
     // Сохраняем состояние после хода
     if (provider) {
+      console.log('[TicTacToe] Сохраняем состояние...');
       provider.saveState();
     }
   }
@@ -540,9 +587,10 @@
 
   async function resetOnlineGame() {
     if (!yBoard) return;
-    // Сбрасываем доску в Yjs (null значения)
+    // Сбрасываем доску в Yjs - создаём новые объекты
+    const resetBoard = Array.from({length: SIZE * SIZE}, (_, i) => ({position: i, value: null}));
     yBoard.delete(0, yBoard.length);
-    yBoard.insert(0, Array(SIZE * SIZE).fill(null));
+    yBoard.insert(0, resetBoard);
     gameOver = false;
     winner = null;
     hideModal();

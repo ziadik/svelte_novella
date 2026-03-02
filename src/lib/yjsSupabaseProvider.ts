@@ -14,14 +14,15 @@ export class YjsSupabaseProvider {
   private channel: RealtimeChannel;
   private isDestroyed = false;
   private isInitialSync = true;
+  private isApplyingFullState = false; // Флаг: применяем полное состояние
   private onStateLoaded: (() => void) | null = null;
   private onRemoteUpdate: (() => void) | null = null; // Колбэк при удалённом обновлении
   private lastSavedTimestamp: number = 0; // Timestamp последнего сохранения
 
   // Получить текущее состояние board из Yjs
-  private getBoardState(): (string | null)[] {
+  private getBoardState(): {position: number, value: string | null}[] {
     try {
-      const yBoard = this.doc.getArray<string | null>('board');
+      const yBoard = this.doc.getArray<{position: number, value: string | null}>('board');
       return yBoard.toArray();
     } catch (e) {
       console.error('[Yjs] Ошибка получения board:', e);
@@ -32,7 +33,9 @@ export class YjsSupabaseProvider {
   // Логировать состояние board
   private logBoard(label: string) {
     const board = this.getBoardState();
-    console.log(`[Yjs] ${label} Board:`, JSON.stringify(board));
+    // Сортируем по position для читаемости
+    const sorted = [...board].sort((a, b) => a.position - b.position);
+    console.log(`[Yjs] ${label} Board:`, JSON.stringify(sorted));
   }
 
   constructor(
@@ -52,7 +55,6 @@ export class YjsSupabaseProvider {
     this.channel
       .on("broadcast", { event: "yjs-update" }, (payload) => {
         console.log('[Yjs] 📡 Получено broadcast event! Payload keys:', payload ? Object.keys(payload) : 'null');
-        console.log('[Yjs] 📡 Payload:', JSON.stringify(payload));
         
         if (this.isDestroyed) return;
         
@@ -62,7 +64,7 @@ export class YjsSupabaseProvider {
           
           // Пробуем получить payload разными способами
           const payloadData = (payload as any).payload || (payload as any);
-          console.log('[Yjs] >>> Получено broadcast, payloadData:', payloadData);
+          console.log('[Yjs] >>> Получено broadcast, isFullState:', payloadData.isFullState);
           
           if (!payloadData || !payloadData.update) {
             console.error('[Yjs] ❌ НЕТ update в payload!', payloadData);
@@ -72,17 +74,59 @@ export class YjsSupabaseProvider {
           const update = new Uint8Array(payloadData.update);
           console.log('[Yjs] Получено обновление, размер:', update.length, 'bytes');
           
-          // Проверяем состояние doc ДО применения
-          const yBoardBefore = this.doc.getArray<string | null>('board');
-          console.log('[Yjs] Doc board ДО applyUpdate:', JSON.stringify(yBoardBefore.toArray()));
+          // Если это полное состояние - полностью заменяем board
+          let simpleBoard: (string | null)[] = [];
           
-          // Применяем обновление с пометкой 'remote'
-          Y.applyUpdate(this.doc, update, 'remote');
-          console.log('[Yjs] Обновление применено к doc');
+          if (payloadData.isFullState) {
+            console.log('[Yjs] Это полное состояние - полная замена board');
+            this.isApplyingFullState = true;
+            
+            // Получаем board из update напрямую (декодируем)
+            // Но проще - извлечь из Yjs doc после применения
+            Y.applyUpdate(this.doc, update, 'remote');
+            
+            // Теперь извлекаем данные из doc
+            const yBoard = this.doc.getArray<{position: number, value: string | null}>('board');
+            const boardArray = yBoard.toArray();
+            
+            // Сортируем и извлекаем values
+            const sorted = boardArray.sort((a, b) => a.position - b.position);
+            simpleBoard = sorted.map(item => item.value);
+            
+            console.log('[Yjs] Board после полной замены:', JSON.stringify(simpleBoard));
+            
+            // Удаляем дубликаты если есть
+            if (yBoard.length > 9) {
+              console.log('[Yjs] Удаляем дубликаты, было:', yBoard.length);
+              yBoard.delete(0, yBoard.length);
+              // Вставляем только уникальные по position
+              const uniqueMap = new Map<number, string | null>();
+              for (const item of sorted) {
+                uniqueMap.set(item.position, item.value);
+              }
+              const unique = Array.from({length: 9}, (_, i) => ({position: i, value: uniqueMap.get(i) ?? null}));
+              yBoard.insert(0, unique);
+              simpleBoard = unique.map(item => item.value);
+              console.log('[Yjs] После удаления дубликатов:', JSON.stringify(simpleBoard));
+            }
+            
+            setTimeout(() => { this.isApplyingFullState = false; }, 100);
+          } else {
+            // Инкрементальное обновление - применяем как раньше
+            Y.applyUpdate(this.doc, update, 'remote');
+            
+            const yBoardAfter = this.doc.getArray<{position: number, value: string | null}>('board');
+            const boardArray = yBoardAfter.toArray();
+            const sorted = boardArray.sort((a, b) => a.position - b.position);
+            simpleBoard = sorted.map(item => item.value);
+          }
           
-          // Проверяем состояние doc ПОСЛЕ применения
-          const yBoardAfter = this.doc.getArray<string | null>('board');
-          console.log('[Yjs] Doc board ПОСЛЕ applyUpdate:', JSON.stringify(yBoardAfter.toArray()));
+          // Вызываем колбэк
+          setTimeout(() => {
+            if (this.onRemoteUpdate) {
+              (this.onRemoteUpdate as any)(simpleBoard);
+            }
+          }, 50);
           
           // Логируем board ПОСЛЕ применения обновления
           this.logBoard('<<< ПОЛУЧЕНИЕ - ПОСЛЕ');
@@ -130,11 +174,13 @@ export class YjsSupabaseProvider {
     this.doc.on("update", (update: Uint8Array, origin: any) => {
       if (this.isDestroyed) return;
       
-      // Не отправляем обновления из сети или при начальной синхронизации
-      if (origin === 'remote' || this.isInitialSync) {
-        // console.log('[Yjs] Пропускаем отправку, origin:', origin);
+      // Не отправляем обновления из сети, при начальной синхронизации или при применении полного состояния
+      if (origin === 'remote' || this.isInitialSync || this.isApplyingFullState) {
+        console.log('[Yjs] ⚠️ Пропускаем отправку:', { origin, isInitialSync: this.isInitialSync, isApplyingFullState: this.isApplyingFullState });
         return;
       }
+
+      console.log('[Yjs] ✅ Разрешена отправка, origin:', origin);
 
       // Логируем board ПЕРЕД отправкой
       this.logBoard('>>> ОТПРАВКА - ДО');
