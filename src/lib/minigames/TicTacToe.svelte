@@ -23,8 +23,20 @@
   const SIZE = 3;
   const TIMEOUT = 1000;
   const PLAYERS = ['❌', '⭕'] as const;
-  const PLAYERS_DB = ['X', 'O'] as const; // Для хранения в БД
+  const YJS_SYMBOLS = ['X', 'O'] as const; // Символы для Yjs
   type Player = typeof PLAYERS[number];
+
+  // Конвертация Yjs символ -> отображаемый символ
+  function fromYjsSymbol(s: string | null): Player | null {
+    if (s === YJS_SYMBOLS[0]) return PLAYERS[0];
+    if (s === YJS_SYMBOLS[1]) return PLAYERS[1];
+    return null;
+  }
+
+  // Конвертация отображаемый символ -> Yjs символ
+  function toYjsSymbol(p: Player): string {
+    return p === PLAYERS[0] ? YJS_SYMBOLS[0] : YJS_SYMBOLS[1];
+  }
 
   // Режимы игры
   type GameMode = 'menu' | 'computer' | 'local' | 'online' | 'online_menu';
@@ -280,8 +292,8 @@
       return;
     }
 
-    // Регистрируем игрока (сохраняем X/O в БД, но показываем эмодзи)
-    const symbolForDb = playerSymbol === PLAYERS[0] ? PLAYERS_DB[0] : PLAYERS_DB[1];
+    // Регистрируем игрока (сохраняем X/O в БД)
+    const symbolForDb = playerSymbol === PLAYERS[0] ? YJS_SYMBOLS[0] : YJS_SYMBOLS[1];
     const userKey = userKeyStore.getCurrentKey();
     const { error: insertError } = await supabase.from('game_players').insert({
       room_id: roomId,
@@ -301,15 +313,22 @@
     doc = new Y.Doc();
     yBoard = doc.getArray<string | null>('board');
 
-    // Заполняем доску если пусто
+    // Удаляем старый наблюдатель если есть
+    if (yBoard) {
+      yBoard.unobserveAll();
+    }
+
+    // Заполняем доску если пусто (используем YJS_SYMBOLS)
     if (yBoard.length === 0) {
       yBoard.insert(0, Array(SIZE * SIZE).fill(null));
     }
 
-    // Наблюдатель за изменениями
+    // Наблюдатель за изменениями - конвертируем X/O -> ❌/⭕
     yBoard.observe(() => {
       if (!yBoard) return;
-      board = yBoard.toArray() as Player[];
+      // Конвертируем Yjs символы в отображаемые
+      const yjsBoard = yBoard.toArray();
+      board = yjsBoard.map(s => fromYjsSymbol(s));
       const xCount = board.filter(c => c === PLAYERS[0]).length;
       const oCount = board.filter(c => c === PLAYERS[1]).length;
       currentPlayer = xCount === oCount ? PLAYERS[0] : PLAYERS[1];
@@ -320,9 +339,10 @@
       }
     });
 
-    // Первичная загрузка
+    // Первичная загрузка - конвертируем символы
     if (yBoard) {
-      board = yBoard.toArray() as Player[];
+      const yjsBoard = yBoard.toArray();
+      board = yjsBoard.map(s => fromYjsSymbol(s));
     }
     const xCount = board.filter(c => c === PLAYERS[0]).length;
     const oCount = board.filter(c => c === PLAYERS[1]).length;
@@ -350,9 +370,12 @@
     if (board[index] !== null) return;
     if (currentPlayer !== playerSymbol) return;
 
+    // Конвертируем ❌/⭕ в X/O для Yjs
+    const yjsSymbol = toYjsSymbol(playerSymbol!);
+    
     // Атомарное обновление через Yjs
     yBoard.delete(index, 1);
-    yBoard.insert(index, [playerSymbol!]);
+    yBoard.insert(index, [yjsSymbol]);
     
     // Сохраняем состояние после хода
     if (provider) {
@@ -393,6 +416,7 @@
 
   async function resetOnlineGame() {
     if (!yBoard) return;
+    // Сбрасываем доску в Yjs (null значения)
     yBoard.delete(0, yBoard.length);
     yBoard.insert(0, Array(SIZE * SIZE).fill(null));
     gameOver = false;
