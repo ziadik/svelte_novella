@@ -63,6 +63,8 @@
   let roomId = $state('');
   let playerSymbol: Player | null = $state(null);
   let isConnected = $state(false);
+  let waitingForOpponent = $state(false); // Ожидание второго игрока
+  let opponentJoined = $state(false); // Второй игрок присоединился
   
   // Yjs
   let doc: Y.Doc | null = null;
@@ -73,6 +75,9 @@
 
   // Деструктивная функция для очистки
   async function cleanup() {
+    // Останавливаем ожидание оппонента
+    stopWaitingForOpponent();
+    
     // Очищаем интервал сохранения
     if (provider && (provider as any).saveInterval) {
       clearInterval((provider as any).saveInterval);
@@ -108,9 +113,14 @@
     roomId = '';
     playerSymbol = null;
     isConnected = false;
+    waitingForOpponent = false;
+    opponentJoined = false;
   }
 
   onDestroy(() => {
+    // Останавливаем ожидание оппонента
+    stopWaitingForOpponent();
+    
     // Очищаем интервал сохранения
     if (provider && (provider as any).saveInterval) {
       clearInterval((provider as any).saveInterval);
@@ -209,6 +219,8 @@
     const roomName = newRoomName.trim() || `Комната ${Date.now()}`;
     const newRoomId = generateRoomId();
     
+    console.log('[TicTacToe] Создание комнаты:', newRoomId);
+    
     // Создаем комнату в game_rooms
     const userKey = userKeyStore.getCurrentKey();
     const { error } = await supabase.from('game_rooms').insert({
@@ -219,13 +231,21 @@
     });
 
     if (error) {
-      console.error('Error creating room:', error);
-      showModal("⚠️ Ошибка", "Не удалось создать комнату. Возможно, таблица не настроена.", [
-        { text: "OK", action: hideModal }
-      ]);
+      console.error('[TicTacToe] Error creating room:', error);
+      // Пробуем создать таблицу если её нет
+      if (error.message.includes('relation') || error.code === '42P01') {
+        showModal("⚠️ Ошибка", "Таблица комнат не настроена. Обратитесь к администратору.", [
+          { text: "OK", action: hideModal }
+        ]);
+      } else {
+        showModal("⚠️ Ошибка", `Не удалось создать комнату: ${error.message}`, [
+          { text: "OK", action: hideModal }
+        ]);
+      }
       return;
     }
 
+    console.log('[TicTacToe] Комната создана:', newRoomId);
     newRoomName = '';
     roomId = newRoomId;
     await joinOnlineRoom();
@@ -236,21 +256,39 @@
     await joinOnlineRoom();
   }
 
-  // Проверка и создание таблицы game_players
+  // Проверка и создание таблиц
   async function ensureTableExists(): Promise<boolean> {
     try {
-      // Пробуем выполнить простой запрос
-      const { error } = await supabase
+      // Проверяем game_rooms
+      const { error: roomsError } = await supabase
+        .from('game_rooms')
+        .select('id', { count: 'exact', head: true })
+        .limit(1);
+      
+      if (roomsError) {
+        console.error('[TicTacToe] Таблица game_rooms не существует:', roomsError);
+      }
+      
+      // Проверяем game_players
+      const { error: playersError } = await supabase
         .from('game_players')
         .select('id', { count: 'exact', head: true })
         .limit(1);
       
-      if (error && error.message.includes('relation') && error.message.includes('does not exist')) {
+      if (playersError) {
+        console.error('[TicTacToe] Таблица game_players не существует:', playersError);
+      }
+      
+      // Если хотя бы одна таблица не существует
+      if ((roomsError && roomsError.message.includes('does not exist')) || 
+          (playersError && playersError.message.includes('does not exist'))) {
+        console.error('[TicTacToe] Таблицы БД не настроены');
         return false;
       }
+      
       return true;
     } catch (e) {
-      console.error('Error checking table:', e);
+      console.error('[TicTacToe] Error checking tables:', e);
       return false;
     }
   }
@@ -283,8 +321,13 @@
 
     if (!players || players.length === 0) {
       playerSymbol = PLAYERS[0]; // ❌
+      waitingForOpponent = true; // Первый игрок ждёт второго
+      opponentJoined = false;
     } else if (players.length === 1) {
       playerSymbol = PLAYERS[1]; // ⭕
+      // Второй игрок присоединяется - игра начинается
+      waitingForOpponent = false;
+      opponentJoined = true;
     } else {
       showModal("🚫 Комната заполнена", "В этой комнате уже два игрока", [
         { text: "OK", action: hideModal }
@@ -311,74 +354,202 @@
 
     // Инициализируем Yjs
     doc = new Y.Doc();
-    yBoard = doc.getArray<string | null>('board');
+    yBoard = doc.getArray<{position: number, value: string | null}>('board');
 
-    // Удаляем старый наблюдатель если есть
-    if (yBoard) {
-      yBoard.unobserveAll();
-    }
-
-    // Заполняем доску если пусто (используем YJS_SYMBOLS)
-    if (yBoard.length === 0) {
-      yBoard.insert(0, Array(SIZE * SIZE).fill(null));
+    // Создаём пустой board если его нет (для новых комнат)
+    // Защита от задвоения - проверяем точный размер
+    if (yBoard.length !== SIZE * SIZE) {
+      console.log('[TicTacToe] Создаём board, текущий размер:', yBoard.length);
+      if (yBoard.length > 0) {
+        yBoard.delete(0, yBoard.length);
+      }
+      // Создаём массив объектов {position, value}
+      const initialBoard = Array.from({length: SIZE * SIZE}, (_, i) => ({position: i, value: null}));
+      yBoard.insert(0, initialBoard);
+      console.log('[TicTacToe] Board создан, размер:', yBoard.length);
     }
 
     // Наблюдатель за изменениями - конвертируем X/O -> ❌/⭕
-    yBoard.observe(() => {
-      if (!yBoard) return;
+    yBoard.observe((event) => {
+      // ВСЕГДА получаем свежую ссылку на массив!
+      const freshYBoard = doc!.getArray<{position: number, value: string | null}>('board');
+      if (!freshYBoard) return;
+      
       // Конвертируем Yjs символы в отображаемые
-      const yjsBoard = yBoard.toArray();
-      board = yjsBoard.map(s => fromYjsSymbol(s));
+      const yjsBoard = freshYBoard.toArray();
+      const sorted = yjsBoard.sort((a, b) => a.position - b.position);
+      board = sorted.map(item => fromYjsSymbol(item.value));
       const xCount = board.filter(c => c === PLAYERS[0]).length;
       const oCount = board.filter(c => c === PLAYERS[1]).length;
-      currentPlayer = xCount === oCount ? PLAYERS[0] : PLAYERS[1];
-      winner = checkWinner(board);
       
-      if (winner || board.every(cell => cell)) {
+      // Логика определения хода:
+      // Если количества равны - ход первого (X/❌)
+      // Если X больше - ход второго (O/⭕)
+      currentPlayer = xCount === oCount ? PLAYERS[0] : (xCount > oCount ? PLAYERS[1] : PLAYERS[0]);
+      
+      console.log('[TicTacToe] Наблюдатель:', { xCount, oCount, currentPlayer });
+      winner = checkWinner(board);
+      console.log('[TicTacToe] Наблюдатель сработал, board:', JSON.stringify(board));
+      
+      if (winner || (board.length == 9 && board.every(cell => cell))) {
         endGameOnline(winner);
       }
     });
 
-    // Первичная загрузка - конвертируем символы
-    if (yBoard) {
-      const yjsBoard = yBoard.toArray();
-      board = yjsBoard.map(s => fromYjsSymbol(s));
-    }
-    const xCount = board.filter(c => c === PLAYERS[0]).length;
-    const oCount = board.filter(c => c === PLAYERS[1]).length;
-    currentPlayer = xCount === oCount ? PLAYERS[0] : PLAYERS[1];
-    winner = checkWinner(board);
-
-    // Подключаем провайдер
-    provider = new YjsSupabaseProvider(doc, roomId);
+    // Подключаем провайдер с колбэками
+    provider = new YjsSupabaseProvider(
+      doc, 
+      roomId, 
+      () => {
+        // Колбэк после загрузки начального состояния
+        console.log('[TicTacToe] Колбэк: начальное состояние загружено');
+        
+        // Синхронизируем board
+        syncBoardFromYjs();
+      },
+      (boardData?: (string | null)[] | null) => {
+        // Колбэк при удалённом обновлении (ход соперника)
+        console.log('[TicTacToe] 📡 Колбэк: получено обновление от соперника', boardData);
+        
+        if (boardData && Array.isArray(boardData)) {
+          // Используем переданные данные напрямую из провайдера
+          board = boardData.map(s => fromYjsSymbol(s));
+        } else {
+          // Fallback - синхронизируем из Yjs
+          syncBoardFromYjs();
+          return;
+        }
+        
+        const xCount = board.filter(c => c === PLAYERS[0]).length;
+        const oCount = board.filter(c => c === PLAYERS[1]).length;
+        
+        // Определяем чей ход
+        currentPlayer = xCount === oCount ? PLAYERS[0] : (xCount > oCount ? PLAYERS[1] : PLAYERS[0]);
+        
+        console.log('[TicTacToe] Обновлено:', { xCount, oCount, currentPlayer, board: JSON.stringify(board) });
+        
+        winner = checkWinner(board);
+        if (winner || board.every(cell => cell)) {
+          endGameOnline(winner);
+        }
+        
+        console.log('[TicTacToe] Текущий игрок после синхронизации:', currentPlayer, 'Вы:', playerSymbol);
+      }
+    );
     isConnected = true;
     gameMode = 'online';
     
-    // Сохраняем состояние каждые 5 секунд и после каждого хода
-    const saveInterval = setInterval(() => {
-      if (provider && !gameOver) {
-        provider.saveState();
-      }
-    }, 5000);
+    // Если оба игрока на месте - сразу синхронизируем
+    if (opponentJoined) {
+      syncBoardFromYjs();
+    }
+
+    // Сохраняем состояние ТОЛЬКО после хода игрока (не по таймеру)
+    // Интервал убран - состояние сохраняется в handleOnlineClick
     
-    // Сохраняем интервал для очистки
-    (provider as any).saveInterval = saveInterval;
+    // Если ждём оппонента - запускаем проверку
+    if (waitingForOpponent) {
+      startWaitingForOpponent();
+    }
+  }
+
+  // Синхронизировать локальный board из Yjs
+  function syncBoardFromYjs() {
+    if (!doc) return;
+    
+    // Получаем СВЕЖУЮ ссылку на массив board
+    const currentYBoard = doc.getArray<{position: number, value: string | null}>('board');
+    if (!currentYBoard) return;
+    
+    const yjsBoard = currentYBoard.toArray();
+    // Сортируем по position и извлекаем value
+    const sorted = yjsBoard.sort((a, b) => a.position - b.position);
+    board = sorted.map(item => fromYjsSymbol(item.value));
+    const xCount = board.filter(c => c === PLAYERS[0]).length;
+    const oCount = board.filter(c => c === PLAYERS[1]).length;
+    
+    // Логика определения хода:
+    // Если количества равны - ход первого (X/❌)
+    // Если X больше - ход второго (O/⭕)
+    currentPlayer = xCount === oCount ? PLAYERS[0] : (xCount > oCount ? PLAYERS[1] : PLAYERS[0]);
+    
+    console.log('[TicTacToe] Синхронизация:', { xCount, oCount, currentPlayer });
+    winner = checkWinner(board);
+    console.log('[TicTacToe] Board синхронизирован:', JSON.stringify(board));
+  }
+
+  // Ожидание второго игрока с периодической проверкой
+  let checkOpponentInterval: ReturnType<typeof setInterval> | null = null;
+  
+  function startWaitingForOpponent() {
+    checkOpponentInterval = setInterval(async () => {
+      if (!roomId || !waitingForOpponent) {
+        stopWaitingForOpponent();
+        return;
+      }
+      
+      // Проверяем количество игроков
+      const { data: players, error } = await supabase
+        .from('game_players')
+        .select('symbol')
+        .eq('room_id', roomId);
+      
+      if (!error && players && players.length >= 2) {
+        // Второй игрок присоединился!
+        stopWaitingForOpponent();
+        opponentJoined = true;
+        waitingForOpponent = false;
+        
+        // Уведомляем первого игрока
+        showModal("🎉 Соперник найден!", "Игра началась! Вы играете за ❌", [
+          { text: "Начать игру", action: hideModal }
+        ]);
+      }
+    }, 2000); // Проверяем каждые 2 секунды
+  }
+
+  function stopWaitingForOpponent() {
+    if (checkOpponentInterval) {
+      clearInterval(checkOpponentInterval);
+      checkOpponentInterval = null;
+    }
   }
 
   function handleOnlineClick(index: number) {
-    if (!isConnected || !yBoard || gameOver) return;
-    if (board[index] !== null) return;
-    if (currentPlayer !== playerSymbol) return;
+    console.log('[TicTacToe] ХОД игрока:', playerSymbol, 'на позицию:', index);
+    
+    // Нельзя ходить если ждём соперника или игра не началась
+    if (!isConnected || !yBoard || gameOver || !opponentJoined) {
+      console.log('[TicTacToe] ❌ Ход заблокирован:', { isConnected, yBoard: !!yBoard, gameOver, opponentJoined });
+      return;
+    }
+    if (board[index] !== null) {
+      console.log('[TicTacToe] ❌ Ячейка занята');
+      return;
+    }
+    if (currentPlayer !== playerSymbol) {
+      console.log('[TicTacToe] ❌ Не ваш ход, сейчас:', currentPlayer, 'вы:', playerSymbol);
+      return;
+    }
 
     // Конвертируем ❌/⭕ в X/O для Yjs
     const yjsSymbol = toYjsSymbol(playerSymbol!);
+    console.log('[TicTacToe] Вставляем:', {position: index, value: yjsSymbol});
     
-    // Атомарное обновление через Yjs
-    yBoard.delete(index, 1);
-    yBoard.insert(index, [yjsSymbol]);
-    
+    // Атомарное обновление через Yjs - заменяем объект
+    const current = yBoard.toArray();
+    console.log('[TicTacToe] Board до хода:', JSON.stringify(current));
+    const itemToUpdate = current.find(item => item.position === index);
+    if (itemToUpdate) {
+      const idx = current.indexOf(itemToUpdate);
+      yBoard.delete(idx, 1);
+      yBoard.insert(idx, [{position: index, value: yjsSymbol}]);
+      console.log('[TicTacToe] Ход выполнен, board после:', JSON.stringify(yBoard.toArray()));
+    }
+
     // Сохраняем состояние после хода
     if (provider) {
+      console.log('[TicTacToe] Сохраняем состояние...');
       provider.saveState();
     }
   }
@@ -416,9 +587,10 @@
 
   async function resetOnlineGame() {
     if (!yBoard) return;
-    // Сбрасываем доску в Yjs (null значения)
+    // Сбрасываем доску в Yjs - создаём новые объекты
+    const resetBoard = Array.from({length: SIZE * SIZE}, (_, i) => ({position: i, value: null}));
     yBoard.delete(0, yBoard.length);
-    yBoard.insert(0, Array(SIZE * SIZE).fill(null));
+    yBoard.insert(0, resetBoard);
     gameOver = false;
     winner = null;
     hideModal();
@@ -731,32 +903,66 @@
           <span class="room-id">Комната: {roomId}</span>
           <span class="player-symbol">Вы играете за: {playerSymbol}</span>
         </div>
-      {/if}
-
-      <div class="status">
-        {#if gameOver && winner}
-          Победил: <span class="winner">{winner}</span>
-        {:else if gameOver}
-          Ничья
+        
+        {#if waitingForOpponent}
+          <div class="waiting-message">
+            <div class="waiting-spinner">⏳</div>
+            <p>Ожидание соперника...</p>
+            <p class="waiting-hint">Поделитесь ID комнаты с другом</p>
+            <p class="room-id-copy">{roomId}</p>
+          </div>
         {:else}
-          Ход: <span class="current-player">{currentPlayer}</span>
+          <div class="status">
+            {#if gameOver && winner}
+              Победил: <span class="winner">{winner}</span>
+            {:else if gameOver}
+              Ничья
+            {:else}
+              Ход: <span class="current-player">{currentPlayer}</span>
+            {/if}
+          </div>
+          
+          <div class="board">
+            {#each board as cell, i}
+              <button
+                type="button"
+                class="cell"
+                class:x-cell={cell === PLAYERS[0]}
+                class:o-cell={cell === PLAYERS[1]}
+                onclick={() => handleOnlineClick(i)}
+                disabled={!!cell || gameOver || currentPlayer !== playerSymbol}
+              >
+                {cell ?? ''}
+              </button>
+            {/each}
+          </div>
         {/if}
-      </div>
-      
-      <div class="board">
-        {#each board as cell, i}
-          <button
-            type="button"
-            class="cell"
-            class:x-cell={cell === PLAYERS[0]}
-            class:o-cell={cell === PLAYERS[1]}
-            onclick={() => gameMode === 'online' ? handleOnlineClick(i) : handleOfflineClick(i)}
-            disabled={!!cell || gameOver || (gameMode === 'online' && currentPlayer !== playerSymbol) || (gameMode === 'computer' && currentPlayer === PLAYERS[1])}
-          >
-            {cell ?? ''}
-          </button>
-        {/each}
-      </div>
+      {:else}
+        <div class="status">
+          {#if gameOver && winner}
+            Победил: <span class="winner">{winner}</span>
+          {:else if gameOver}
+            Ничья
+          {:else}
+            Ход: <span class="current-player">{currentPlayer}</span>
+          {/if}
+        </div>
+        
+        <div class="board">
+          {#each board as cell, i}
+            <button
+              type="button"
+              class="cell"
+              class:x-cell={cell === PLAYERS[0]}
+              class:o-cell={cell === PLAYERS[1]}
+              onclick={() => handleOfflineClick(i)}
+              disabled={!!cell || gameOver || (gameMode === 'computer' && currentPlayer === PLAYERS[1])}
+            >
+              {cell ?? ''}
+            </button>
+          {/each}
+        </div>
+      {/if}
     </div>
 
     <GameFooter {rewardItem} {items} {bucketName}>
@@ -971,6 +1177,43 @@
   .player-symbol {
     color: #ff9f43;
     font-weight: bold;
+  }
+
+  .waiting-message {
+    text-align: center;
+    padding: 30px 20px;
+  }
+
+  .waiting-spinner {
+    font-size: 3rem;
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.1); opacity: 0.8; }
+  }
+
+  .waiting-message p {
+    color: #ececec;
+    margin: 10px 0;
+    font-size: 1.1rem;
+  }
+
+  .waiting-hint {
+    color: #888 !important;
+    font-size: 0.9rem !important;
+  }
+
+  .room-id-copy {
+    background: #2a2a40;
+    padding: 10px 20px;
+    border-radius: 8px;
+    color: #00cec9 !important;
+    font-family: monospace;
+    font-size: 1rem !important;
+    margin-top: 15px !important;
+    border: 1px solid #5e5c8a;
   }
 
   .status {
