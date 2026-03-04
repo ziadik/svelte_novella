@@ -53,14 +53,13 @@ function getResourceUrl(fileName: string, bucket: string): string {
     }
   }
 
-  // Обработчик клика (только для десктопов)
+  // Обработчик клика - только для запуска Rive trigger (без перехода)
   function handleContainerClick(e: MouseEvent) {
-    if (isMobile) return;
     // Игнорируем клик на кнопках опций
     const target = e.target as HTMLElement;
     if (target.closest('button') || target.closest('.options-container')) return;
     
-    handleNext();
+    // Клик больше не переходит к следующему диалогу - только свайп влево
   }
 
   // Обработчики свайпа (только для мобильных)
@@ -189,7 +188,7 @@ function getResourceUrl(fileName: string, bucket: string): string {
       <div class="background-media">
         {#if currentDialogue.backgroundImage.endsWith(".riv")}
           {#key currentDialogue.backgroundImage}
-            <Rive fileName={currentDialogue.backgroundImage} {bucketName} />
+            <Rive fileName={currentDialogue.backgroundImage} {bucketName} isBackground={true} />
           {/key}
         {:else}
           <img 
