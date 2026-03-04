@@ -1,4 +1,5 @@
 import { getPlayerStories, loadStories, storiesState, loadStoryJson, preloadAllStories, type Story } from './storiesStore.svelte';
+import { gameModeState } from './gameModeStore.svelte';
 
 // Определение типов для нашей новой JSON структуры
 export interface Item {
@@ -132,9 +133,16 @@ class GameState {
       console.log('[GameState] Нет window.location (SSR?)');
     }
 
+    // В игровом режиме не загружаем из БД - используем fallback (локальные assets)
+    // В редакторе загружаем из БД для авторов
     if (!storiesState.initialized) {
-      console.log('[GameState] Загружаем истории...');
-      await loadStories();
+      if (gameModeState.isEditor) {
+        console.log('[GameState] Режим редактора - загружаем истории из БД...');
+        await loadStories();
+      } else {
+        console.log('[GameState] Игровой режим - используем fallback истории');
+        storiesState.initialized = true;
+      }
       console.log('[GameState] Истории загружены, initialized:', storiesState.initialized);
     } else {
       console.log('[GameState] Истории уже загружены');

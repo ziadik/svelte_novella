@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
   import { gameState } from "../store/gameStore.svelte";
+  import { gameModeState } from "../store/gameModeStore.svelte";
   import Rive from "./Rive.svelte";
   import MinigameLauncher from "./MinigameLauncher.svelte";
   import { bucketName as defaultBucketName, supabaseUrlFile } from "../store/store.svelte";
@@ -10,6 +11,18 @@
 
 // Если пропс dialogue не передан, берем из стора (режим игры)
 const currentDialogue = $derived(propDialogue || gameState.findDialogue(gameState.currentDialogueId));
+
+/**
+ * Получить URL для ресурса (локальный или Supabase)
+ */
+function getResourceUrl(fileName: string, bucket: string): string {
+  // В игровом режиме используем локальные assets
+  if (gameModeState.isGame) {
+    return `/stories/${bucket}/${fileName}`;
+  }
+  // В редакторе используем Supabase
+  return `${supabaseUrlFile}/storage/v1/object/public/${bucket}/${fileName}`;
+}
 
   // Состояние свайпа
   let touchStartX = $state(0);
@@ -179,7 +192,7 @@ const currentDialogue = $derived(propDialogue || gameState.findDialogue(gameStat
           {/key}
         {:else}
           <img 
-            src={`${supabaseUrlFile}/storage/v1/object/public/${bucketName}/${currentDialogue.backgroundImage}`} 
+            src={getResourceUrl(currentDialogue.backgroundImage, bucketName)} 
             alt="BG" 
             class="background-image" 
           />
@@ -196,7 +209,7 @@ const currentDialogue = $derived(propDialogue || gameState.findDialogue(gameStat
           {/key}
         {:else}
            <img 
-            src={`${supabaseUrlFile}/storage/v1/object/public/${bucketName}/${currentDialogue.characterImage}`} 
+            src={getResourceUrl(currentDialogue.characterImage, bucketName)} 
             alt="Char" 
             class="character-image" 
           />
