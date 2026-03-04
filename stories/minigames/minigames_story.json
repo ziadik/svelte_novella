@@ -1,0 +1,310 @@
+{
+  "meta": {
+    "version": "4.0",
+    "title": "Dracula: Mini-Game Integration Example"
+  },
+  "items": [
+    {
+      "id": "vampire_fangs",
+      "name": "Клыки вампира",
+      "description": "Потерянные клыки Дракулы.",
+      "icon": "fangs_icon.png",
+      "type": "key"
+    },
+    {
+      "id": "key_master",
+      "name": "Мастер ключ",
+      "description": "",
+      "icon": "masterKey.png",
+      "type": "key"
+    }
+  ],
+  "chapters": [
+    {
+      "id": "ch_minigame",
+      "title": "Мини-игры",
+      "description": "Испытания и игры с Дракулой"
+    }
+  ],
+  "dialogues": [
+    {
+      "id": "0",
+      "chapterId": "ch_minigame",
+      "text": "Хочешь сыграть?",
+      "characterImage": "dracula_hehe.riv",
+      "stateMachineCharacterRive": "SM1",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "options": [
+        {
+          "text": "Игра Onet",
+          "nextDialogueId": "",
+          "enabled": true,
+          "visible": true,
+          "visibilityCondition": {
+            "type": "always"
+          },
+          "miniGame": {
+            "id": "onet_monsters",
+            "onWinDialogueId": "game_win",
+            "onLoseDialogueId": "game_lose",
+            "rewardItem": "vampire_fangs"
+          }
+        },
+        {
+          "text": "Игра Мемо",
+          "enabled": true,
+          "visible": true,
+          "visibilityCondition": {
+            "type": "always"
+          },
+          "nextDialogueId": "",
+          "miniGame": {
+            "id": "memo_monsters",
+            "onWinDialogueId": "game_win",
+            "onLoseDialogueId": "game_lose",
+            "rewardItem": "key_master"
+          }
+        },
+        {
+          "text": "Игра Выключи свет",
+          "enabled": true,
+          "visible": true,
+          "visibilityCondition": {
+            "type": "always"
+          },
+          "nextDialogueId": "",
+          "miniGame": {
+            "id": "light_out",
+            "onWinDialogueId": "game_win",
+            "onLoseDialogueId": "game_lose",
+            "rewardItem": "vampire_fangs"
+          }
+        },
+        {
+          "text": "Игра Мора Красной Смерти",
+          "enabled": true,
+          "visible": true,
+          "visibilityCondition": {
+            "type": "always"
+          },
+          "nextDialogueId": "",
+          "miniGame": {
+            "id": "flood_it",
+            "onWinDialogueId": "game_win",
+            "onLoseDialogueId": "game_lose",
+            "rewardItem": "vampire_fangs"
+          }
+        },
+        {
+          "text": "Игра Пятнашки",
+          "enabled": true,
+          "visible": true,
+          "visibilityCondition": {
+            "type": "always"
+          },
+          "nextDialogueId": "",
+          "miniGame": {
+            "id": "broken_mirror",
+            "onWinDialogueId": "game_win",
+            "onLoseDialogueId": "game_lose",
+            "rewardItem": "vampire_fangs"
+          }
+        },
+        {
+          "text": "Игра 2048",
+          "enabled": true,
+          "visible": true,
+          "visibilityCondition": {
+            "type": "always"
+          },
+          "nextDialogueId": "",
+          "miniGame": {
+            "id": "evolution2048",
+            "onWinDialogueId": "game_win",
+            "onLoseDialogueId": "game_lose",
+            "rewardItem": "vampire_fangs"
+          }
+        },
+        {
+          "text": "Игра Проклятый сапер",
+          "enabled": true,
+          "visible": true,
+          "visibilityCondition": {
+            "type": "always"
+          },
+          "nextDialogueId": "",
+          "miniGame": {
+            "id": "cursed_crypts",
+            "onWinDialogueId": "game_win",
+            "onLoseDialogueId": "game_lose",
+            "rewardItem": "vampire_fangs"
+          }
+        },
+        {
+          "text": "Игра Три пика",
+          "enabled": true,
+          "visible": true,
+          "visibilityCondition": {
+            "type": "always"
+          },
+          "nextDialogueId": "",
+          "miniGame": {
+            "id": "tower_of_souls",
+            "onWinDialogueId": "game_win",
+            "onLoseDialogueId": "game_lose",
+            "rewardItem": "key_master"
+          }
+        },
+        {
+          "text": "Не сегодня, я устал",
+          "enabled": true,
+          "visible": true,
+          "visibilityCondition": {
+            "type": "always"
+          },
+          "nextDialogueId": "decline"
+        }
+      ],
+      "nextDialogueId": ""
+    },
+    {
+      "id": "game_intro",
+      "chapterId": "ch_minigame",
+      "text": "Dracúla\nЭто игра 'Onet: Monsters'! Нужно найти все пары монстров. Если справишься — дам тебе что-то особенное!",
+      "characterImage": "dracula_hehe.riv",
+      "stateMachineCharacterRive": "SM1",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "options": [
+        {
+          "text": "Начать игру!",
+          "enabled": true,
+          "visible": true,
+          "visibilityCondition": {
+            "type": "always"
+          },
+          "miniGame": {
+            "id": "onet_monsters",
+            "onWinDialogueId": "game_win",
+            "onLoseDialogueId": "game_lose",
+            "rewardItem": "vampire_fangs"
+          },
+          "nextDialogueId": ""
+        },
+        {
+          "text": "Сложно! Может, попозже?",
+          "nextDialogueId": "decline",
+          "enabled": true,
+          "visible": true,
+          "visibilityCondition": {
+            "type": "always"
+          }
+        },
+        {
+          "text": "Новый вариант",
+          "enabled": true,
+          "visible": true,
+          "visibilityCondition": {
+            "type": "always"
+          },
+          "nextDialogueId": "game_win",
+          "miniGame": {
+            "id": "memo_monsters",
+            "onWinDialogueId": "game_win",
+            "onLoseDialogueId": "game_lose",
+            "rewardItem": "key_master"
+          }
+        }
+      ]
+    },
+    {
+      "id": "game_win",
+      "chapterId": "ch_minigame",
+      "text": "Dracúla\nОго! Ты справился! Это было впечатляюще! Вот, держи награду!",
+      "characterImage": "dracula_hehe2.riv",
+      "stateMachineCharacterRive": "SM1",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "onEnter": [
+        {
+          "type": "add_item",
+          "id": "vampire_fangs"
+        }
+      ],
+      "nextDialogueId": "",
+      "options": [
+        {
+          "text": "Игра Мемо",
+          "enabled": true,
+          "visible": true,
+          "visibilityCondition": {
+            "type": "always"
+          },
+          "nextDialogueId": "",
+          "miniGame": {
+            "id": "memo_monsters",
+            "onWinDialogueId": "game_intro",
+            "onLoseDialogueId": "game_lose"
+          }
+        }
+      ]
+    },
+    {
+      "id": "after_win",
+      "chapterId": "ch_minigame",
+      "text": "Dracúla\nЭто мои любимые клыки! Береги их, они тебе пригодятся... может быть...",
+      "characterImage": "dracula_start_afk.riv",
+      "stateMachineCharacterRive": "SM1",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "0",
+      "options": []
+    },
+    {
+      "id": "game_lose",
+      "chapterId": "ch_minigame",
+      "text": "Dracúla\nОх, не получилось... Ничего страшного! Давай попробуем ещё раз?",
+      "characterImage": "dracula_panik.riv",
+      "stateMachineCharacterRive": "SM1",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "options": [
+        {
+          "text": "Попробовать снова!",
+          "enabled": true,
+          "visible": true,
+          "visibilityCondition": {
+            "type": "always"
+          },
+          "miniGame": {
+            "id": "onet_monsters",
+            "onWinDialogueId": "game_win",
+            "onLoseDialogueId": "game_lose",
+            "rewardItem": "vampire_fangs"
+          }
+        },
+        {
+          "text": "Нет, спасибо",
+          "nextDialogueId": "0",
+          "enabled": true,
+          "visible": true,
+          "visibilityCondition": {
+            "type": "always"
+          }
+        }
+      ]
+    },
+    {
+      "id": "decline",
+      "chapterId": "ch_minigame",
+      "text": "Dracúla\nЖаль... Ну ладно, заходи, когда захочешь поиграть!",
+      "characterImage": "dracula_start_afk.riv",
+      "stateMachineCharacterRive": "SM1",
+      "backgroundImage": "dracula_back_room_3.riv",
+      "stateMachineBackgroundRive": "SM1",
+      "nextDialogueId": "0",
+      "options": []
+    }
+  ]
+}
