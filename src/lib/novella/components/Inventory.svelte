@@ -1,5 +1,7 @@
 <script lang="ts">
   import { gameState } from '../../store/gameStore.svelte';
+  import { gameModeState } from '../../store/gameModeStore.svelte';
+  import { supabaseUrlFile } from '../../store/store.svelte';
 
   let isOpen = $state(false);
 
@@ -8,6 +10,21 @@
 
   // Статы игрока
   const stats = $derived(gameState.player.stats);
+
+  // Bucket для загрузки ресурсов
+  const bucket = $derived(gameState.selectedStoryData?.bucket || 'stories');
+
+  /**
+   * Получить URL для иконки предмета
+   */
+  function getItemIconUrl(iconName: string): string {
+    // В игровом режиме используем локальные assets
+    if (gameModeState.isGame) {
+      return `/stories/${bucket}/${iconName}`;
+    }
+    // В редакторе используем Supabase
+    return `${supabaseUrlFile}/storage/v1/object/public/${bucket}/${iconName}`;
+  }
 
   function toggleInventory() {
     isOpen = !isOpen;
@@ -82,13 +99,16 @@
                   aria-label={`Предмет: ${item.name}`}
                 >
                   <div class="item-icon">
-                   <img
-              src={`${import.meta.env.VITE_SUPABASE_URL_FILE}/storage/v1/object/public/${gameState.selectedStoryData?.bucket || 'stories'}/${item.icon}`}
-              alt={item.icon}
-              class="icon-preview"
-              height="64px"
-            />
-                  
+                    {#if item.icon}
+                      <img
+                        src={getItemIconUrl(item.icon)}
+                        alt={item.icon}
+                        class="icon-preview"
+                        height="64px"
+                      />
+                    {:else}
+                      <span class="fallback-icon">📦</span>
+                    {/if}
                   </div>
                   <div class="item-info">
                     <span class="item-name">{item.name}</span>

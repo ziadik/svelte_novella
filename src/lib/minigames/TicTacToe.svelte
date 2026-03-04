@@ -587,13 +587,30 @@
 
   async function resetOnlineGame() {
     if (!yBoard) return;
+    
+    console.log('[TicTacToe] Сброс игры...');
+    
     // Сбрасываем доску в Yjs - создаём новые объекты
     const resetBoard = Array.from({length: SIZE * SIZE}, (_, i) => ({position: i, value: null}));
     yBoard.delete(0, yBoard.length);
     yBoard.insert(0, resetBoard);
+    
+    console.log('[TicTacToe] Yjs board после сброса:', JSON.stringify(yBoard.toArray()));
+    
+    // Сбрасываем локальное состояние
+    board = Array(SIZE * SIZE).fill(null);
+    currentPlayer = PLAYERS[0]; // Первый игрок всегда начинает
     gameOver = false;
     winner = null;
+    
+    // Синхронизируем с другим игроком
+    if (provider) {
+      console.log('[TicTacToe] Сохраняем состояние после сброса...');
+      provider.saveState();
+    }
+    
     hideModal();
+    console.log('[TicTacToe] Игра сброшена');
   }
 
   // ===== ОФЛАЙН РЕЖИМ =====

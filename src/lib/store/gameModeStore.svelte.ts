@@ -1,9 +1,30 @@
 import { editor, editorActions } from '../editor/stores/editorStore.svelte';
 import type { BucketInfo } from '../editor/types';
 
+// Режим работы приложения
+export type AppMode = 'game' | 'editor';
+
+// Текущий режим - по умолчанию игра
+let currentMode = $state<AppMode>('game');
+
 // Состояние игрового режима
 let showStorySelector = $state(true);
 let selectedStory = $state<string | null>(null);
+
+/**
+ * Установить режим приложения
+ */
+export function setAppMode(mode: AppMode): void {
+  currentMode = mode;
+  console.log(`[GameModeStore] Режим изменён на: ${mode}`);
+}
+
+/**
+ * Получить текущий режим
+ */
+export function getAppMode(): AppMode {
+  return currentMode;
+}
 
 /**
  * Получить список доступных историй
@@ -53,8 +74,13 @@ export function loadStoriesList() {
 
 // Реактивное состояние
 export const gameModeState = {
+  get mode(): AppMode { return currentMode; },
+  get isEditor(): boolean { return currentMode === 'editor'; },
+  get isGame(): boolean { return currentMode === 'game'; },
   get showStorySelector() { return showStorySelector; },
   get selectedStory() { return selectedStory; },
   selectStory,
-  resetStorySelection
+  resetStorySelection,
+  setAppMode,
+  getAppMode
 };

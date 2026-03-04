@@ -14,13 +14,14 @@
     authState,
     authDerivedState,
   } from "./lib/store/authStore.svelte";
-  import { gameState } from "./lib/store/gameStore.svelte";
+import { gameState } from "./lib/store/gameStore.svelte";
   import {
     getStoryById,
     getStoryByBucket,
     loadStories,
   } from "./lib/store/storiesStore.svelte";
   import { userKeyStore, type UserStats } from "./lib/store/userKeyStore";
+  import { gameModeState, setAppMode } from "./lib/store/gameModeStore.svelte";
 
   let userKey: string | null = null;
   let userStats: UserStats | null = null;
@@ -72,7 +73,7 @@
     return null;
   }
 
-  // Отслеживаем изменения аутентификации
+// Отслеживаем изменения аутентификации
   $effect(() => {
     if (authState.initialized) {
       console.log("[App] Auth state changed:", {
@@ -81,6 +82,15 @@
         session: !!authState.session,
         loading: authState.loading,
       });
+    }
+  });
+
+  // Автоматическое переключение режима game/editor
+  $effect(() => {
+    if (editor.showEditor && gameModeState.isGame) {
+      setAppMode('editor');
+    } else if (!editor.showEditor && gameModeState.isEditor) {
+      setAppMode('game');
     }
   });
 
@@ -253,7 +263,7 @@
 {:else if editor.showEditor}
   <button
     class="btn-back-to-game"
-    onclick={editorActions.toggleEditor}
+    onclick={() => { editorActions.toggleEditor(); setAppMode('game'); }}
     title="Назад к игре"
   >
     ← Назад к игре

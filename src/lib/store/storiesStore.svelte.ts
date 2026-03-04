@@ -1,5 +1,6 @@
 import { supabase } from '../supabaseClient';
 import { authState } from './authStore.svelte';
+import { gameModeState } from './gameModeStore.svelte';
 import type { StoryData } from '../editor/types';
 
 // Тип истории из таблицы
@@ -433,9 +434,27 @@ export async function loadStoryJson(story: Story, forceReload = false): Promise<
     // Если json_url содержит путь (stories/file.json), извлекаем имя файла
     const fileName = jsonPath.split('/').pop() || 'story.json';
 
-    console.log(`[storiesStore] Загрузка истории "${story.title}" из bucket: ${bucket}, файл: ${fileName}`);
+    console.log(`[storiesStore] Загрузка истории "${story.title}" из bucket: ${bucket}, файл: ${fileName}, режим: ${gameModeState.mode}`);
 
-    // Пробуем загрузить из storage
+    // В игровом режиме сначала пробуем локальные assets (public/stories/)
+    if (gameModeState.isGame) {
+      const localUrl = `/stories/${bucket}/${fileName}`;
+      console.log('[storiesStore] Игровой режим - пробуем локальный URL:', localUrl);
+      try {
+        const localResponse = await fetch(localUrl);
+        if (localResponse.ok) {
+          const localData = await localResponse.json();
+          console.log('[storiesStore] ✅ Загружено из локальных assets');
+          setStoryCache(storyId, localData);
+          return localData;
+        }
+        console.log('[storiesStore] Локальный файл не найден, пробуем Supabase...');
+      } catch (localError) {
+        console.log('[storiesStore] Локальный файл недоступен:', localError);
+      }
+    }
+
+    // Пробуем загрузить из Supabase Storage
     const { data, error } = await supabase.storage
       .from(bucket)
       .download(fileName);
@@ -460,20 +479,6 @@ export async function loadStoryJson(story: Story, forceReload = false): Promise<
       } catch (fetchError) {
         console.error('[storiesStore] Fallback also failed:', fetchError);
         
-        // Дополнительный fallback: пробуем загрузить из локальной папки public/stories
-        const localUrl = `/stories/${fileName}`;
-        console.log('[storiesStore] Пробуем локальный URL:', localUrl);
-        try {
-          const localResponse = await fetch(localUrl);
-          if (localResponse.ok) {
-            const localData = await localResponse.json();
-            setStoryCache(storyId, localData);
-            return localData;
-          }
-        } catch (localError) {
-          console.error('[storiesStore] Локальный fallback тоже не работает');
-        }
-        
         // Пробуем кэш как последний шанс
         const cachedData = getStoryFromCache(storyId);
         if (cachedData) {
@@ -487,7 +492,7 @@ export async function loadStoryJson(story: Story, forceReload = false): Promise<
 
     const text = await data.text();
     const jsonData = JSON.parse(text);
-    console.log('[storiesStore] История загружена успешно');
+    console.log('[storiesStore] История загружена из Supabase');
     
     // Сохраняем в кэш
     setStoryCache(storyId, jsonData);

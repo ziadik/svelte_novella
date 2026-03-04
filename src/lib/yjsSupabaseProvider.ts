@@ -256,6 +256,9 @@ export class YjsSupabaseProvider {
   async saveState() {
     if (this.isDestroyed) return;
     
+    console.log('[Yjs] saveState вызвано, lastSavedTimestamp:', this.lastSavedTimestamp);
+    this.logBoard('>>> saveState');
+    
     try {
       // Получаем текущий timestamp из БД
       const { data: existing, error: fetchError } = await supabase
@@ -273,9 +276,13 @@ export class YjsSupabaseProvider {
         ? new Date(existing.updated_at).getTime() 
         : 0;
 
+      console.log('[Yjs] remoteTimestamp:', remoteTimestamp);
+
       // Проверяем что локальное состояние новее
       if (this.lastSavedTimestamp > 0 && this.lastSavedTimestamp < remoteTimestamp) {
-        console.log('[Yjs] Удаленное состояние новее, пропускаем сохранение');
+        console.log('[Yjs] ⚠️ Удаленное состояние новее, пропускаем сохранение');
+        // Но всё равно отправляем broadcast!
+        this.forceBroadcast();
         return;
       }
 
@@ -283,6 +290,8 @@ export class YjsSupabaseProvider {
       const stateVector = Y.encodeStateAsUpdate(this.doc);
       const stateBase64 = btoa(String.fromCharCode(...stateVector));
       const now = new Date().toISOString();
+      
+      console.log('[Yjs] Сохраняем в БД, размер state:', stateVector.length);
       
       // Сохраняем
       const { error: upsertError } = await supabase
@@ -297,11 +306,31 @@ export class YjsSupabaseProvider {
         console.error('[Yjs] Ошибка сохранения:', upsertError);
       } else {
         this.lastSavedTimestamp = new Date(now).getTime();
-        console.log('[Yjs] Состояние сохранено, timestamp:', this.lastSavedTimestamp);
+        console.log('[Yjs] ✅ Состояние сохранено, timestamp:', this.lastSavedTimestamp);
+        
+        // Принудительно отправляем broadcast после сохранения
+        this.forceBroadcast();
       }
     } catch (e) {
       console.error('[Yjs] Ошибка сохранения:', e);
     }
+  }
+
+  // Принудительно отправить broadcast
+  private forceBroadcast() {
+    console.log('[Yjs] Принудительная отправка broadcast...');
+    const stateVector = Y.encodeStateAsUpdate(this.doc);
+    const updateArray = Array.from(stateVector);
+    
+    this.channel.send({
+      type: "broadcast",
+      event: "yjs-update",
+      payload: { update: updateArray, isFullState: true },
+    }).then(() => {
+      console.log('[Yjs] ✅ Broadcast отправлен');
+    }).catch((err) => {
+      console.error('[Yjs] ❌ Ошибка broadcast:', err);
+    });
   }
 
   private finishInitialSync() {
