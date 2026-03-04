@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { gameState } from '../../store/gameStore.svelte';
-  import { storiesState, getPlayerStories, loadStoryJson, preloadAllStories } from '../../store/storiesStore.svelte';
-  import type { Story } from '../../store/storiesStore.svelte';
+  import { loadStoryJson, preloadAllStories, FALLBACK_STORIES, type Story } from '../../store/storiesStore.svelte';
+  import { gameModeState } from '../../store/gameModeStore.svelte';
 
   // В App.svelte управляется через window или dispatch event
   // Для простоты используем кастомное событие
@@ -14,25 +14,38 @@
   let autoSelected = $state(false);
   let storyLoading = $state<string | null>(null); // ID истории, которая сейчас загружается
 
+  // Постоянный список историй (fallback) - не зависит от БД
+  const availableStories: Story[] = FALLBACK_STORIES;
+
   onMount(async () => {
-    console.log('[StorySelector] Инициализация...');
-    await gameState.initStories();
-    console.log('[StorySelector] Истории загружены:', {
-      initialized: storiesState.initialized,
-      count: storiesState.stories.length,
-      available: getPlayerStories().length,
-      urlStoryId: gameState.urlStoryId
-    });
+    console.log('[StorySelector] Инициализация (постоянный список)...');
     
-    // Запускаем предзагрузку в фоне (не блокируем UI)
+    // Проверяем URL параметр story
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const storyParam = params.get('story');
+      if (storyParam) {
+        gameState.urlStoryId = storyParam;
+        console.log('[StorySelector] URL параметр story:', storyParam);
+      }
+    } catch (e) {
+      console.log('[StorySelector] Нет window.location (SSR?)');
+    }
+    
+    // Запускаем предзагрузку JSON в фоне (не блокируем UI)
     if (typeof window !== 'undefined') {
       preloadAllStories();
     }
     
     // Если история была выбрана через URL - загружаем её
-    if (gameState.urlStoryId && gameState.selectedStoryData && !autoSelected) {
-      autoSelected = true;
-      await selectAndLoadStory(gameState.selectedStoryData);
+    if (gameState.urlStoryId) {
+      const story = availableStories.find(s => s.id === gameState.urlStoryId);
+      if (story) {
+        autoSelected = true;
+        gameState.selectedStory = story.id;
+        gameState.selectedStoryData = story;
+        await selectAndLoadStory(story);
+      }
     }
     
     loading = false;
@@ -94,14 +107,14 @@
       <span class="games-arrow">→</span>
     </button>
 
-    {#if gameState.availableStories.length === 0}
+    {#if availableStories.length === 0}
       <div class="empty-state">
         <p>Историй пока нет</p>
         <p class="hint">Создайте свою историю в редакторе!</p>
       </div>
     {:else}
     <div class="stories-grid">
-      {#each gameState.availableStories as story (story.id)}
+      {#each availableStories as story (story.id)}
         {@const icon = defaultIcons[story.title.toLowerCase()] || '📖'}
         {@const isLoading = storyLoading === story.id}
         <div 

@@ -20,7 +20,8 @@
   function getItemIconUrl(iconName: string): string {
     // В игровом режиме используем локальные assets
     if (gameModeState.isGame) {
-      return `/stories/${bucket}/${iconName}`;
+      const basePath = import.meta.env.BASE_URL || '/';
+      return `${basePath}stories/${bucket}/${iconName}`;
     }
     // В редакторе используем Supabase
     return `${supabaseUrlFile}/storage/v1/object/public/${bucket}/${iconName}`;

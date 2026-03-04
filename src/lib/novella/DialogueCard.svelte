@@ -18,7 +18,8 @@ const currentDialogue = $derived(propDialogue || gameState.findDialogue(gameStat
 function getResourceUrl(fileName: string, bucket: string): string {
   // В игровом режиме используем локальные assets
   if (gameModeState.isGame) {
-    return `/stories/${bucket}/${fileName}`;
+    const basePath = import.meta.env.BASE_URL || '/';
+    return `${basePath}stories/${bucket}/${fileName}`;
   }
   // В редакторе используем Supabase
   return `${supabaseUrlFile}/storage/v1/object/public/${bucket}/${fileName}`;
