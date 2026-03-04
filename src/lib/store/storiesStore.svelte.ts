@@ -125,7 +125,7 @@ const stories: StoriesState = $state({
 // Функции для получения производных данных
 
 // Статический список историй для гостей (fallback)
-const FALLBACK_STORIES: Story[] = [
+export const FALLBACK_STORIES: Story[] = [
   {
     id: 'dracula',
     created_at: new Date().toISOString(),
@@ -438,7 +438,9 @@ export async function loadStoryJson(story: Story, forceReload = false): Promise<
 
     // В игровом режиме сначала пробуем локальные assets (public/stories/)
     if (gameModeState.isGame) {
-      const localUrl = `/stories/${bucket}/${fileName}`;
+      // Учитываем базовый путь (для GitHub Pages - /svelte_novella/)
+      const basePath = import.meta.env.BASE_URL || '/';
+      const localUrl = `${basePath}stories/${bucket}/${fileName}`;
       console.log('[storiesStore] Игровой режим - пробуем локальный URL:', localUrl);
       try {
         const localResponse = await fetch(localUrl);

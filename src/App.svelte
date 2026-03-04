@@ -35,7 +35,7 @@ import { gameState } from "./lib/store/gameStore.svelte";
   let resetPasswordToken = $state("");
   let showDebugPanel = $state(true);
 
-  // Обработка внешней ссылки на историю
+  // Обработка внешней ссылки на историю (игровой режим - без запроса к БД)
   async function handleExternalStoryLink() {
     const params = new URLSearchParams(window.location.search);
     const storyId = params.get("story");
@@ -45,21 +45,19 @@ import { gameState } from "./lib/store/gameStore.svelte";
 
     console.log("[App] Внешняя ссылка на историю:", { storyId, bucket });
 
-    // Инициализируем истории если ещё не загружены
-    await loadStories();
-
+    // В игровом режиме ищем только в fallback (без запроса к БД)
     let story = null;
 
     if (storyId) {
-      // Ищем по ID
+      // Ищем по ID в fallback
       story = getStoryById(storyId);
     } else if (bucket) {
-      // Ищем по bucket (для обратной совместимости)
+      // Ищем по bucket в fallback
       story = getStoryByBucket(bucket);
     }
 
     if (story) {
-      console.log("[App] Найдена история:", story.title);
+      console.log("[App] Найдена история (fallback):", story.title);
       // Устанавливаем историю для автоматического запуска
       gameState.selectedStory = story.id;
       gameState.selectedStoryData = story;
@@ -69,7 +67,7 @@ import { gameState } from "./lib/store/gameStore.svelte";
       return story;
     }
 
-    console.log("[App] История не найдена");
+    console.log("[App] История не найдена в fallback");
     return null;
   }
 

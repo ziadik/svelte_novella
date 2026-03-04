@@ -13,7 +13,8 @@
   function getRiveUrl(): string {
     // В игровом режиме используем локальные assets
     if (gameModeState.isGame) {
-      return `/stories/${bucketName}/${fileName}`;
+      const basePath = import.meta.env.BASE_URL || '/';
+      return `${basePath}stories/${bucketName}/${fileName}`;
     }
     // В редакторе используем Supabase
     return `${supabaseUrlFile}/storage/v1/object/public/${bucketName}/${fileName}`;
