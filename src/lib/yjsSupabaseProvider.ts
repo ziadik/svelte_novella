@@ -95,16 +95,20 @@ export class YjsSupabaseProvider {
             
             console.log('[Yjs] Board после полной замены:', JSON.stringify(simpleBoard));
             
-            // Удаляем дубликаты если есть
-            if (yBoard.length > 9) {
-              console.log('[Yjs] Удаляем дубликаты, было:', yBoard.length);
+            // Удаляем дубликаты - определяем реальный размер по максимальной position
+            const maxPosition = Math.max(...sorted.map(item => item.position), -1);
+            const expectedLength = maxPosition + 1;
+            
+            if (yBoard.length > expectedLength) {
+              console.log('[Yjs] Удаляем дубликаты, было:', yBoard.length, 'ожидается:', expectedLength);
               yBoard.delete(0, yBoard.length);
               // Вставляем только уникальные по position
               const uniqueMap = new Map<number, string | null>();
               for (const item of sorted) {
                 uniqueMap.set(item.position, item.value);
               }
-              const unique = Array.from({length: 9}, (_, i) => ({position: i, value: uniqueMap.get(i) ?? null}));
+              // Создаём массив правильного размера
+              const unique = Array.from({length: expectedLength}, (_, i) => ({position: i, value: uniqueMap.get(i) ?? null}));
               yBoard.insert(0, unique);
               simpleBoard = unique.map(item => item.value);
               console.log('[Yjs] После удаления дубликатов:', JSON.stringify(simpleBoard));

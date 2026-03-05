@@ -20,10 +20,12 @@
     bucketName = "dracula",
   } = $props<MinigameProps>();
 
-  const SIZE = 3;
+  // ===== НАСТРОЙКИ РЕВЕРСИ =====
+  const SIZE = 8; // Поле 8x8 для Реверси
   const TIMEOUT = 1000;
-  const PLAYERS = ['❌', '⭕'] as const;
-  const YJS_SYMBOLS = ['X', 'O'] as const; // Символы для Yjs
+  const PLAYERS = ['⚫', '⚪'] as const; // Черные и белые
+  const YJS_SYMBOLS = ['X', 'O'] as const; // X = Black (черные), O = White (белые)
+
   type Player = typeof PLAYERS[number];
 
   // Конвертация Yjs символ -> отображаемый символ
@@ -58,45 +60,45 @@
   let currentPlayer = $state<Player>(PLAYERS[0]);
   let gameOver = $state(false);
   let winner = $state<Player | null>(null);
+  
+  // Для Реверси нужно знать счет
+  let blackCount = $state(2);
+  let whiteCount = $state(2);
+  let validMoves = $state<number[]>([]); // Доступные ходы для текущего игрока
 
   // Онлайн-состояние
   let roomId = $state('');
-  let roomName = $state(''); // Имя комнаты для отображения
+  let roomName = $state('');
   let playerSymbol: Player | null = $state(null);
   let isConnected = $state(false);
-  let waitingForOpponent = $state(false); // Ожидание второго игрока
-  let opponentJoined = $state(false); // Второй игрок присоединился
+  let waitingForOpponent = $state(false);
+  let opponentJoined = $state(false);
   
   // Yjs
   let doc: Y.Doc | null = null;
   let provider: YjsSupabaseProvider | null = null;
-  let yBoard: Y.Array<string | null> | null = null;
+  let yBoard: Y.Array<{ position: number; value: string | null }> | null = null;
 
   let modal = $state<ModalState>({ show: false, title: "", text: "", actions: [] });
 
-  // Деструктивная функция для очистки
+  // ===== ОЧИСТКА =====
   async function cleanup() {
-    // Останавливаем ожидание оппонента
     stopWaitingForOpponent();
     
-   // Останавливаем таймер приглашения
     if (inviteTimeout) {
       clearTimeout(inviteTimeout);
       inviteTimeout = null;
     }
     isWaitingForAccept = false;
     
-    // Очищаем интервал сохранения
     if (provider && (provider as any).saveInterval) {
       clearInterval((provider as any).saveInterval);
     }
     
-    // Сохраняем最后一次 состояние перед выходом
     if (provider) {
       await provider.saveState();
     }
     
-    // Удаляем игрока из комнаты по user_key
     if (roomId) {
       const userKey = userKeyStore.getCurrentKey();
       if (userKey) {
@@ -127,21 +129,17 @@
   }
 
   onDestroy(() => {
-    // Останавливаем ожидание оппонента
     stopWaitingForOpponent();
     
-    // Останавливаем таймер приглашения
     if (inviteTimeout) {
       clearTimeout(inviteTimeout);
       inviteTimeout = null;
     }
     
-    // Очищаем интервал сохранения
     if (provider && (provider as any).saveInterval) {
       clearInterval((provider as any).saveInterval);
     }
     
-    // Синхронная очистка без await
     if (provider) {
       provider.destroy();
       provider = null;
@@ -151,86 +149,70 @@
       doc = null;
     }
     yBoard = null;
-    // Асинхронную очистку игроков можно опустить при размонтировании
   });
 
   // ===== ОНЛАЙН РЕЖИМ =====
-
   function showOnlineMenu() {
     gameMode = 'online_menu';
     loadRooms();
   }
 
-  // Очистка старых комнат (старше 1 часа)
   async function cleanupOldRooms() {
     try {
       const oneHourAgo = new Date(Date.now() - 3600000).toISOString();
       
-      // Получаем старые комнаты
       const { data: oldRooms } = await supabase
         .from('game_rooms')
         .select('room_id')
-        .eq('game_type', 'tic_tac_toe')
+        .eq('game_type', 'reversi')
         .lt('created_at', oneHourAgo);
       
       if (oldRooms && oldRooms.length > 0) {
         const oldRoomIds = oldRooms.map(r => r.room_id);
         
-        // Удаляем игроков из старых комнат
         await supabase
           .from('game_players')
           .delete()
           .in('room_id', oldRoomIds);
         
-        // Удаляем старые комнаты
         await supabase
           .from('game_rooms')
           .delete()
           .in('room_id', oldRoomIds);
-        
-        console.log(`[TicTacToe] Удалено ${oldRoomIds.length} старых комнат`);
       }
     } catch (e) {
-      console.error('[TicTacToe] Ошибка очистки старых комнат:', e);
+      console.error('[Reversi] Ошибка очистки старых комнат:', e);
     }
   }
 
   async function loadRooms() {
     isLoadingRooms = true;
-    
-    // Очищаем старые комнаты при каждой загрузке
     await cleanupOldRooms();
     
     try {
-      // Получаем список комнат с количеством игроков
-      // Supabase RPC требует имена параметров, совпадающие с определением функции
       const { data, error } = await supabase
-        .rpc('get_active_rooms', { p_game_type: 'tic_tac_toe' });
+        .rpc('get_active_rooms', { p_game_type: 'reversi' });
       
       if (error) {
         console.error('Error loading rooms:', error);
-        // Если RPC не работает - пробуем получить комнаты напрямую из таблицы
         await loadRoomsFromTable();
       } else {
         rooms = data || [];
       }
     } catch (e) {
       console.error('Error loading rooms:', e);
-      // Пробуем получить комнаты напрямую из таблицы
       await loadRoomsFromTable();
     }
     isLoadingRooms = false;
   }
 
-  // Альтернативный способ загрузки комнат - напрямую из таблицы
   async function loadRoomsFromTable() {
     try {
-      // Получаем комнаты
       const { data: roomsData, error: roomsError } = await supabase
         .from('game_rooms')
         .select('room_id, room_name, created_at')
-        .eq('game_type', 'tic_tac_toe')
-        .gt('created_at', new Date(Date.now() - 3600000).toISOString()) // последний час
+        .eq('game_type', 'reversi')
+        .gt('created_at', new Date(Date.now() - 3600000).toISOString())
         .order('created_at', { ascending: false });
 
       if (roomsError) {
@@ -239,7 +221,6 @@
         return;
       }
 
-      // Для каждой комнаты получаем количество игроков
       const roomsWithPlayers = await Promise.all(
         (roomsData || []).map(async (room) => {
           const { count } = await supabase
@@ -256,7 +237,6 @@
         })
       );
 
-      // Фильтруем комнаты с менее чем 2 игроками
       rooms = roomsWithPlayers.filter(r => r.player_count < 2);
     } catch (e) {
       console.error('Error in loadRoomsFromTable:', e);
@@ -265,24 +245,19 @@
   }
 
   function generateRoomId(): string {
-    return `ttt_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+    return `reversi_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
   }
 
   function generateRoomName(): string {
-    // Формат: UserName userkey{3}24H
     const userKey = userKeyStore.getCurrentKey() || '';
-    const key3 = userKey.slice(-3); // последние 3 символа userKey
-    
-    // Получаем текущее время в формате 24H (час)
+    const key3 = userKey.slice(-3);
     const now = new Date();
     const hour = now.getHours().toString().padStart(2, '0');
     
-    // Пробуем получить имя из Telegram
     let username = 'Player';
     if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp?.initDataUnsafe?.user) {
       const tgUser = (window as any).Telegram.WebApp.initDataUnsafe.user;
       username = tgUser.first_name || tgUser.username || 'Player';
-      // Ограничиваем длину имени
       if (username.length > 10) {
         username = username.slice(0, 10);
       }
@@ -295,20 +270,16 @@
     roomName = newRoomName.trim() || generateRoomName();
     const newRoomId = generateRoomId();
     
-    console.log('[TicTacToe] Создание комнаты:', newRoomId);
-    
-    // Создаем комнату в game_rooms
     const userKey = userKeyStore.getCurrentKey();
     const { error } = await supabase.from('game_rooms').insert({
       room_id: newRoomId,
       room_name: roomName,
-      game_type: 'tic_tac_toe',
+      game_type: 'reversi',
       created_by: userKey || `guest_${Date.now()}`,
     });
 
     if (error) {
-      console.error('[TicTacToe] Error creating room:', error);
-      // Пробуем создать таблицу если её нет
+      console.error('[Reversi] Error creating room:', error);
       if (error.message.includes('relation') || error.code === '42P01') {
         showModal("⚠️ Ошибка", "Таблица комнат не настроена. Обратитесь к администратору.", [
           { text: "OK", action: hideModal }
@@ -321,7 +292,6 @@
       return;
     }
 
-    console.log('[TicTacToe] Комната создана:', newRoomId);
     newRoomName = '';
     roomId = newRoomId;
     await joinOnlineRoom();
@@ -332,39 +302,26 @@
     await joinOnlineRoom();
   }
 
-  // Проверка и создание таблиц
   async function ensureTableExists(): Promise<boolean> {
     try {
-      // Проверяем game_rooms
       const { error: roomsError } = await supabase
         .from('game_rooms')
         .select('id', { count: 'exact', head: true })
         .limit(1);
       
-      if (roomsError) {
-        console.error('[TicTacToe] Таблица game_rooms не существует:', roomsError);
-      }
-      
-      // Проверяем game_players
       const { error: playersError } = await supabase
         .from('game_players')
         .select('id', { count: 'exact', head: true })
         .limit(1);
       
-      if (playersError) {
-        console.error('[TicTacToe] Таблица game_players не существует:', playersError);
-      }
-      
-      // Если хотя бы одна таблица не существует
       if ((roomsError && roomsError.message.includes('does not exist')) || 
           (playersError && playersError.message.includes('does not exist'))) {
-        console.error('[TicTacToe] Таблицы БД не настроены');
         return false;
       }
       
       return true;
     } catch (e) {
-      console.error('[TicTacToe] Error checking tables:', e);
+      console.error('[Reversi] Error checking tables:', e);
       return false;
     }
   }
@@ -372,7 +329,6 @@
   async function joinOnlineRoom() {
     if (!roomId.trim()) return;
 
-    // Получаем имя комнаты из БД
     const { data: roomData } = await supabase
       .from('game_rooms')
       .select('room_name')
@@ -383,7 +339,6 @@
       roomName = roomData.room_name;
     }
 
-    // Проверяем/создаем таблицу
     const tableReady = await ensureTableExists();
     if (!tableReady) {
       showModal("⚠️ Ошибка", "Не удалось подключиться. Проверьте интернет.", [
@@ -392,7 +347,6 @@
       return;
     }
 
-    // Проверяем количество игроков в комнате
     const { data: players, error: playersError } = await supabase
       .from('game_players')
       .select('symbol')
@@ -407,12 +361,11 @@
     }
 
     if (!players || players.length === 0) {
-      playerSymbol = PLAYERS[0]; // ❌
-      waitingForOpponent = true; // Первый игрок ждёт второго
+      playerSymbol = PLAYERS[0]; // ⚫ (черные ходят первыми)
+      waitingForOpponent = true;
       opponentJoined = false;
     } else if (players.length === 1) {
-      playerSymbol = PLAYERS[1]; // ⭕
-      // Второй игрок присоединяется - игра начинается
+      playerSymbol = PLAYERS[1]; // ⚪
       waitingForOpponent = false;
       opponentJoined = true;
     } else {
@@ -422,7 +375,6 @@
       return;
     }
 
-    // Регистрируем игрока (сохраняем X/O в БД)
     const symbolForDb = playerSymbol === PLAYERS[0] ? YJS_SYMBOLS[0] : YJS_SYMBOLS[1];
     const userKey = userKeyStore.getCurrentKey();
     const { error: insertError } = await supabase.from('game_players').insert({
@@ -441,135 +393,159 @@
 
     // Инициализируем Yjs
     doc = new Y.Doc();
-    yBoard = doc.getArray<{position: number, value: string | null}>('board');
+    yBoard = doc.getArray<{ position: number; value: string | null }>('board');
 
-    // Создаём пустой board если его нет (для новых комнат)
-    // Защита от задвоения - проверяем точный размер
     if (yBoard.length !== SIZE * SIZE) {
-      console.log('[TicTacToe] Создаём board, текущий размер:', yBoard.length);
       if (yBoard.length > 0) {
         yBoard.delete(0, yBoard.length);
       }
-      // Создаём массив объектов {position, value}
-      const initialBoard = Array.from({length: SIZE * SIZE}, (_, i) => ({position: i, value: null}));
+      
+      // Начальная расстановка для Реверси
+      const initialBoard = Array.from({ length: SIZE * SIZE }, (_, i) => ({ position: i, value: null }));
+      
+      // Ставим 4 центральные фишки
+      const center1 = (SIZE/2 - 1) * SIZE + (SIZE/2 - 1);
+      const center2 = (SIZE/2 - 1) * SIZE + (SIZE/2);
+      const center3 = (SIZE/2) * SIZE + (SIZE/2 - 1);
+      const center4 = (SIZE/2) * SIZE + (SIZE/2);
+      
+      initialBoard[center1].value = YJS_SYMBOLS[1]; // ⚪
+      initialBoard[center2].value = YJS_SYMBOLS[0]; // ⚫
+      initialBoard[center3].value = YJS_SYMBOLS[0]; // ⚫
+      initialBoard[center4].value = YJS_SYMBOLS[1]; // ⚪
+      
       yBoard.insert(0, initialBoard);
-      console.log('[TicTacToe] Board создан, размер:', yBoard.length);
     }
 
-    // Наблюдатель за изменениями - конвертируем X/O -> ❌/⭕
+    // Наблюдатель за изменениями
     yBoard.observe((event) => {
-      // ВСЕГДА получаем свежую ссылку на массив!
-      const freshYBoard = doc!.getArray<{position: number, value: string | null}>('board');
+      const freshYBoard = doc!.getArray<{ position: number; value: string | null }>('board');
       if (!freshYBoard) return;
       
-      // Конвертируем Yjs символы в отображаемые
       const yjsBoard = freshYBoard.toArray();
       const sorted = yjsBoard.sort((a, b) => a.position - b.position);
       board = sorted.map(item => fromYjsSymbol(item.value));
-      const xCount = board.filter(c => c === PLAYERS[0]).length;
-      const oCount = board.filter(c => c === PLAYERS[1]).length;
       
-      // Логика определения хода:
-      // Если количества равны - ход первого (X/❌)
-      // Если X больше - ход второго (O/⭕)
-      currentPlayer = xCount === oCount ? PLAYERS[0] : (xCount > oCount ? PLAYERS[1] : PLAYERS[0]);
+      updateCounts();
       
-      console.log('[TicTacToe] Наблюдатель:', { xCount, oCount, currentPlayer });
-      winner = checkWinner(board);
-      console.log('[TicTacToe] Наблюдатель сработал, board:', JSON.stringify(board));
+      // Проверяем, есть ли ходы у текущего игрока
+      const moves = getValidMoves(board, currentPlayer);
       
-      // Ничья - только если все 9 ячеек заполнены (не null) и нет победителя
-      const hasAnyMove = board.some(cell => cell !== null);
-      if (winner || (hasAnyMove && board.length == 9 && board.every(cell => cell))) {
-        endGameOnline(winner);
+      if (moves.length === 0) {
+        // Если нет ходов, переключаем игрока
+        const nextPlayer = currentPlayer === PLAYERS[0] ? PLAYERS[1] : PLAYERS[0];
+        const nextMoves = getValidMoves(board, nextPlayer);
+        
+        if (nextMoves.length === 0) {
+          // Если у обоих нет ходов - игра окончена
+          endGameOnline(determineWinner());
+        } else {
+          // Просто переключаем игрока
+          currentPlayer = nextPlayer;
+          validMoves = nextMoves;
+          
+          // Показываем сообщение о пропуске хода
+          if (!gameOver && opponentJoined) {
+            showModal("⏭️ Ход пропущен", `У игрока ${currentPlayer === playerSymbol ? 'вас' : 'соперника'} нет доступных ходов. Ход переходит к ${currentPlayer === playerSymbol ? 'вам' : 'сопернику'}.`, [
+              { text: "OK", action: hideModal }
+            ]);
+          }
+        }
+      } else {
+        validMoves = moves;
+      }
+      
+      winner = determineWinner();
+      
+      // Проверка на конец игры
+      if (gameOver) return;
+      
+      const totalMoves = board.filter(cell => cell !== null).length;
+      if (totalMoves === SIZE * SIZE) {
+        endGameOnline(determineWinner());
       }
     });
 
-    // Подключаем провайдер с колбэками
     provider = new YjsSupabaseProvider(
       doc, 
       roomId, 
       () => {
-        // Колбэк после загрузки начального состояния
-        console.log('[TicTacToe] Колбэк: начальное состояние загружено');
-        
-        // Синхронизируем board
         syncBoardFromYjs();
       },
       (boardData?: (string | null)[] | null) => {
-        // Колбэк при удалённом обновлении (ход соперника)
-        console.log('[TicTacToe] 📡 Колбэк: получено обновление от соперника', boardData);
-        
         if (boardData && Array.isArray(boardData)) {
-          // Используем переданные данные напрямую из провайдера
           board = boardData.map(s => fromYjsSymbol(s));
         } else {
-          // Fallback - синхронизируем из Yjs
           syncBoardFromYjs();
           return;
         }
         
-        const xCount = board.filter(c => c === PLAYERS[0]).length;
-        const oCount = board.filter(c => c === PLAYERS[1]).length;
+        updateCounts();
         
-        // Определяем чей ход
-        currentPlayer = xCount === oCount ? PLAYERS[0] : (xCount > oCount ? PLAYERS[1] : PLAYERS[0]);
-        
-        console.log('[TicTacToe] Обновлено:', { xCount, oCount, currentPlayer, board: JSON.stringify(board) });
-        
-        winner = checkWinner(board);
-        // Ничья - только если все 9 ячеек заполнены (не null) и нет победителя
-        const hasAnyMove = board.some(cell => cell !== null);
-        if (winner || (hasAnyMove && board.every(cell => cell))) {
-          endGameOnline(winner);
+        // Проверяем ходы для текущего игрока
+        const moves = getValidMoves(board, currentPlayer);
+        if (moves.length === 0) {
+          // Автоматический пропуск хода
+          const nextPlayer = currentPlayer === PLAYERS[0] ? PLAYERS[1] : PLAYERS[0];
+          const nextMoves = getValidMoves(board, nextPlayer);
+          
+          if (nextMoves.length === 0) {
+            endGameOnline(determineWinner());
+          } else {
+            currentPlayer = nextPlayer;
+            validMoves = nextMoves;
+          }
+        } else {
+          validMoves = moves;
         }
         
-        console.log('[TicTacToe] Текущий игрок после синхронизации:', currentPlayer, 'Вы:', playerSymbol);
+        winner = determineWinner();
+        
+        const totalMoves = board.filter(cell => cell !== null).length;
+        if (totalMoves === SIZE * SIZE) {
+          endGameOnline(determineWinner());
+        }
       }
     );
     isConnected = true;
     gameMode = 'online';
     
-    // Если оба игрока на месте - сразу синхронизируем
     if (opponentJoined) {
       syncBoardFromYjs();
     }
 
-    // Сохраняем состояние ТОЛЬКО после хода игрока (не по таймеру)
-    // Интервал убран - состояние сохраняется в handleOnlineClick
-    
-    // Если ждём оппонента - запускаем проверку
     if (waitingForOpponent) {
       startWaitingForOpponent();
     }
   }
 
-  // Синхронизировать локальный board из Yjs
   function syncBoardFromYjs() {
     if (!doc) return;
     
-    // Получаем СВЕЖУЮ ссылку на массив board
-    const currentYBoard = doc.getArray<{position: number, value: string | null}>('board');
+    const currentYBoard = doc.getArray<{ position: number; value: string | null }>('board');
     if (!currentYBoard) return;
     
     const yjsBoard = currentYBoard.toArray();
-    // Сортируем по position и извлекаем value
     const sorted = yjsBoard.sort((a, b) => a.position - b.position);
     board = sorted.map(item => fromYjsSymbol(item.value));
-    const xCount = board.filter(c => c === PLAYERS[0]).length;
-    const oCount = board.filter(c => c === PLAYERS[1]).length;
     
-    // Логика определения хода:
-    // Если количества равны - ход первого (X/❌)
-    // Если X больше - ход второго (O/⭕)
-    currentPlayer = xCount === oCount ? PLAYERS[0] : (xCount > oCount ? PLAYERS[1] : PLAYERS[0]);
+    updateCounts();
     
-    console.log('[TicTacToe] Синхронизация:', { xCount, oCount, currentPlayer });
-    winner = checkWinner(board);
-    console.log('[TicTacToe] Board синхронизирован:', JSON.stringify(board));
+    // Обновляем доступные ходы
+    validMoves = getValidMoves(board, currentPlayer);
+    
+    // Проверяем, нужно ли пропустить ход
+    if (validMoves.length === 0 && !gameOver) {
+      const nextPlayer = currentPlayer === PLAYERS[0] ? PLAYERS[1] : PLAYERS[0];
+      const nextMoves = getValidMoves(board, nextPlayer);
+      
+      if (nextMoves.length > 0) {
+        currentPlayer = nextPlayer;
+        validMoves = nextMoves;
+      }
+    }
   }
 
-  // Ожидание второго игрока с периодической проверкой
   let checkOpponentInterval: ReturnType<typeof setInterval> | null = null;
   
   function startWaitingForOpponent() {
@@ -579,24 +555,21 @@
         return;
       }
       
-      // Проверяем количество игроков
       const { data: players, error } = await supabase
         .from('game_players')
         .select('symbol')
         .eq('room_id', roomId);
       
       if (!error && players && players.length >= 2) {
-        // Второй игрок присоединился!
         stopWaitingForOpponent();
         opponentJoined = true;
         waitingForOpponent = false;
         
-        // Уведомляем первого игрока
-        showModal("🎉 Соперник найден!", "Игра началась! Вы играете за ❌", [
+        showModal("🎉 Соперник найден!", "Игра началась! Вы играете за ⚫ (черные)", [
           { text: "Начать игру", action: hideModal }
         ]);
       }
-    }, 2000); // Проверяем каждые 2 секунды
+    }, 2000);
   }
 
   function stopWaitingForOpponent() {
@@ -606,69 +579,202 @@
     }
   }
 
-  function handleOnlineClick(index: number) {
-    console.log('[TicTacToe] ХОД игрока:', playerSymbol, 'на позицию:', index);
+  // ===== ОСНОВНАЯ ЛОГИКА РЕВЕРСИ =====
+  
+  /**
+   * Проверка валидности хода для Реверси
+   */
+  function isValidMove(board: (Player | null)[], row: number, col: number, player: Player): boolean {
+    // Проверка границ
+    if (row < 0 || row >= SIZE || col < 0 || col >= SIZE) return false;
     
-    // Нельзя ходить если ждём соперника или игра не началась
-    if (!isConnected || !yBoard || gameOver || !opponentJoined) {
-      console.log('[TicTacToe] ❌ Ход заблокирован:', { isConnected, yBoard: !!yBoard, gameOver, opponentJoined });
-      return;
+    const index = row * SIZE + col;
+    
+    // Клетка должна быть пустой
+    if (board[index] !== null) return false;
+    
+    const opponent = player === PLAYERS[0] ? PLAYERS[1] : PLAYERS[0];
+    
+    // Направления: горизонталь, вертикаль, диагонали
+    const directions = [
+      [-1, -1], [-1, 0], [-1, 1],
+      [0, -1],           [0, 1],
+      [1, -1],  [1, 0],  [1, 1]
+    ];
+    
+    for (const [dx, dy] of directions) {
+      let x = row + dx;
+      let y = col + dy;
+      let foundOpponent = false;
+      
+      while (x >= 0 && x < SIZE && y >= 0 && y < SIZE) {
+        const cell = board[x * SIZE + y];
+        
+        if (cell === null) break;
+        
+        if (cell === opponent) {
+          foundOpponent = true;
+        } else if (cell === player) {
+          // Если нашли свою фишку после фишек противника - ход валиден
+          if (foundOpponent) return true;
+          break;
+        }
+        
+        x += dx;
+        y += dy;
+      }
     }
-    if (board[index] !== null) {
-      console.log('[TicTacToe] ❌ Ячейка занята');
-      return;
-    }
-    if (currentPlayer !== playerSymbol) {
-      console.log('[TicTacToe] ❌ Не ваш ход, сейчас:', currentPlayer, 'вы:', playerSymbol);
-      return;
-    }
+    
+    return false;
+  }
 
-    // Конвертируем ❌/⭕ в X/O для Yjs
-    const yjsSymbol = toYjsSymbol(playerSymbol!);
-    console.log('[TicTacToe] Вставляем:', {position: index, value: yjsSymbol});
+  /**
+   * Получение всех валидных ходов для игрока
+   */
+  function getValidMoves(board: (Player | null)[], player: Player): number[] {
+    const moves: number[] = [];
     
-    // Атомарное обновление через Yjs - заменяем объект
+    for (let row = 0; row < SIZE; row++) {
+      for (let col = 0; col < SIZE; col++) {
+        if (isValidMove(board, row, col, player)) {
+          moves.push(row * SIZE + col);
+        }
+      }
+    }
+    
+    return moves;
+  }
+
+  /**
+   * Применение хода и переворот фишек
+   */
+  function applyMove(board: (Player | null)[], row: number, col: number, player: Player): (Player | null)[] {
+    const newBoard = [...board];
+    const index = row * SIZE + col;
+    newBoard[index] = player;
+    
+    const opponent = player === PLAYERS[0] ? PLAYERS[1] : PLAYERS[0];
+    
+    const directions = [
+      [-1, -1], [-1, 0], [-1, 1],
+      [0, -1],           [0, 1],
+      [1, -1],  [1, 0],  [1, 1]
+    ];
+    
+    for (const [dx, dy] of directions) {
+      let x = row + dx;
+      let y = col + dy;
+      const toFlip: number[] = [];
+      
+      while (x >= 0 && x < SIZE && y >= 0 && y < SIZE) {
+        const cell = newBoard[x * SIZE + y];
+        
+        if (cell === null) break;
+        
+        if (cell === opponent) {
+          toFlip.push(x * SIZE + y);
+        } else if (cell === player) {
+          // Переворачиваем все фишки между
+          for (const flipIndex of toFlip) {
+            newBoard[flipIndex] = player;
+          }
+          break;
+        }
+        
+        x += dx;
+        y += dy;
+      }
+    }
+    
+    return newBoard;
+  }
+
+  /**
+   * Обновление счетчиков
+   */
+  function updateCounts() {
+    blackCount = board.filter(cell => cell === PLAYERS[0]).length;
+    whiteCount = board.filter(cell => cell === PLAYERS[1]).length;
+  }
+
+  /**
+   * Определение победителя
+   */
+  function determineWinner(): Player | null {
+    if (blackCount > whiteCount) return PLAYERS[0];
+    if (whiteCount > blackCount) return PLAYERS[1];
+    return null; // Ничья
+  }
+
+  function handleOnlineClick(index: number) {
+    if (!isConnected || !yBoard || gameOver || !opponentJoined) return;
+    if (board[index] !== null) return;
+    if (currentPlayer !== playerSymbol) return;
+    
+    const row = Math.floor(index / SIZE);
+    const col = index % SIZE;
+    
+    // Проверяем валидность хода
+    if (!isValidMove(board, row, col, playerSymbol!)) return;
+
+    // Применяем ход локально для预览 (но реальное обновление будет через Yjs)
+    const yjsSymbol = toYjsSymbol(playerSymbol!);
+    
     const current = yBoard.toArray();
-    console.log('[TicTacToe] Board до хода:', JSON.stringify(current));
     const itemToUpdate = current.find(item => item.position === index);
+    
     if (itemToUpdate) {
       const idx = current.indexOf(itemToUpdate);
-      yBoard.delete(idx, 1);
-      yBoard.insert(idx, [{position: index, value: yjsSymbol}]);
-      console.log('[TicTacToe] Ход выполнен, board после:', JSON.stringify(yBoard.toArray()));
+      
+      // Применяем ход с переворотами через Yjs
+      // В Реверси нужно обновить несколько клеток, поэтому создаем новый board в Yjs
+      const newBoard = applyMove(board, row, col, playerSymbol!);
+      
+      // Преобразуем обратно в формат Yjs
+      const yjsUpdates = newBoard.map((value, pos) => ({
+        position: pos,
+        value: value ? toYjsSymbol(value) : null
+      }));
+      
+      // Обновляем все клетки
+      yBoard.delete(0, yBoard.length);
+      yBoard.insert(0, yjsUpdates);
     }
 
-    // Сохраняем состояние после хода
     if (provider) {
-      console.log('[TicTacToe] Сохраняем состояние...');
       provider.saveState();
     }
   }
 
   function endGameOnline(winnerPlayer: Player | null) {
+    if (gameOver) return;
+    
     gameOver = true;
     winner = winnerPlayer;
+
+    const blackScore = blackCount;
+    const whiteScore = whiteCount;
 
     if (winnerPlayer) {
       const isMyWin = winnerPlayer === playerSymbol;
       if (integrated) {
-        const msg = isMyWin ? "🎉 Ты победил!" : "💀 Ты проиграл!";
+        const msg = isMyWin ? `🎉 Ты победил! ${blackScore}:${whiteScore}` : `💀 Ты проиграл! ${blackScore}:${whiteScore}`;
         showModal(isMyWin ? "🎉 Победа!" : "💀 Поражение", msg, []);
         setTimeout(() => { hideModal(); isMyWin ? onWin?.() : onLose?.(); }, TIMEOUT);
       } else {
-        const winnerName = winnerPlayer === PLAYERS[0] ? '❌' : '⭕';
+        const winnerName = winnerPlayer === PLAYERS[0] ? '⚫' : '⚪';
         const isMyWin = winnerPlayer === playerSymbol;
-        showModal(isMyWin ? "🎉 Ты победил!" : "💀 Ты проиграл", `Победил ${winnerName}`, [
+        showModal(isMyWin ? "🎉 Ты победил!" : "💀 Ты проиграл", `Победил ${winnerName}\nСчет: ${blackScore}:${whiteScore}`, [
           { text: "Играть снова", action: () => resetAndInvite() },
           { text: "В меню", action: async () => { hideModal(); await cleanup(); gameMode = 'menu'; } }
         ]);
       }
     } else {
       if (integrated) {
-        showModal("🤝 Ничья!", "Ничья!", []);
+        showModal("🤝 Ничья!", `Ничья! ${blackScore}:${whiteScore}`, []);
         setTimeout(() => { hideModal(); onLose?.(); }, TIMEOUT);
       } else {
-        showModal("🤝 Ничья!", "Ничья!", [
+        showModal("🤝 Ничья!", `Ничья!\nСчет: ${blackScore}:${whiteScore}`, [
           { text: "Играть снова", action: () => resetAndInvite() },
           { text: "В меню", action: async () => { hideModal(); await cleanup(); gameMode = 'menu'; } }
         ]);
@@ -679,53 +785,51 @@
   async function resetOnlineGame() {
     if (!yBoard) return;
     
-    console.log('[TicTacToe] Сброс игры...');
+    // Создаем начальную расстановку
+    const resetBoard = Array.from({ length: SIZE * SIZE }, (_, i) => ({ position: i, value: null }));
     
-    // Устанавливаем флаг сброса - игнорируем проверку на ничью в наблюдателе
-    isResetting = true;
+    const center1 = (SIZE/2 - 1) * SIZE + (SIZE/2 - 1);
+    const center2 = (SIZE/2 - 1) * SIZE + (SIZE/2);
+    const center3 = (SIZE/2) * SIZE + (SIZE/2 - 1);
+    const center4 = (SIZE/2) * SIZE + (SIZE/2);
     
-    // Сбрасываем доску в Yjs - создаём новые объекты
-    const resetBoard = Array.from({length: SIZE * SIZE}, (_, i) => ({position: i, value: null}));
+    resetBoard[center1].value = YJS_SYMBOLS[1]; // ⚪
+    resetBoard[center2].value = YJS_SYMBOLS[0]; // ⚫
+    resetBoard[center3].value = YJS_SYMBOLS[0]; // ⚫
+    resetBoard[center4].value = YJS_SYMBOLS[1]; // ⚪
+    
     yBoard.delete(0, yBoard.length);
     yBoard.insert(0, resetBoard);
     
-    console.log('[TicTacToe] Yjs board после сброса:', JSON.stringify(yBoard.toArray()));
-    
-    // Сбрасываем локальное состояние
     board = Array(SIZE * SIZE).fill(null);
-    currentPlayer = PLAYERS[0]; // Первый игрок всегда начинает
+    board[center1] = PLAYERS[1];
+    board[center2] = PLAYERS[0];
+    board[center3] = PLAYERS[0];
+    board[center4] = PLAYERS[1];
+    
+    currentPlayer = PLAYERS[0];
     gameOver = false;
     winner = null;
     
-    // Снимаем флаг сброса после небольшой задержки
-    setTimeout(() => {
-      isResetting = false;
-    }, 100);
+    updateCounts();
+    validMoves = getValidMoves(board, currentPlayer);
     
-    // Синхронизируем с другим игроком
     if (provider) {
-      console.log('[TicTacToe] Сохраняем состояние после сброса...');
       provider.saveState();
     }
     
     hideModal();
-    console.log('[TicTacToe] Игра сброшена');
   }
 
-  // Таймер для ожидания приглашения
   let inviteTimeout: ReturnType<typeof setTimeout> | null = null;
   let isWaitingForAccept = $state(false);
-  let isResetting = $state(false); // Флаг сброса игры
 
   async function resetAndInvite() {
-    // Сбрасываем игру
     await resetOnlineGame();
     
-    // Если игрок - первый (X), он приглашает
     if (playerSymbol === PLAYERS[0]) {
       isWaitingForAccept = true;
       
-      // Показываем модалку с приглашением
       showModal("🎮 Приглашение отправлено", `Поделитесь названием комнаты с другом:
 
 📋 ${roomName || roomId}
@@ -734,18 +838,15 @@
         { text: "Отмена", action: async () => { await cancelInviteAndExit(); } }
       ]);
       
-      // Таймер 30 секунд
       inviteTimeout = setTimeout(async () => {
-        console.log('[TicTacToe] Время ожидания истекло, выходим из комнаты');
         isWaitingForAccept = false;
         showModal("⏰ Время вышло", "Второй игрок не подтвердил приглашение", [
           { text: "В меню", action: async () => { hideModal(); await cleanup(); gameMode = 'menu'; } }
         ]);
       }, 30000);
     } else {
-      // Второй игрок (O) - он не может приглашать, просто играет снова
       hideModal();
-      showModal("🔄 Игра сброшена", "Доска очищена. Ход игрока ❌", [
+      showModal("🔄 Игра сброшена", "Доска очищена. Ход игрока ⚫", [
         { text: "OK", action: hideModal }
       ]);
     }
@@ -758,7 +859,6 @@
     }
     isWaitingForAccept = false;
     hideModal();
-    // Выходим из комнаты
     await cleanup();
     gameMode = 'online_menu';
     loadRooms();
@@ -777,21 +877,46 @@
   }
 
   function handleOfflineClick(index: number) {
-    if (gameOver || board[index]) return;
+    if (gameOver || board[index] !== null) return;
+    
+    const row = Math.floor(index / SIZE);
+    const col = index % SIZE;
+    
+    // Проверяем валидность хода
+    if (!isValidMove(board, row, col, currentPlayer)) return;
 
-    board[index] = currentPlayer;
-
-    if (checkWinner(currentPlayer)) {
-      endGame(currentPlayer);
+    // Применяем ход
+    board = applyMove(board, row, col, currentPlayer);
+    updateCounts();
+    
+    // Проверяем окончание игры
+    const totalMoves = board.filter(cell => cell !== null).length;
+    if (totalMoves === SIZE * SIZE) {
+      endGame(determineWinner());
       return;
     }
-
-    if (board.every(cell => cell)) {
-      endGame(null);
-      return;
+    
+    // Переключаем игрока
+    const nextPlayer = currentPlayer === PLAYERS[0] ? PLAYERS[1] : PLAYERS[0];
+    const nextMoves = getValidMoves(board, nextPlayer);
+    
+    if (nextMoves.length > 0) {
+      currentPlayer = nextPlayer;
+      validMoves = nextMoves;
+    } else {
+      // Если у следующего игрока нет ходов, проверяем текущего
+      const currentMoves = getValidMoves(board, currentPlayer);
+      if (currentMoves.length === 0) {
+        // Если ни у кого нет ходов - игра окончена
+        endGame(determineWinner());
+      } else {
+        // Пропускаем ход, показываем сообщение
+        showModal("⏭️ Ход пропущен", `У игрока ${nextPlayer === PLAYERS[0] ? '⚫' : '⚪'} нет доступных ходов.`, [
+          { text: "OK", action: hideModal }
+        ]);
+        // Остаемся с текущим игроком
+      }
     }
-
-    currentPlayer = currentPlayer === PLAYERS[0] ? PLAYERS[1] : PLAYERS[0];
 
     // Ход компьютера
     if (gameMode === 'computer' && currentPlayer === PLAYERS[1] && !gameOver) {
@@ -802,96 +927,111 @@
   function computerMove() {
     if (gameOver) return;
 
-    const emptyIndices = board.map((cell, i) => cell === null ? i : -1).filter(i => i !== -1);
-    if (emptyIndices.length === 0) return;
-
-    // Может ли выиграть?
-    for (const idx of emptyIndices) {
-      board[idx] = PLAYERS[1];
-      if (checkWin(PLAYERS[1])) {
-        endGame(PLAYERS[1]);
-        return;
+    const moves = getValidMoves(board, PLAYERS[1]);
+    if (moves.length === 0) {
+      // Если у компьютера нет ходов, переключаем на игрока
+      const playerMoves = getValidMoves(board, PLAYERS[0]);
+      if (playerMoves.length === 0) {
+        endGame(determineWinner());
+      } else {
+        currentPlayer = PLAYERS[0];
+        validMoves = playerMoves;
       }
-      board[idx] = null;
+      return;
     }
 
-    // Блокировать игрока?
-    for (const idx of emptyIndices) {
-      board[idx] = PLAYERS[0];
-      if (checkWin(PLAYERS[0])) {
-        board[idx] = PLAYERS[1];
-        if (checkWin(PLAYERS[1])) {
-          endGame(PLAYERS[1]);
-        } else if (board.every(cell => cell)) {
-          endGame(null);
-        } else {
-          currentPlayer = PLAYERS[0];
+    // Простая стратегия: выбирать угол или край, если есть
+    let bestMove = moves[0];
+    let bestScore = -1;
+    
+    for (const move of moves) {
+      const row = Math.floor(move / SIZE);
+      const col = move % SIZE;
+      
+      // Приоритет углов
+      if ((row === 0 || row === SIZE-1) && (col === 0 || col === SIZE-1)) {
+        bestMove = move;
+        break;
+      }
+      
+      // Приоритет краев
+      if (row === 0 || row === SIZE-1 || col === 0 || col === SIZE-1) {
+        if (bestScore < 2) {
+          bestMove = move;
+          bestScore = 2;
         }
-        return;
       }
-      board[idx] = null;
+      
+      // Иначе оцениваем количество переворачиваемых фишек
+      const testBoard = applyMove(board, row, col, PLAYERS[1]);
+      const newBlackCount = testBoard.filter(cell => cell === PLAYERS[1]).length;
+      
+      if (newBlackCount > bestScore) {
+        bestScore = newBlackCount;
+        bestMove = move;
+      }
     }
-
-    // Случайный ход
-    const randomIndex = emptyIndices[Math.floor(Math.random() * emptyIndices.length)];
-    board[randomIndex] = PLAYERS[1];
-
-    if (checkWin(PLAYERS[1])) {
-      endGame(PLAYERS[1]);
+    
+    const row = Math.floor(bestMove / SIZE);
+    const col = bestMove % SIZE;
+    
+    board = applyMove(board, row, col, PLAYERS[1]);
+    updateCounts();
+    
+    // Проверяем окончание игры
+    const totalMoves = board.filter(cell => cell !== null).length;
+    if (totalMoves === SIZE * SIZE) {
+      endGame(determineWinner());
       return;
     }
-
-    if (board.every(cell => cell)) {
-      endGame(null);
-      return;
+    
+    // Переключаем на игрока
+    const playerMoves = getValidMoves(board, PLAYERS[0]);
+    if (playerMoves.length > 0) {
+      currentPlayer = PLAYERS[0];
+      validMoves = playerMoves;
+    } else {
+      // Если у игрока нет ходов, компьютер ходит еще раз
+      const computerMoves = getValidMoves(board, PLAYERS[1]);
+      if (computerMoves.length > 0) {
+        showModal("⏭️ Ход пропущен", "У вас нет доступных ходов. Компьютер ходит снова.", [
+          { text: "OK", action: hideModal }
+        ]);
+        setTimeout(computerMove, 500);
+      } else {
+        endGame(determineWinner());
+      }
     }
-
-    currentPlayer = PLAYERS[0];
   }
 
   // ===== ОБЩИЕ ФУНКЦИИ =====
 
-  // Для офлайн-режима - проверка победы конкретного игрока
-  function checkWin(player: Player): boolean {
-    return checkWinner(board) === player;
-  }
-
-  function checkWinner(b: (Player | null)[]): Player | null {
-    const winPatterns = [
-      [0,1,2], [3,4,5], [6,7,8],
-      [0,3,6], [1,4,7], [2,5,8],
-      [0,4,8], [2,4,6]
-    ];
-    for (const pattern of winPatterns) {
-      const [a, bIdx, c] = pattern;
-      if (b[a] && b[a] === b[bIdx] && b[a] === b[c]) {
-        return b[a];
-      }
-    }
-    return null;
-  }
-
   function endGame(winnerPlayer: Player | null) {
+    if (gameOver) return;
+    
     gameOver = true;
     winner = winnerPlayer;
 
+    const blackScore = blackCount;
+    const whiteScore = whiteCount;
+
     if (winnerPlayer) {
-      const winnerName = winnerPlayer === PLAYERS[0] ? '❌' : '⭕';
+      const winnerName = winnerPlayer === PLAYERS[0] ? '⚫' : '⚪';
       if (integrated) {
         const isPlayer1Win = winnerPlayer === PLAYERS[0];
-        showModal(isPlayer1Win ? "🎉 Победа!" : "💀 Поражение", `Победил ${winnerName}!`, []);
+        showModal(isPlayer1Win ? "🎉 Победа!" : "💀 Поражение", `Победил ${winnerName}!\nСчет: ${blackScore}:${whiteScore}`, []);
         setTimeout(() => { hideModal(); isPlayer1Win ? onWin?.() : onLose?.(); }, TIMEOUT);
       } else {
-        showModal("🎉 Победа!", `Победил ${winnerName}!`, [
+        showModal("🎉 Победа!", `Победил ${winnerName}!\nСчет: ${blackScore}:${whiteScore}`, [
           { text: "Играть снова", action: initGame },
         ]);
       }
     } else {
       if (integrated) {
-        showModal("🤝 Ничья!", "Ничья!", []);
+        showModal("🤝 Ничья!", `Ничья! ${blackScore}:${whiteScore}`, []);
         setTimeout(() => { hideModal(); onLose?.(); }, TIMEOUT);
       } else {
-        showModal("🤝 Ничья!", "Ничья!", [
+        showModal("🤝 Ничья!", `Ничья!\nСчет: ${blackScore}:${whiteScore}`, [
           { text: "Играть снова", action: initGame },
         ]);
       }
@@ -899,17 +1039,33 @@
   }
 
   function initGame(): void {
+    // Начальная расстановка для Реверси
     board = Array(SIZE * SIZE).fill(null);
+    
+    const center1 = (SIZE/2 - 1) * SIZE + (SIZE/2 - 1);
+    const center2 = (SIZE/2 - 1) * SIZE + (SIZE/2);
+    const center3 = (SIZE/2) * SIZE + (SIZE/2 - 1);
+    const center4 = (SIZE/2) * SIZE + (SIZE/2);
+    
+    board[center1] = PLAYERS[1];
+    board[center2] = PLAYERS[0];
+    board[center3] = PLAYERS[0];
+    board[center4] = PLAYERS[1];
+    
     currentPlayer = PLAYERS[0];
     gameOver = false;
     winner = null;
+    
+    updateCounts();
+    validMoves = getValidMoves(board, currentPlayer);
+    
     hideModal();
   }
 
   function handleGiveUp(): void {
     gameOver = true;
     const winnerPlayer = currentPlayer === PLAYERS[0] ? PLAYERS[1] : PLAYERS[0];
-    const winnerName = winnerPlayer === PLAYERS[0] ? '❌' : '⭕';
+    const winnerName = winnerPlayer === PLAYERS[0] ? '⚫' : '⚪';
     
     if (integrated) {
       showModal("💀 Сдаюсь", `Победил ${winnerName}!`, []);
@@ -930,14 +1086,20 @@
   }
 
   function showRules(): void {
-    showModal("📖 Правила", `Крестики-нолики:
+    showModal("📖 Правила Реверси", `Отелло (Reversi) на поле 8x8:
 
-🎯 Цель: Первым выстроить 3 своих символа в ряд (по горизонтали, вертикали или диагонали).
+🎯 Цель: К концу игры иметь больше своих фишек на доске.
 
-❌ Игрок 1: ❌
-⭕ Игрок 2: ⭕
+⚫ Черные ходят первыми
+⚪ Белые ходят вторыми
 
-Режимы:
+📋 Правила хода:
+• Фишка ставится рядом с фишкой противника
+• По горизонтали, вертикали или диагонали должен быть непрерывный ряд фишек противника между новой и вашей старой фишкой
+• Все фишки противника в этом ряду переворачиваются на ваш цвет
+
+⏭️ Если у игрока нет ходов, он пропускает ход
+
 🤖 Компьютер — игра против AI
 👥 На одном — два игрока на одном устройстве
 🌐 Онлайн — игра по сети с другом`, [
@@ -971,7 +1133,7 @@
     />
 
     <div id="game-container">
-      <h2 class="menu-title">Выберите режим</h2>
+      <h2 class="menu-title">Реверси (Отелло)</h2>
       
       <button type="button" class="menu-btn" onclick={startComputerMode}>
         <span class="menu-icon">🤖</span>
@@ -1000,7 +1162,7 @@
     />
 
     <div id="game-container">
-      <h2 class="menu-title">Онлайн</h2>
+      <h2 class="menu-title">Онлайн Реверси</h2>
       
       <!-- Создание комнаты -->
       <div class="create-room-section">
@@ -1080,25 +1242,34 @@
             <p class="room-id-copy">{roomName || roomId}</p>
           </div>
         {:else}
+          <div class="score-board">
+            <div class="score black-score">⚫ {blackCount}</div>
+            <div class="score white-score">⚪ {whiteCount}</div>
+          </div>
+          
           <div class="status">
             {#if gameOver && winner}
-              Победил: <span class="winner">{winner}</span>
+              Победил: <span class="winner">{winner} ({winner === PLAYERS[0] ? blackCount : whiteCount})</span>
             {:else if gameOver}
-              Ничья
+              Ничья ({blackCount}:{whiteCount})
             {:else}
               Ход: <span class="current-player">{currentPlayer}</span>
+              {#if validMoves.length === 0}
+                <span class="no-moves-warning"> (нет ходов)</span>
+              {/if}
             {/if}
           </div>
           
-          <div class="board">
+          <div class="board board-8x8">
             {#each board as cell, i}
               <button
                 type="button"
-                class="cell"
-                class:x-cell={cell === PLAYERS[0]}
-                class:o-cell={cell === PLAYERS[1]}
+                class="cell cell-8x8"
+                class:black-cell={cell === PLAYERS[0]}
+                class:white-cell={cell === PLAYERS[1]}
+                class:valid-move={!cell && !gameOver && currentPlayer === playerSymbol && validMoves.includes(i)}
                 onclick={() => handleOnlineClick(i)}
-                disabled={!!cell || gameOver || currentPlayer !== playerSymbol}
+                disabled={!!cell || gameOver || currentPlayer !== playerSymbol || !validMoves.includes(i)}
               >
                 {cell ?? ''}
               </button>
@@ -1106,25 +1277,34 @@
           </div>
         {/if}
       {:else}
+        <div class="score-board">
+          <div class="score black-score">⚫ {blackCount}</div>
+          <div class="score white-score">⚪ {whiteCount}</div>
+        </div>
+        
         <div class="status">
           {#if gameOver && winner}
-            Победил: <span class="winner">{winner}</span>
+            Победил: <span class="winner">{winner} ({winner === PLAYERS[0] ? blackCount : whiteCount})</span>
           {:else if gameOver}
-            Ничья
+            Ничья ({blackCount}:{whiteCount})
           {:else}
             Ход: <span class="current-player">{currentPlayer}</span>
+            {#if validMoves.length === 0}
+              <span class="no-moves-warning"> (нет ходов)</span>
+            {/if}
           {/if}
         </div>
         
-        <div class="board">
+        <div class="board board-8x8">
           {#each board as cell, i}
             <button
               type="button"
-              class="cell"
-              class:x-cell={cell === PLAYERS[0]}
-              class:o-cell={cell === PLAYERS[1]}
+              class="cell cell-8x8"
+              class:black-cell={cell === PLAYERS[0]}
+              class:white-cell={cell === PLAYERS[1]}
+              class:valid-move={!cell && !gameOver && (gameMode !== 'computer' || currentPlayer === PLAYERS[0]) && validMoves.includes(i)}
               onclick={() => handleOfflineClick(i)}
-              disabled={!!cell || gameOver || (gameMode === 'computer' && currentPlayer === PLAYERS[1])}
+              disabled={!!cell || gameOver || (gameMode === 'computer' && currentPlayer === PLAYERS[1]) || !validMoves.includes(i)}
             >
               {cell ?? ''}
             </button>
@@ -1139,7 +1319,7 @@
           {#if gameMode === 'online'}
             Вы: {playerSymbol} | 
           {/if}
-          Ход: <strong>{currentPlayer}</strong>
+          Счет: ⚫ {blackCount} : {whiteCount} ⚪
         </span>
       </div>
     </GameFooter>
@@ -1181,12 +1361,6 @@
 
   .menu-icon {
     font-size: 1.5rem;
-  }
-
-  .online-section {
-    margin-top: 20px;
-    padding-top: 20px;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
   }
 
   .create-room-section {
@@ -1325,7 +1499,7 @@
     justify-content: center;
     align-items: center;
     max-width: 100%;
-    overflow: hidden;
+    overflow-x: auto;
     margin-bottom: 15px;
   }
 
@@ -1384,6 +1558,33 @@
     border: 1px solid #5e5c8a;
   }
 
+  .score-board {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    max-width: 300px;
+    margin-bottom: 10px;
+    padding: 8px 15px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .score {
+    font-size: 1.2rem;
+    font-weight: bold;
+  }
+
+  .black-score {
+    color: #666;
+    text-shadow: 0 0 5px rgba(255,255,255,0.3);
+  }
+
+  .white-score {
+    color: #fff;
+    text-shadow: 0 0 5px rgba(0,0,0,0.5);
+  }
+
   .status {
     text-align: center;
     font-size: 1rem;
@@ -1401,51 +1602,78 @@
     font-weight: bold;
   }
 
-  .board {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
+  .no-moves-warning {
+    color: #e94560;
+    font-size: 0.9rem;
   }
 
-  .cell {
-    width: 80px;
-    height: 80px;
-    font-size: 2.5rem;
+  /* Стили для поля 8x8 */
+  .board-8x8 {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 2px;
+    background: #2a2a40;
+    padding: 5px;
+    border-radius: 10px;
+  }
+
+  .cell-8x8 {
+    width: 50px;
+    height: 50px;
+    font-size: 1.5rem;
     background: linear-gradient(135deg, #4e4c75, #3d3b5c);
-    border: 2px solid #5e5c8a;
-    border-radius: 12px;
+    border: 1px solid #5e5c8a;
+    border-radius: 50%;
     color: white;
     cursor: pointer;
-    transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s;
+    transition: all 0.15s;
     display: flex;
     align-items: center;
     justify-content: center;
     font-family: inherit;
-    box-shadow: 0 4px 0 rgba(0, 0, 0, 0.3);
+    padding: 0;
   }
 
-  .cell:hover:not(:disabled) {
-    transform: translateY(-4px);
-    box-shadow: 0 8px 0 rgba(0, 0, 0, 0.4);
+  .cell-8x8:hover:not(:disabled) {
+    transform: scale(1.1);
     border-color: #e94560;
+    z-index: 2;
   }
 
-  .cell:active:not(:disabled) {
-    transform: translateY(0);
-    box-shadow: 0 2px 0 rgba(0, 0, 0, 0.4);
-  }
-
-  .cell:disabled {
+  .cell-8x8:disabled {
     cursor: not-allowed;
     opacity: 0.9;
   }
 
-  .cell.x-cell {
-    color: #e94560;
+  .black-cell {
+    background: radial-gradient(circle at 30% 30%, #666, #222);
+    color: #333;
+    text-shadow: 0 0 5px rgba(255,255,255,0.5);
+    border: 1px solid #444;
   }
 
-  .cell.o-cell {
-    color: #00cec9;
+  .white-cell {
+    background: radial-gradient(circle at 30% 30%, #fff, #aaa);
+    color: #fff;
+    text-shadow: 0 0 5px rgba(0,0,0,0.5);
+    border: 1px solid #ccc;
+  }
+
+  .valid-move {
+    position: relative;
+  }
+
+  .valid-move::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 12px;
+    height: 12px;
+    background-color: rgba(233, 69, 96, 0.5);
+    border-radius: 50%;
+    pointer-events: none;
   }
 
   .footer-stats {
@@ -1469,27 +1697,27 @@
     font-size: 1.1rem;
   }
 
-  @media (max-width: 800px) {
-    .cell {
-      width: 65px;
-      height: 65px;
-      font-size: 2rem;
+  @media (max-width: 600px) {
+    .cell-8x8 {
+      width: 40px;
+      height: 40px;
+      font-size: 1.2rem;
     }
   }
 
-  @media (max-width: 400px) {
-    .cell {
-      width: 55px;
-      height: 55px;
-      font-size: 1.6rem;
+  @media (max-width: 450px) {
+    .cell-8x8 {
+      width: 35px;
+      height: 35px;
+      font-size: 1rem;
     }
-  }
-
-  @media (max-width: 380px) {
-    .footer-stats {
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 8px;
+    
+    .score-board {
+      max-width: 250px;
+    }
+    
+    .score {
+      font-size: 1rem;
     }
   }
 </style>
