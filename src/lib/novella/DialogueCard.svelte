@@ -33,23 +33,17 @@ function getResourceUrl(fileName: string, bucket: string): string {
 
   // Проверка мобильного устройства
   let isMobile = $state(false);
+  let isDesktop = $derived(!isMobile);
   
   onMount(() => {
     isMobile = window.innerWidth < 768;
     window.addEventListener('resize', () => {
       isMobile = window.innerWidth < 768;
     });
-    
-    // Глобальный слушатель кликов для отладки
-    window.addEventListener('click', (e) => {
-      const target = e.target as HTMLElement;
-      console.log('[DialogueCard] Клик по:', target.tagName, target.className);
-    }, true);
   });
-
+    
   // Обработка входа в диалог (выполнение actions)
   $effect(() => {
-    console.log('[DialogueCard] Диалог изменился:', currentDialogue?.id, 'nextDialogueId:', currentDialogue?.nextDialogueId);
     if (currentDialogue?.onEnter) {
       gameState.runActions(currentDialogue.onEnter);
     }
@@ -57,7 +51,6 @@ function getResourceUrl(fileName: string, bucket: string): string {
 
   // Единая функция перехода к следующему диалогу
   function goToNext() {
-    console.log('[DialogueCard] goToNext() вызван, nextDialogueId:', currentDialogue?.nextDialogueId);
     if (currentDialogue?.nextDialogueId) {
       gameState.goToDialogue(currentDialogue.nextDialogueId);
     }
@@ -66,10 +59,21 @@ function getResourceUrl(fileName: string, bucket: string): string {
   // Ref для Rive компонента фона
   let backgroundRive: any = $state(null);
 
-  // Обработчик клика - запускает trigger T1 у background
-  function handleBackgroundRiveClick() {
+  // Обработчик клика - запускает trigger T1 у background (мобильные)
+  function handleBackgroundRiveClick(e: MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
     if (backgroundRive?.triggerT1) {
       backgroundRive.triggerT1();
+    }
+  }
+
+  // Обработчик клика по тексту диалога (десктоп) - переход к следующему
+  function handleDialogueContentClick(e: MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (isDesktop && !currentDialogue?.options?.length && currentDialogue?.nextDialogueId) {
+      goToNext();
     }
   }
 
@@ -87,7 +91,6 @@ function getResourceUrl(fileName: string, bucket: string): string {
   }
 
   function handleTouchEnd() {
-    console.log('[DialogueCard] handleTouchEnd(), isSwiping:', isSwiping, 'diff:', touchStartX - touchEndX, 'time:', Date.now() - touchStartTime);
     if (!isMobile || !isSwiping) return;
     isSwiping = false;
     
@@ -95,12 +98,9 @@ function getResourceUrl(fileName: string, bucket: string): string {
     const swipeThreshold = 50;
     const diff = touchStartX - touchEndX;
     
-    // Свайп влево - только если касание было дольше 200мс (чтобы отличить от клика)
+    // Свайп влево - только если касание было дольше 200мс
     if (diff > swipeThreshold && touchDuration > 200 && currentDialogue?.nextDialogueId) {
-      console.log('[DialogueCard] Свайп влево - переход');
       goToNext();
-    } else {
-      console.log('[DialogueCard] Это был клик или слишком короткий свайп, переход НЕ делаем');
     }
 
     touchStartX = 0;
@@ -243,7 +243,11 @@ function getResourceUrl(fileName: string, bucket: string): string {
     {/if}
 
     <!-- Контент - снизу -->
-    <div class="dialogue-content">
+    <div 
+      class="dialogue-content" 
+      class:clickable={isDesktop}
+      onclick={handleDialogueContentClick}
+    >
       <div class="dialogue-text">
         {currentDialogue.text}
       </div>
@@ -344,6 +348,14 @@ function getResourceUrl(fileName: string, bucket: string): string {
     box-sizing: border-box;
     max-height: 50vh;
     overflow-y: auto;
+  }
+
+  .dialogue-content.clickable {
+    cursor: pointer;
+  }
+  
+  .dialogue-content.clickable:hover {
+    background: rgba(29, 43, 56, 1);
   }
 
   .dialogue-text {

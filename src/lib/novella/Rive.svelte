@@ -28,14 +28,12 @@
     if (riveInstance) {
       try {
         const inputs = riveInstance.stateMachineInputs("SM1");
-        // Ищем trigger с именем T1
         const trigger = inputs.find(i => i.name === 'T1');       
         if (trigger) {
           (trigger as any).fire();
-          console.log('[Rive] Trigger fire:', trigger.name);
         }
       } catch (e) {
-        console.log('[Rive] Trigger error:', e);
+        console.error('[Rive] Trigger error:', e);
       }
     }
   }

@@ -23,6 +23,10 @@ import { gameState } from "./lib/store/gameStore.svelte";
   import { userKeyStore, type UserStats } from "./lib/store/userKeyStore";
   import { gameModeState, setAppMode } from "./lib/store/gameModeStore.svelte";
 
+  // Telegram WebApp данные
+  let tgUserFirstName = $state<string | null>(null);
+  let isTelegramApp = $state(false);
+
   let userKey: string | null = null;
   let userStats: UserStats | null = null;
   let isLoading: boolean = true;
@@ -141,6 +145,26 @@ import { gameState } from "./lib/store/gameStore.svelte";
   
   onMount(async () => {
     console.log("[App] Mounted");
+    
+    // Инициализация Telegram WebApp
+    if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
+      const tg = window.Telegram.WebApp;
+      
+      // Устанавливаем background color
+      const bg = tg.backgroundColor;
+      if (bg) {
+        document.body.style.backgroundColor = bg;
+      }
+      
+      // Получаем данные пользователя
+      tgUserFirstName = tg.initDataUnsafe?.user?.first_name || null;
+      isTelegramApp = true;
+      
+      // Расширяем приложение на весь экран
+      tg.expand();
+      
+      console.log("[App] Telegram WebApp initialized, user:", tgUserFirstName);
+    }
     
     // Запускаем таймер сессии
     userKeyStore.startSessionTimer();
@@ -275,6 +299,14 @@ import { gameState } from "./lib/store/gameStore.svelte";
   {#if !gameState.isMinigameActive}
     <UserMenu />
   {/if}
+  
+  <!-- Приветствие для Telegram пользователя -->
+  {#if isTelegramApp && tgUserFirstName}
+    <div class="tg-welcome">
+      Привет, {tgUserFirstName}! 👋
+    </div>
+  {/if}
+  
   <Main />
 {/if}
 
@@ -285,6 +317,9 @@ import { gameState } from "./lib/store/gameStore.svelte";
     <div><strong>Auth:</strong> {authDerivedState.isAuthenticated ? '✅' : '❌'}</div>
     <div><strong>User:</strong> {authState.user?.email || 'guest'}</div>
     <div><strong>Key:</strong> {userKey ? userKey.substring(0, 8) + '...' : 'none'}</div>
+    {#if isTelegramApp}
+      <div><strong>TG:</strong> ✅ {tgUserFirstName || 'anon'}</div>
+    {/if}
   </div>
   
   <!-- Панель аналитики (показываем только в специальном режиме) -->
@@ -458,5 +493,26 @@ import { gameState } from "./lib/store/gameStore.svelte";
   .analytics-panel .btn {
     padding: 6px 12px;
     font-size: 11px;
+  }
+
+  .tg-welcome {
+    position: fixed;
+    top: calc(var(--safe-area-top) + 10px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.7);
+    color: #fff;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 14px;
+    z-index: 100;
+    animation: fadeInOut 3s forwards;
+  }
+
+  @keyframes fadeInOut {
+    0% { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+    10% { opacity: 1; transform: translateX(-50%) translateY(0); }
+    80% { opacity: 1; }
+    100% { opacity: 0; }
   }
 </style>
