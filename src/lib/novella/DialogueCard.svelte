@@ -29,6 +29,7 @@ function getResourceUrl(fileName: string, bucket: string): string {
   let touchStartX = $state(0);
   let touchEndX = $state(0);
   let isSwiping = $state(false);
+  let touchStartTime = $state(0);
 
   // Проверка мобильного устройства
   let isMobile = $state(false);
@@ -38,34 +39,45 @@ function getResourceUrl(fileName: string, bucket: string): string {
     window.addEventListener('resize', () => {
       isMobile = window.innerWidth < 768;
     });
+    
+    // Глобальный слушатель кликов для отладки
+    window.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement;
+      console.log('[DialogueCard] Клик по:', target.tagName, target.className);
+    }, true);
   });
 
   // Обработка входа в диалог (выполнение actions)
   $effect(() => {
+    console.log('[DialogueCard] Диалог изменился:', currentDialogue?.id, 'nextDialogueId:', currentDialogue?.nextDialogueId);
     if (currentDialogue?.onEnter) {
       gameState.runActions(currentDialogue.onEnter);
     }
   });
 
-  function handleNext() {
+  // Единая функция перехода к следующему диалогу
+  function goToNext() {
+    console.log('[DialogueCard] goToNext() вызван, nextDialogueId:', currentDialogue?.nextDialogueId);
     if (currentDialogue?.nextDialogueId) {
       gameState.goToDialogue(currentDialogue.nextDialogueId);
     }
   }
 
-  // Обработчик клика - только для запуска Rive trigger (без перехода)
-  function handleContainerClick(e: MouseEvent) {
-    // Игнорируем клик на кнопках опций
-    const target = e.target as HTMLElement;
-    if (target.closest('button') || target.closest('.options-container')) return;
-    
-    // Клик больше не переходит к следующему диалогу - только свайп влево
+  // Ref для Rive компонента фона
+  let backgroundRive: any = $state(null);
+
+  // Обработчик клика - запускает trigger T1 у background
+  function handleBackgroundRiveClick() {
+    if (backgroundRive?.triggerT1) {
+      backgroundRive.triggerT1();
+    }
   }
 
   // Обработчики свайпа (только для мобильных)
   function handleTouchStart(e: TouchEvent) {
     if (!isMobile) return;
     touchStartX = e.touches[0].clientX;
+    touchStartTime = Date.now();
     isSwiping = true;
   }
 
@@ -75,27 +87,35 @@ function getResourceUrl(fileName: string, bucket: string): string {
   }
 
   function handleTouchEnd() {
+    console.log('[DialogueCard] handleTouchEnd(), isSwiping:', isSwiping, 'diff:', touchStartX - touchEndX, 'time:', Date.now() - touchStartTime);
     if (!isMobile || !isSwiping) return;
     isSwiping = false;
     
+    const touchDuration = Date.now() - touchStartTime;
     const swipeThreshold = 50;
     const diff = touchStartX - touchEndX;
     
-    // Свайп влево - следующий диалог
-    if (diff > swipeThreshold && currentDialogue?.nextDialogueId) {
-      handleNext();
+    // Свайп влево - только если касание было дольше 200мс (чтобы отличить от клика)
+    if (diff > swipeThreshold && touchDuration > 200 && currentDialogue?.nextDialogueId) {
+      console.log('[DialogueCard] Свайп влево - переход');
+      goToNext();
+    } else {
+      console.log('[DialogueCard] Это был клик или слишком короткий свайп, переход НЕ делаем');
     }
 
     touchStartX = 0;
     touchEndX = 0;
+    touchStartTime = 0;
   }
 
   function handleOptionSelect(option: any) {
+    console.log('[DialogueCard] handleOptionSelect() вызван, option:', option.text);
     if (option.actions) {
       gameState.runActions(option.actions);
     }
 
     if (option.miniGame) {
+      console.log('[DialogueCard] Запуск мини-игры:', option.miniGame.id);
       userKeyStore.trackGameStart(
         option.miniGame.id,
         option.miniGame.id,
@@ -112,6 +132,7 @@ function getResourceUrl(fileName: string, bucket: string): string {
     }
 
     if (option.nextDialogueId) {
+      console.log('[DialogueCard] Переход по опции к:', option.nextDialogueId);
       gameState.goToDialogue(option.nextDialogueId);
     }
   }
@@ -162,14 +183,14 @@ function getResourceUrl(fileName: string, bucket: string): string {
 </script>
 
 {#if currentDialogue}
-  <!-- Основной контейнер с поддержкой свайпа и клика -->
+  <!-- Основной контейнер - свайп и клик для trigger -->
   <div 
     class="dialogue-container"
     class:preview-mode={isPreview}
-    onclick={handleContainerClick}
     ontouchstart={handleTouchStart}
     ontouchmove={handleTouchMove}
     ontouchend={handleTouchEnd}
+    onclick={handleBackgroundRiveClick}
   >
     <!-- Мини-игра -->
     {#if gameState.activeMinigame}
@@ -188,7 +209,11 @@ function getResourceUrl(fileName: string, bucket: string): string {
       <div class="background-media">
         {#if currentDialogue.backgroundImage.endsWith(".riv")}
           {#key currentDialogue.backgroundImage}
-            <Rive fileName={currentDialogue.backgroundImage} {bucketName} isBackground={true} />
+            <Rive 
+              bind:this={backgroundRive}
+              fileName={currentDialogue.backgroundImage} 
+              {bucketName} 
+            />
           {/key}
         {:else}
           <img 
@@ -262,8 +287,9 @@ function getResourceUrl(fileName: string, bucket: string): string {
     overflow: hidden;
     background: #1a1a2e;
     touch-action: pan-y;
+    cursor: pointer;
   }
-
+  
   /* Режим предпросмотра - относительное позиционирование */
   .dialogue-container.preview-mode {
     position: relative;
@@ -279,6 +305,7 @@ function getResourceUrl(fileName: string, bucket: string): string {
     width: 100%;
     height: 100%;
     z-index: 1;
+    pointer-events: none;
   }
 
   .background-image {
@@ -296,6 +323,7 @@ function getResourceUrl(fileName: string, bucket: string): string {
     height: 90%;
     top: 10%;
     z-index: 2;
+    pointer-events: none;
   }
 
   .character-image {

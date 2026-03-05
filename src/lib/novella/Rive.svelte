@@ -4,7 +4,7 @@
   import { bucketName as defaultBucketName, supabaseUrlFile } from '../store/store.svelte';
   import { gameModeState } from '../store/gameModeStore.svelte';
 
-  let { fileName, bucketName = defaultBucketName, isBackground = false } = $props();
+  let { fileName, bucketName = defaultBucketName } = $props();
   let canvas = $state<HTMLCanvasElement | null>(null);
   let riveInstance = $state<rive.Rive | null>(null);
 
@@ -29,19 +29,10 @@
       try {
         const inputs = riveInstance.stateMachineInputs("SM1");
         // Ищем trigger с именем T1
-        const trigger = inputs.find(i => i.name === 'T1' && i.type === 'trigger');
+        const trigger = inputs.find(i => i.name === 'T1');       
         if (trigger) {
           (trigger as any).fire();
-          console.log('[Rive] Trigger T1 fired');
-        } else {
-          // Если T1 не найден, запускаем первый попавшийся trigger
-          for (const input of inputs) {
-            if (input.type === 'trigger') {
-              (input as any).fire();
-              console.log('[Rive] Trigger fired');
-              break;
-            }
-          }
+          console.log('[Rive] Trigger fire:', trigger.name);
         }
       } catch (e) {
         console.log('[Rive] Trigger error:', e);
@@ -53,29 +44,18 @@
     if (!canvas) return;
 
     const riveUrl = getRiveUrl();
-    console.log('[Rive] Загрузка из:', riveUrl);
 
     riveInstance = new rive.Rive({
       src: riveUrl,
       canvas,
       autoplay: true,
       stateMachines: "SM1", // SM1 содержит trigger T1
-      onStateChange: (event) => {
-        console.log('[Rive] State changed:', event);
-      },
     });
 
     return () => {
       riveInstance?.cleanup();
     };
   });
-
-  // Запускать trigger T1 только для background при клике
-  function handleCanvasClick() {
-    if (isBackground) {
-      triggerT1();
-    }
-  }
 </script>
 
 <div class="rive-wrapper">
@@ -83,7 +63,6 @@
     bind:this={canvas} 
     width="250" 
     height="500"
-    onclick={handleCanvasClick}
   ></canvas>
 </div>
 
