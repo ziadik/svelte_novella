@@ -364,9 +364,9 @@ class GameState {
 
   // Переход к диалогу
   goToDialogue(id: string): void {
-    console.log('[GameState] goToDialogue() вызван с id:', id, 'текущий:', this.currentDialogueId);
+    // console.log('[GameState] goToDialogue() вызван с id:', id, 'текущий:', this.currentDialogueId);
     // Выводим stack trace для отладки
-    console.log('[GameState] Stack trace:', new Error().stack);
+    // console.log('[GameState] Stack trace:', new Error().stack);
     this.currentDialogueId = id;
   }
 
