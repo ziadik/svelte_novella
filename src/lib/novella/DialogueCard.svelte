@@ -365,6 +365,10 @@ function getResourceUrl(fileName: string, bucket: string): string {
     box-sizing: border-box;
     max-height: 50vh;
     overflow-y: auto;
+    max-width: 600px;
+    margin: 0 auto;
+    left: 0;
+    right: 0;
   }
 
   .dialogue-content.clickable {
