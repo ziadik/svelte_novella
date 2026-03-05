@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
+  import { fly, fade } from "svelte/transition";
   import { gameState } from "../store/gameStore.svelte";
   import { gameModeState } from "../store/gameModeStore.svelte";
   import Rive from "./Rive.svelte";
@@ -43,10 +44,14 @@ function getResourceUrl(fileName: string, bucket: string): string {
   });
     
   // Обработка входа в диалог (выполнение actions)
+  let dialogKey = $state(0);
+  
   $effect(() => {
     if (currentDialogue?.onEnter) {
       gameState.runActions(currentDialogue.onEnter);
     }
+    // Меняем key для запуска анимации при смене диалога
+    dialogKey = currentDialogue?.id || 0;
   });
 
   // Единая функция перехода к следующему диалогу
@@ -192,6 +197,8 @@ function getResourceUrl(fileName: string, bucket: string): string {
     ontouchend={handleTouchEnd}
     onclick={handleBackgroundRiveClick}
   >
+    {#key dialogKey}
+      <div class="dialogue-inner" in:fly={{ x: 300, duration: 300, delay: 0 }} out:fly={{ x: -300, duration: 300 }}>
     <!-- Мини-игра -->
     {#if gameState.activeMinigame}
       <MinigameLauncher
@@ -269,12 +276,14 @@ function getResourceUrl(fileName: string, bucket: string): string {
           {/each}
         </div>
       {:else if currentDialogue.nextDialogueId}
-        <!-- Индикатор свайпа (если нет опций) -->
+    <!-- Индикатор свайпа (если нет опций) -->
         <div class="swipe-hint">
           <span>← свайп влево →</span>
         </div>
       {/if}
     </div>
+    </div>
+  {/key}
   </div>
 {:else}
   <p>Диалог не найден (ID: {gameState.currentDialogueId})</p>
@@ -294,6 +303,14 @@ function getResourceUrl(fileName: string, bucket: string): string {
     cursor: pointer;
   }
   
+  .dialogue-inner {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+  }
+
   /* Режим предпросмотра - относительное позиционирование */
   .dialogue-container.preview-mode {
     position: relative;

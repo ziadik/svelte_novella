@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { fly } from "svelte/transition";
+  // import { fly } from "svelte/transition";
   import { cubicOut } from "svelte/easing";
   import DialogueCard from "./DialogueCard.svelte";
   import StorySelector from "./components/StorySelector.svelte";
@@ -108,7 +108,7 @@
           {#key gameState.currentDialogueId}
             <div 
               class="dialogue-wrapper"
-              in:fly={{ y: 20, duration: 500, easing: cubicOut }}
+              // in:fly={{ y: 20, duration: 500, easing: cubicOut }}
             >
               <DialogueCard bucketName={gameState.selectedStoryData?.bucket || 'stories'} />
             </div>
