@@ -50,17 +50,6 @@
   });
 </script>
 
-<!-- Кнопка редактирования (desktop only, для авторизованных авторов) -->
-{#if authDerivedState.isAuthenticated && (authDerivedState.isAuthor || authDerivedState.isAdmin) && isOnline && isDesktop}
-  <button 
-    class="editor-btn desktop-only"
-    onclick={handleEditorClick}
-    title="Редактор историй"
-  >
-    ✏️
-  </button>
-{/if}
-
 <div class="user-menu">
   {#if authDerivedState.isAuthenticated}
     <button 
@@ -80,7 +69,7 @@
         <button class="trophies-btn" onclick={handleTrophiesClick}>
           🏆 Трофеи
         </button>
-        {#if (authDerivedState.isAuthor || authDerivedState.isAdmin) && isOnline && isDesktop}
+        {#if authDerivedState.isAuthenticated && (authDerivedState.isAuthor || authDerivedState.isAdmin) && isOnline && isDesktop}
           <button class="editor-btn-dropdown" onclick={handleEditorClick}>
             ✏️ Редактор
           </button>
