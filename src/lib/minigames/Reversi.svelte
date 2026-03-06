@@ -1,15 +1,23 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
-  import * as Y from 'yjs';
-  import { YjsSupabaseProvider } from '../../lib/yjsSupabaseProvider';
-  import { supabase } from '../../lib/supabaseClient';
-  import { userKeyStore } from '../../lib/store/userKeyStore';
-  import BodyWrapper from './components/BodyWrapper.svelte';
-  import GameHeader from './components/GameHeader.svelte';
-  import GameFooter from './components/GameFooter.svelte';
-  import MinigameModal from './components/MinigameModal.svelte';
-  import type { ModalState } from './types';
-  import type { MinigameProps } from './types';
+  import * as Y from "yjs";
+  import { YjsSupabaseProvider } from "../../lib/yjsSupabaseProvider";
+  import { supabase } from "../../lib/supabaseClient";
+  import { userKeyStore } from "../../lib/store/userKeyStore";
+  import BodyWrapper from "./components/BodyWrapper.svelte";
+  import GameHeader from "./components/GameHeader.svelte";
+  import GameFooter from "./components/GameFooter.svelte";
+  import MinigameModal from "./components/MinigameModal.svelte";
+  import type { ModalState } from "./types";
+  import type { MinigameProps } from "./types";
+
+  // Очищаем просроченные комнаты при загрузке
+  onMount(() => {
+    cleanupOldRooms();
+    // Запускаем периодическую очистку каждый час
+    const interval = setInterval(cleanupOldRooms, 60 * 60 * 1000);
+    return () => clearInterval(interval);
+  });
 
   let {
     integrated = false,
@@ -23,10 +31,10 @@
   // ===== НАСТРОЙКИ РЕВЕРСИ =====
   const SIZE = 8; // Поле 8x8 для Реверси
   const TIMEOUT = 1000;
-  const PLAYERS = ['⚫', '⚪'] as const; // Черные и белые
-  const YJS_SYMBOLS = ['X', 'O'] as const; // X = Black (черные), O = White (белые)
+  const PLAYERS = ["⚫", "⚪"] as const; // Черные и белые
+  const YJS_SYMBOLS = ["X", "O"] as const; // X = Black (черные), O = White (белые)
 
-  type Player = typeof PLAYERS[number];
+  type Player = (typeof PLAYERS)[number];
 
   // Конвертация Yjs символ -> отображаемый символ
   function fromYjsSymbol(s: string | null): Player | null {
@@ -41,75 +49,82 @@
   }
 
   // Режимы игры
-  type GameMode = 'menu' | 'computer' | 'local' | 'online' | 'online_menu';
-  let gameMode = $state<GameMode>('menu');
-  
+  type GameMode = "menu" | "computer" | "local" | "online" | "online_menu";
+  let gameMode = $state<GameMode>("menu");
+
   // Список комнат
   interface RoomInfo {
     room_id: string;
     room_name: string;
     player_count: number;
     created_at: string;
+    created_by_user_key?: string;
+    expires_at?: string;
+    is_user_in_room?: boolean;
+    user_symbol?: string;
+    other_player_symbol?: string;
   }
   let rooms = $state<RoomInfo[]>([]);
-  let newRoomName = $state('');
+  let newRoomName = $state("");
   let isLoadingRooms = $state(false);
-  
+
   // Офлайн-состояние
   let board = $state<(Player | null)[]>(Array(SIZE * SIZE).fill(null));
   let currentPlayer = $state<Player>(PLAYERS[0]);
   let gameOver = $state(false);
   let winner = $state<Player | null>(null);
-  
+
   // Для Реверси нужно знать счет
   let blackCount = $state(2);
   let whiteCount = $state(2);
   let validMoves = $state<number[]>([]); // Доступные ходы для текущего игрока
 
   // Онлайн-состояние
-  let roomId = $state('');
-  let roomName = $state('');
+  let roomId = $state("");
+  let roomName = $state("");
   let playerSymbol: Player | null = $state(null);
   let isConnected = $state(false);
   let waitingForOpponent = $state(false);
   let opponentJoined = $state(false);
-  
+
+  // Новые поля для комнаты
+  let roomCreator = $state<string | null>(null); // Кто создал комнату
+  let roomExpiresAt = $state<string | null>(null); // Время истечения комнаты
+
   // Yjs
   let doc: Y.Doc | null = null;
   let provider: YjsSupabaseProvider | null = null;
   let yBoard: Y.Array<{ position: number; value: string | null }> | null = null;
+  let yCurrentPlayer: Y.Map<string> | null = null;
 
-  let modal = $state<ModalState>({ show: false, title: "", text: "", actions: [] });
+  let modal = $state<ModalState>({
+    show: false,
+    title: "",
+    text: "",
+    actions: [],
+  });
 
   // ===== ОЧИСТКА =====
   async function cleanup() {
     stopWaitingForOpponent();
-    
+
     if (inviteTimeout) {
       clearTimeout(inviteTimeout);
       inviteTimeout = null;
     }
     isWaitingForAccept = false;
-    
+
     if (provider && (provider as any).saveInterval) {
       clearInterval((provider as any).saveInterval);
     }
-    
+
     if (provider) {
       await provider.saveState();
     }
-    
-    if (roomId) {
-      const userKey = userKeyStore.getCurrentKey();
-      if (userKey) {
-        await supabase
-          .from('game_players')
-          .delete()
-          .eq('room_id', roomId)
-          .eq('user_key', userKey);
-      }
-    }
-    
+
+    // НЕ удаляем игрока из комнаты при выходе, чтобы он мог вернуться
+    // Только если это не создатель, закрывающий комнату
+
     if (provider) {
       provider.destroy();
       provider = null;
@@ -119,27 +134,30 @@
       doc = null;
     }
     yBoard = null;
-    
-    roomId = '';
-    roomName = '';
+    yCurrentPlayer = null;
+
+    roomId = "";
+    roomName = "";
     playerSymbol = null;
     isConnected = false;
     waitingForOpponent = false;
     opponentJoined = false;
+    roomCreator = null;
+    roomExpiresAt = null;
   }
 
   onDestroy(() => {
     stopWaitingForOpponent();
-    
+
     if (inviteTimeout) {
       clearTimeout(inviteTimeout);
       inviteTimeout = null;
     }
-    
+
     if (provider && (provider as any).saveInterval) {
       clearInterval((provider as any).saveInterval);
     }
-    
+
     if (provider) {
       provider.destroy();
       provider = null;
@@ -153,54 +171,118 @@
 
   // ===== ОНЛАЙН РЕЖИМ =====
   function showOnlineMenu() {
-    gameMode = 'online_menu';
+    gameMode = "online_menu";
     loadRooms();
   }
 
   async function cleanupOldRooms() {
     try {
-      const oneHourAgo = new Date(Date.now() - 3600000).toISOString();
-      
-      const { data: oldRooms } = await supabase
-        .from('game_rooms')
-        .select('room_id')
-        .eq('game_type', 'reversi')
-        .lt('created_at', oneHourAgo);
-      
-      if (oldRooms && oldRooms.length > 0) {
-        const oldRoomIds = oldRooms.map(r => r.room_id);
-        
-        await supabase
-          .from('game_players')
-          .delete()
-          .in('room_id', oldRoomIds);
-        
-        await supabase
-          .from('game_rooms')
-          .delete()
-          .in('room_id', oldRoomIds);
-      }
+      // Пытаемся использовать RPC функцию для очистки
+      await supabase.rpc('cleanup_expired_rooms');
     } catch (e) {
-      console.error('[Reversi] Ошибка очистки старых комнат:', e);
+      // Если RPC недоступна, используем старый метод
+      try {
+        const oneHourAgo = new Date(Date.now() - 3600000).toISOString();
+
+        const { data: oldRooms } = await supabase
+          .from("game_rooms")
+          .select("room_id")
+          .eq("game_type", "reversi")
+          .lt("created_at", oneHourAgo);
+
+        if (oldRooms && oldRooms.length > 0) {
+          const oldRoomIds = oldRooms.map((r) => r.room_id);
+
+          await supabase.from("game_players").delete().in("room_id", oldRoomIds);
+
+          await supabase.from("game_rooms").delete().in("room_id", oldRoomIds);
+        }
+      } catch (e2) {
+        console.error("[Reversi] Ошибка очистки старых комнат:", e2);
+      }
+    }
+  }
+
+  // Функция для ручного закрытия комнаты (только для создателя)
+  async function closeRoomManually() {
+    const userKey = userKeyStore.getCurrentKey();
+
+    // Проверяем, является ли пользователь создателем
+    if (userKey !== roomCreator) {
+      showModal("🚫 Доступ запрещен", "Только создатель комнаты может закрыть её", [
+        { text: "OK", action: hideModal }
+      ]);
+      return;
+    }
+
+    showModal("❌ Закрыть комнату?", "Все игроки будут удалены из комнаты. Это действие нельзя отменить.", [
+      { 
+        text: "Закрыть", 
+        action: async () => {
+          await performCloseRoom();
+        },
+        class: "danger-btn"
+      },
+      { text: "Отмена", action: hideModal }
+    ]);
+  }
+
+  async function performCloseRoom() {
+    try {
+      // Удаляем игроков
+      await supabase
+        .from("game_players")
+        .delete()
+        .eq("room_id", roomId);
+
+      // Удаляем состояние игры
+      await supabase
+        .from("game_state")
+        .delete()
+        .eq("room_id", roomId);
+
+      // Удаляем комнату
+      await supabase
+        .from("game_rooms")
+        .delete()
+        .eq("room_id", roomId);
+
+      showModal("✅ Комната закрыта", "Комната успешно удалена", [
+        { text: "OK", action: async () => { 
+          hideModal();
+          await cleanup(); 
+          gameMode = 'online_menu'; 
+          loadRooms(); 
+        }}
+      ]);
+    } catch (e) {
+      console.error('[Reversi] Ошибка при закрытии комнаты:', e);
+      showModal("⚠️ Ошибка", "Не удалось закрыть комнату", [
+        { text: "OK", action: hideModal }
+      ]);
     }
   }
 
   async function loadRooms() {
     isLoadingRooms = true;
     await cleanupOldRooms();
-    
+
+    const userKey = userKeyStore.getCurrentKey();
+
     try {
-      const { data, error } = await supabase
-        .rpc('get_active_rooms', { p_game_type: 'reversi' });
-      
+      const { data, error } = await supabase.rpc("get_active_rooms", {
+        p_game_type: "reversi",
+        p_user_key: userKey,
+      });
+
       if (error) {
-        console.error('Error loading rooms:', error);
+        console.error("Error loading rooms:", error);
         await loadRoomsFromTable();
       } else {
         rooms = data || [];
       }
     } catch (e) {
-      console.error('Error loading rooms:', e);
+      console.error("Error loading rooms:", e);
       await loadRoomsFromTable();
     }
     isLoadingRooms = false;
@@ -209,37 +291,46 @@
   async function loadRoomsFromTable() {
     try {
       const { data: roomsData, error: roomsError } = await supabase
-        .from('game_rooms')
-        .select('room_id, room_name, created_at')
-        .eq('game_type', 'reversi')
-        .gt('created_at', new Date(Date.now() - 3600000).toISOString())
-        .order('created_at', { ascending: false });
+        .from("game_rooms")
+        .select("room_id, room_name, created_at, created_by_user_key, expires_at")
+        .eq("game_type", "reversi")
+        .gt("created_at", new Date(Date.now() - 3600000).toISOString())
+        .order("created_at", { ascending: false });
 
       if (roomsError) {
-        console.error('Error loading rooms from table:', roomsError);
+        console.error("Error loading rooms from table:", roomsError);
         rooms = [];
         return;
       }
 
+      // Фильтруем просроченные комнаты
+      const now = new Date();
+      const validRooms = (roomsData || []).filter(room => {
+        if (!room.expires_at) return true; // Если нет expires_at, считаем валидной
+        return new Date(room.expires_at) > now;
+      });
+
       const roomsWithPlayers = await Promise.all(
-        (roomsData || []).map(async (room) => {
+        validRooms.map(async (room) => {
           const { count } = await supabase
-            .from('game_players')
-            .select('*', { count: 'exact', head: true })
-            .eq('room_id', room.room_id);
-          
+            .from("game_players")
+            .select("*", { count: "exact", head: true })
+            .eq("room_id", room.room_id);
+
           return {
             room_id: room.room_id,
             room_name: room.room_name,
             player_count: count || 0,
-            created_at: room.created_at
+            created_at: room.created_at,
+            created_by_user_key: room.created_by_user_key,
+            expires_at: room.expires_at,
           };
-        })
+        }),
       );
 
-      rooms = roomsWithPlayers.filter(r => r.player_count < 2);
+      rooms = roomsWithPlayers.filter((r) => r.player_count < 2);
     } catch (e) {
-      console.error('Error in loadRoomsFromTable:', e);
+      console.error("Error in loadRoomsFromTable:", e);
       rooms = [];
     }
   }
@@ -249,51 +340,70 @@
   }
 
   function generateRoomName(): string {
-    const userKey = userKeyStore.getCurrentKey() || '';
+    const userKey = userKeyStore.getCurrentKey() || "";
     const key3 = userKey.slice(-3);
     const now = new Date();
-    const hour = now.getHours().toString().padStart(2, '0');
-    
-    let username = 'Player';
-    if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp?.initDataUnsafe?.user) {
+    const hour = now.getHours().toString().padStart(2, "0");
+
+    let username = "Player";
+    if (
+      typeof window !== "undefined" &&
+      (window as any).Telegram?.WebApp?.initDataUnsafe?.user
+    ) {
       const tgUser = (window as any).Telegram.WebApp.initDataUnsafe.user;
-      username = tgUser.first_name || tgUser.username || 'Player';
+      username = tgUser.first_name || tgUser.username || "Player";
       if (username.length > 10) {
         username = username.slice(0, 10);
       }
     }
-    
+
     return `${username} ${key3}${hour}`;
   }
 
   async function createRoom() {
     roomName = newRoomName.trim() || generateRoomName();
     const newRoomId = generateRoomId();
-    
+
     const userKey = userKeyStore.getCurrentKey();
-    const { error } = await supabase.from('game_rooms').insert({
+    if (!userKey) {
+      showModal("⚠️ Ошибка", "Не удалось идентифицировать пользователя", [
+        { text: "OK", action: hideModal }
+      ]);
+      return;
+    }
+
+    // Рассчитываем время истечения (24 часа)
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
+    const { error } = await supabase.from("game_rooms").insert({
       room_id: newRoomId,
       room_name: roomName,
-      game_type: 'reversi',
-      created_by: userKey || `guest_${Date.now()}`,
+      game_type: "reversi",
+      created_by: userKey,
+      created_by_user_key: userKey,
+      expires_at: expiresAt
     });
 
     if (error) {
-      console.error('[Reversi] Error creating room:', error);
-      if (error.message.includes('relation') || error.code === '42P01') {
-        showModal("⚠️ Ошибка", "Таблица комнат не настроена. Обратитесь к администратору.", [
-          { text: "OK", action: hideModal }
-        ]);
+      console.error("[Reversi] Error creating room:", error);
+      if (error.message.includes("relation") || error.code === "42P01") {
+        showModal(
+          "⚠️ Ошибка",
+          "Таблица комнат не настроена. Обратитесь к администратору.",
+          [{ text: "OK", action: hideModal }],
+        );
       } else {
         showModal("⚠️ Ошибка", `Не удалось создать комнату: ${error.message}`, [
-          { text: "OK", action: hideModal }
+          { text: "OK", action: hideModal },
         ]);
       }
       return;
     }
 
-    newRoomName = '';
+    newRoomName = "";
     roomId = newRoomId;
+    roomCreator = userKey;
+    roomExpiresAt = expiresAt;
     await joinOnlineRoom();
   }
 
@@ -305,23 +415,25 @@
   async function ensureTableExists(): Promise<boolean> {
     try {
       const { error: roomsError } = await supabase
-        .from('game_rooms')
-        .select('id', { count: 'exact', head: true })
+        .from("game_rooms")
+        .select("id", { count: "exact", head: true })
         .limit(1);
-      
+
       const { error: playersError } = await supabase
-        .from('game_players')
-        .select('id', { count: 'exact', head: true })
+        .from("game_players")
+        .select("id", { count: "exact", head: true })
         .limit(1);
-      
-      if ((roomsError && roomsError.message.includes('does not exist')) || 
-          (playersError && playersError.message.includes('does not exist'))) {
+
+      if (
+        (roomsError && roomsError.message.includes("does not exist")) ||
+        (playersError && playersError.message.includes("does not exist"))
+      ) {
         return false;
       }
-      
+
       return true;
     } catch (e) {
-      console.error('[Reversi] Error checking tables:', e);
+      console.error("[Reversi] Error checking tables:", e);
       return false;
     }
   }
@@ -329,187 +441,258 @@
   async function joinOnlineRoom() {
     if (!roomId.trim()) return;
 
-    const { data: roomData } = await supabase
-      .from('game_rooms')
-      .select('room_name')
-      .eq('room_id', roomId)
-      .single();
-    
-    if (roomData?.room_name) {
-      roomName = roomData.room_name;
+    const userKey = userKeyStore.getCurrentKey();
+    if (!userKey) {
+      showModal("⚠️ Ошибка", "Не удалось идентифицировать пользователя", [
+        { text: "OK", action: hideModal }
+      ]);
+      return;
     }
+
+    // Получаем информацию о комнате
+    const { data: roomData, error: roomError } = await supabase
+      .from("game_rooms")
+      .select("room_name, created_by_user_key, expires_at")
+      .eq("room_id", roomId)
+      .single();
+
+    if (roomError || !roomData) {
+      showModal("⚠️ Ошибка", "Комната не найдена", [
+        { text: "OK", action: hideModal }
+      ]);
+      return;
+    }
+
+    // Проверяем, не истекла ли комната
+    if (new Date(roomData.expires_at) < new Date()) {
+      showModal("⏰ Комната истекла", "Срок жизни комнаты (24 часа) истек", [
+        { text: "OK", action: () => { gameMode = 'online_menu'; loadRooms(); } }
+      ]);
+      return;
+    }
+
+    roomName = roomData.room_name;
+    roomCreator = roomData.created_by_user_key;
+    roomExpiresAt = roomData.expires_at;
 
     const tableReady = await ensureTableExists();
     if (!tableReady) {
       showModal("⚠️ Ошибка", "Не удалось подключиться. Проверьте интернет.", [
-        { text: "OK", action: hideModal }
+        { text: "OK", action: hideModal },
       ]);
       return;
     }
 
-    const { data: players, error: playersError } = await supabase
-      .from('game_players')
-      .select('symbol')
-      .eq('room_id', roomId);
+    // Проверяем, есть ли уже игрок в этой комнате
+    const { data: existingPlayer } = await supabase
+      .from("game_players")
+      .select("symbol")
+      .eq("room_id", roomId)
+      .eq("user_key", userKey)
+      .maybeSingle();
 
-    if (playersError) {
-      console.error('Error fetching players:', playersError);
-      showModal("⚠️ Ошибка", "Не удалось подключиться к комнате.", [
-        { text: "OK", action: hideModal }
-      ]);
-      return;
-    }
+    if (existingPlayer) {
+      // Игрок уже был в комнате, восстанавливаем его
+      playerSymbol = existingPlayer.symbol === YJS_SYMBOLS[0] ? PLAYERS[0] : PLAYERS[1];
 
-    if (!players || players.length === 0) {
-      playerSymbol = PLAYERS[0]; // ⚫ (черные ходят первыми)
-      waitingForOpponent = true;
-      opponentJoined = false;
-    } else if (players.length === 1) {
-      playerSymbol = PLAYERS[1]; // ⚪
-      waitingForOpponent = false;
-      opponentJoined = true;
+      // Получаем остальных игроков
+      const { data: otherPlayers } = await supabase
+        .from("game_players")
+        .select("symbol")
+        .eq("room_id", roomId)
+        .neq("user_key", userKey);
+
+      waitingForOpponent = !otherPlayers || otherPlayers.length === 0;
+      opponentJoined = otherPlayers !== null && otherPlayers.length > 0;
     } else {
-      showModal("🚫 Комната заполнена", "В этой комнате уже два игрока", [
-        { text: "OK", action: hideModal }
-      ]);
-      return;
-    }
+      // Новый игрок
+      const { data: players, error: playersError } = await supabase
+        .from("game_players")
+        .select("symbol")
+        .eq("room_id", roomId);
 
-    const symbolForDb = playerSymbol === PLAYERS[0] ? YJS_SYMBOLS[0] : YJS_SYMBOLS[1];
-    const userKey = userKeyStore.getCurrentKey();
-    const { error: insertError } = await supabase.from('game_players').insert({
-      room_id: roomId,
-      user_key: userKey || `guest_${Date.now()}`,
-      symbol: symbolForDb,
-    });
+      if (playersError) {
+        console.error("Error fetching players:", playersError);
+        showModal("⚠️ Ошибка", "Не удалось подключиться к комнате.", [
+          { text: "OK", action: hideModal },
+        ]);
+        return;
+      }
 
-    if (insertError) {
-      console.error('Error inserting player:', insertError);
-      showModal("⚠️ Ошибка", "Не удалось присоединиться к комнате.", [
-        { text: "OK", action: hideModal }
-      ]);
-      return;
+      if (!players || players.length === 0) {
+        playerSymbol = PLAYERS[0]; // ⚫ (черные ходят первыми)
+        waitingForOpponent = true;
+        opponentJoined = false;
+      } else if (players.length === 1) {
+        playerSymbol = PLAYERS[1]; // ⚪
+        waitingForOpponent = false;
+        opponentJoined = true;
+      } else {
+        showModal("🚫 Комната заполнена", "В этой комнате уже два игрока", [
+          { text: "OK", action: hideModal },
+        ]);
+        return;
+      }
+
+      const symbolForDb =
+        playerSymbol === PLAYERS[0] ? YJS_SYMBOLS[0] : YJS_SYMBOLS[1];
+      const { error: insertError } = await supabase.from("game_players").insert({
+        room_id: roomId,
+        user_key: userKey,
+        symbol: symbolForDb,
+      });
+
+      if (insertError) {
+        console.error("Error inserting player:", insertError);
+        showModal("⚠️ Ошибка", "Не удалось присоединиться к комнате.", [
+          { text: "OK", action: hideModal },
+        ]);
+        return;
+      }
     }
 
     // Инициализируем Yjs
     doc = new Y.Doc();
-    yBoard = doc.getArray<{ position: number; value: string | null }>('board');
+    yBoard = doc.getArray<{ position: number; value: string | null }>("board");
+    yCurrentPlayer = doc.getMap<string>("currentPlayer");
 
     if (yBoard.length !== SIZE * SIZE) {
       if (yBoard.length > 0) {
         yBoard.delete(0, yBoard.length);
       }
-      
+
       // Начальная расстановка для Реверси
-      const initialBoard = Array.from({ length: SIZE * SIZE }, (_, i) => ({ position: i, value: null }));
-      
+      const initialBoard = Array.from({ length: SIZE * SIZE }, (_, i) => ({
+        position: i,
+        value: null,
+      }));
+
       // Ставим 4 центральные фишки
-      const center1 = (SIZE/2 - 1) * SIZE + (SIZE/2 - 1);
-      const center2 = (SIZE/2 - 1) * SIZE + (SIZE/2);
-      const center3 = (SIZE/2) * SIZE + (SIZE/2 - 1);
-      const center4 = (SIZE/2) * SIZE + (SIZE/2);
-      
+      const center1 = (SIZE / 2 - 1) * SIZE + (SIZE / 2 - 1);
+      const center2 = (SIZE / 2 - 1) * SIZE + SIZE / 2;
+      const center3 = (SIZE / 2) * SIZE + (SIZE / 2 - 1);
+      const center4 = (SIZE / 2) * SIZE + SIZE / 2;
+
       initialBoard[center1].value = YJS_SYMBOLS[1]; // ⚪
       initialBoard[center2].value = YJS_SYMBOLS[0]; // ⚫
       initialBoard[center3].value = YJS_SYMBOLS[0]; // ⚫
       initialBoard[center4].value = YJS_SYMBOLS[1]; // ⚪
-      
+
       yBoard.insert(0, initialBoard);
+    }
+
+    // Инициализируем текущего игрока в Yjs если не установлен
+    if (!yCurrentPlayer.has("player")) {
+      yCurrentPlayer.set("player", PLAYERS[0]); // ⚫ ходит первым
     }
 
     // Наблюдатель за изменениями
     yBoard.observe((event) => {
-      const freshYBoard = doc!.getArray<{ position: number; value: string | null }>('board');
+      // Сбрасываем флаг блокировки при получении обновления от другого игрока
+      isResetting = false;
+
+      const freshYBoard = doc!.getArray<{
+        position: number;
+        value: string | null;
+      }>("board");
       if (!freshYBoard) return;
-      
+
       const yjsBoard = freshYBoard.toArray();
       const sorted = yjsBoard.sort((a, b) => a.position - b.position);
-      board = sorted.map(item => fromYjsSymbol(item.value));
-      
+
+      // Преобразуем в массив игровых символов
+      const newBoard = sorted.map((item) => fromYjsSymbol(item.value));
+
+      // Проверяем, изменилась ли доска
+      let boardChanged = false;
+      for (let i = 0; i < newBoard.length; i++) {
+        if (board[i] !== newBoard[i]) {
+          boardChanged = true;
+          break;
+        }
+      }
+
+      if (!boardChanged) return; // Если доска не изменилась, ничего не делаем
+
+      board = newBoard;
       updateCounts();
-      
+
+      // Получаем текущего игрока из Yjs
+      const yPlayer = yCurrentPlayer.get("player");
+      if (yPlayer) {
+        const newCurrentPlayer = yPlayer as Player;
+        if (currentPlayer !== newCurrentPlayer) {
+          currentPlayer = newCurrentPlayer;
+        }
+      }
+
+      // Проверяем, не закончилась ли игра
+      const totalMoves = board.filter((cell) => cell !== null).length;
+      if (totalMoves === SIZE * SIZE) {
+        endGameOnline(determineWinner());
+        return;
+      }
+
       // Проверяем, есть ли ходы у текущего игрока
       const moves = getValidMoves(board, currentPlayer);
-      
+
       if (moves.length === 0) {
         // Если нет ходов, переключаем игрока
-        const nextPlayer = currentPlayer === PLAYERS[0] ? PLAYERS[1] : PLAYERS[0];
+        const nextPlayer =
+          currentPlayer === PLAYERS[0] ? PLAYERS[1] : PLAYERS[0];
         const nextMoves = getValidMoves(board, nextPlayer);
-        
+
         if (nextMoves.length === 0) {
           // Если у обоих нет ходов - игра окончена
           endGameOnline(determineWinner());
         } else {
-          // Просто переключаем игрока
           currentPlayer = nextPlayer;
           validMoves = nextMoves;
-          
-          // Показываем сообщение о пропуске хода
-          if (!gameOver && opponentJoined) {
-            showModal("⏭️ Ход пропущен", `У игрока ${currentPlayer === playerSymbol ? 'вас' : 'соперника'} нет доступных ходов. Ход переходит к ${currentPlayer === playerSymbol ? 'вам' : 'сопернику'}.`, [
-              { text: "OK", action: hideModal }
-            ]);
-          }
         }
       } else {
         validMoves = moves;
       }
-      
+
       winner = determineWinner();
-      
-      // Проверка на конец игры
-      if (gameOver) return;
-      
-      const totalMoves = board.filter(cell => cell !== null).length;
-      if (totalMoves === SIZE * SIZE) {
-        endGameOnline(determineWinner());
+    });
+
+    // Наблюдатель за изменениями текущего игрока
+    yCurrentPlayer.observe((event) => {
+      const newPlayer = yCurrentPlayer.get("player");
+      if (newPlayer && newPlayer !== currentPlayer) {
+        console.log("[Reversi] Смена игрока через Yjs:", currentPlayer, "->", newPlayer);
+        currentPlayer = newPlayer;
+        validMoves = getValidMoves(board, currentPlayer);
       }
     });
 
     provider = new YjsSupabaseProvider(
-      doc, 
-      roomId, 
+      doc,
+      roomId,
       () => {
+        isResetting = false;
+        // Сбрасываем состояние игры перед синхронизацией
+        gameOver = false;
+        winner = null;
         syncBoardFromYjs();
       },
       (boardData?: (string | null)[] | null) => {
-        if (boardData && Array.isArray(boardData)) {
-          board = boardData.map(s => fromYjsSymbol(s));
-        } else {
-          syncBoardFromYjs();
-          return;
-        }
-        
-        updateCounts();
-        
-        // Проверяем ходы для текущего игрока
-        const moves = getValidMoves(board, currentPlayer);
-        if (moves.length === 0) {
-          // Автоматический пропуск хода
-          const nextPlayer = currentPlayer === PLAYERS[0] ? PLAYERS[1] : PLAYERS[0];
-          const nextMoves = getValidMoves(board, nextPlayer);
-          
-          if (nextMoves.length === 0) {
-            endGameOnline(determineWinner());
-          } else {
-            currentPlayer = nextPlayer;
-            validMoves = nextMoves;
-          }
-        } else {
-          validMoves = moves;
-        }
-        
-        winner = determineWinner();
-        
-        const totalMoves = board.filter(cell => cell !== null).length;
-        if (totalMoves === SIZE * SIZE) {
-          endGameOnline(determineWinner());
-        }
-      }
+        console.log("[Reversi] onRemoteUpdate вызван, boardData:", boardData);
+        isResetting = false;
+        // Сбрасываем состояние игры перед синхронизацией
+        gameOver = false;
+        winner = null;
+
+        // ВСЕГДА синхронизируем board из Yjs для надёжности
+        // Это гарантирует что мы получаем актуальное состояние
+        console.log("[Reversi] Вызываем syncBoardFromYjs() для синхронизации");
+        syncBoardFromYjs();
+        return;
+      },
     );
     isConnected = true;
-    gameMode = 'online';
-    
+    gameMode = "online";
+
     if (opponentJoined) {
       syncBoardFromYjs();
     }
@@ -520,54 +703,84 @@
   }
 
   function syncBoardFromYjs() {
-    if (!doc) return;
-    
-    const currentYBoard = doc.getArray<{ position: number; value: string | null }>('board');
-    if (!currentYBoard) return;
-    
+    console.log("[Reversi] syncBoardFromYjs начал работу");
+    if (!doc) {
+      console.log("[Reversi] doc = null, выходим");
+      return;
+    }
+
+    const currentYBoard = doc.getArray<{
+      position: number;
+      value: string | null;
+    }>("board");
+    if (!currentYBoard) {
+      console.log("[Reversi] currentYBoard = null, выходим");
+      return;
+    }
+
     const yjsBoard = currentYBoard.toArray();
-    const sorted = yjsBoard.sort((a, b) => a.position - b.position);
-    board = sorted.map(item => fromYjsSymbol(item.value));
-    
+    // Защита: ограничиваем до 64 элементов (8x8 доска)
+    const limitedBoard = yjsBoard.slice(0, SIZE * SIZE);
+    const sorted = limitedBoard.sort((a, b) => a.position - b.position);
+    console.log("[Reversi] Данные из Yjs:", JSON.stringify(sorted));
+    board = sorted.map((item) => fromYjsSymbol(item.value));
+    console.log("[Reversi] board обновлен:", board);
+
     updateCounts();
-    
+
+    // Получаем текущего игрока из Yjs
+    if (yCurrentPlayer) {
+      const yPlayer = yCurrentPlayer.get("player");
+      console.log("[Reversi] syncBoardFromYjs - yPlayer:", yPlayer);
+      if (yPlayer && (yPlayer === PLAYERS[0] || yPlayer === PLAYERS[1])) {
+        const newCurrentPlayer = yPlayer as Player;
+        if (currentPlayer !== newCurrentPlayer) {
+          console.log("[Reversi] syncBoardFromYjs - смена игрока:", currentPlayer, "->", newCurrentPlayer);
+          currentPlayer = newCurrentPlayer;
+        }
+      }
+    }
+
     // Обновляем доступные ходы
     validMoves = getValidMoves(board, currentPlayer);
-    
+
     // Проверяем, нужно ли пропустить ход
     if (validMoves.length === 0 && !gameOver) {
       const nextPlayer = currentPlayer === PLAYERS[0] ? PLAYERS[1] : PLAYERS[0];
       const nextMoves = getValidMoves(board, nextPlayer);
-      
+
       if (nextMoves.length > 0) {
         currentPlayer = nextPlayer;
         validMoves = nextMoves;
       }
     }
+    console.log("[Reversi] syncBoardFromYjs завершен");
   }
 
   let checkOpponentInterval: ReturnType<typeof setInterval> | null = null;
-  
+
   function startWaitingForOpponent() {
     checkOpponentInterval = setInterval(async () => {
       if (!roomId || !waitingForOpponent) {
         stopWaitingForOpponent();
         return;
       }
-      
+
       const { data: players, error } = await supabase
-        .from('game_players')
-        .select('symbol')
-        .eq('room_id', roomId);
-      
+        .from("game_players")
+        .select("symbol")
+        .eq("room_id", roomId);
+
       if (!error && players && players.length >= 2) {
         stopWaitingForOpponent();
         opponentJoined = true;
         waitingForOpponent = false;
-        
-        showModal("🎉 Соперник найден!", "Игра началась! Вы играете за ⚫ (черные)", [
-          { text: "Начать игру", action: hideModal }
-        ]);
+
+        showModal(
+          "🎉 Соперник найден!",
+          "Игра началась! Вы играете за ⚫ (черные)",
+          [{ text: "Начать игру", action: hideModal }],
+        );
       }
     }, 2000);
   }
@@ -580,51 +793,61 @@
   }
 
   // ===== ОСНОВНАЯ ЛОГИКА РЕВЕРСИ =====
-  
+
   /**
    * Проверка валидности хода для Реверси
    */
-  function isValidMove(board: (Player | null)[], row: number, col: number, player: Player): boolean {
+  function isValidMove(
+    board: (Player | null)[],
+    row: number,
+    col: number,
+    player: Player,
+  ): boolean {
     // Проверка границ
     if (row < 0 || row >= SIZE || col < 0 || col >= SIZE) return false;
-    
+
     const index = row * SIZE + col;
-    
+
     // Клетка должна быть пустой
     if (board[index] !== null) return false;
-    
+
     const opponent = player === PLAYERS[0] ? PLAYERS[1] : PLAYERS[0];
-    
-    // Направления: горизонталь, вертикаль, диагонали
+
     const directions = [
-      [-1, -1], [-1, 0], [-1, 1],
-      [0, -1],           [0, 1],
-      [1, -1],  [1, 0],  [1, 1]
+      [-1, -1],
+      [-1, 0],
+      [-1, 1],
+      [0, -1],
+      [0, 1],
+      [1, -1],
+      [1, 0],
+      [1, 1],
     ];
-    
+
     for (const [dx, dy] of directions) {
       let x = row + dx;
       let y = col + dy;
       let foundOpponent = false;
-      
+
       while (x >= 0 && x < SIZE && y >= 0 && y < SIZE) {
         const cell = board[x * SIZE + y];
-        
+
         if (cell === null) break;
-        
+
         if (cell === opponent) {
           foundOpponent = true;
         } else if (cell === player) {
-          // Если нашли свою фишку после фишек противника - ход валиден
           if (foundOpponent) return true;
           break;
+        } else {
+          break;
         }
-        
+
         x += dx;
         y += dy;
       }
     }
-    
+
     return false;
   }
 
@@ -633,7 +856,7 @@
    */
   function getValidMoves(board: (Player | null)[], player: Player): number[] {
     const moves: number[] = [];
-    
+
     for (let row = 0; row < SIZE; row++) {
       for (let col = 0; col < SIZE; col++) {
         if (isValidMove(board, row, col, player)) {
@@ -641,36 +864,46 @@
         }
       }
     }
-    
+
     return moves;
   }
 
   /**
    * Применение хода и переворот фишек
    */
-  function applyMove(board: (Player | null)[], row: number, col: number, player: Player): (Player | null)[] {
+  function applyMove(
+    board: (Player | null)[],
+    row: number,
+    col: number,
+    player: Player,
+  ): (Player | null)[] {
     const newBoard = [...board];
     const index = row * SIZE + col;
     newBoard[index] = player;
-    
+
     const opponent = player === PLAYERS[0] ? PLAYERS[1] : PLAYERS[0];
-    
+
     const directions = [
-      [-1, -1], [-1, 0], [-1, 1],
-      [0, -1],           [0, 1],
-      [1, -1],  [1, 0],  [1, 1]
+      [-1, -1],
+      [-1, 0],
+      [-1, 1],
+      [0, -1],
+      [0, 1],
+      [1, -1],
+      [1, 0],
+      [1, 1],
     ];
-    
+
     for (const [dx, dy] of directions) {
       let x = row + dx;
       let y = col + dy;
       const toFlip: number[] = [];
-      
+
       while (x >= 0 && x < SIZE && y >= 0 && y < SIZE) {
         const cell = newBoard[x * SIZE + y];
-        
+
         if (cell === null) break;
-        
+
         if (cell === opponent) {
           toFlip.push(x * SIZE + y);
         } else if (cell === player) {
@@ -679,13 +912,15 @@
             newBoard[flipIndex] = player;
           }
           break;
+        } else {
+          break;
         }
-        
+
         x += dx;
         y += dy;
       }
     }
-    
+
     return newBoard;
   }
 
@@ -693,8 +928,8 @@
    * Обновление счетчиков
    */
   function updateCounts() {
-    blackCount = board.filter(cell => cell === PLAYERS[0]).length;
-    whiteCount = board.filter(cell => cell === PLAYERS[1]).length;
+    blackCount = board.filter((cell) => cell === PLAYERS[0]).length;
+    whiteCount = board.filter((cell) => cell === PLAYERS[1]).length;
   }
 
   /**
@@ -707,38 +942,71 @@
   }
 
   function handleOnlineClick(index: number) {
+    console.log("[Reversi] handleOnlineClick вызван, currentPlayer:", currentPlayer, "playerSymbol:", playerSymbol);
     if (!isConnected || !yBoard || gameOver || !opponentJoined) return;
     if (board[index] !== null) return;
-    if (currentPlayer !== playerSymbol) return;
-    
+    if (currentPlayer !== playerSymbol) {
+      console.log("[Reversi] Ход невозможен - не ваш ход!");
+      return;
+    }
+
     const row = Math.floor(index / SIZE);
     const col = index % SIZE;
-    
+
     // Проверяем валидность хода
     if (!isValidMove(board, row, col, playerSymbol!)) return;
 
-    // Применяем ход локально для预览 (но реальное обновление будет через Yjs)
-    const yjsSymbol = toYjsSymbol(playerSymbol!);
+    // Применяем ход с переворотами
+    const newBoard = applyMove(board, row, col, playerSymbol!);
+    console.log("[Reversi] Новый board после хода:", newBoard);
+
+    // Отправляем ПОЛНЫЙ board в Yjs - это гарантирует синхронизацию
+    const fullBoardData = newBoard.map((cell, index) => ({
+      position: index,
+      value: cell ? toYjsSymbol(cell) : null,
+    }));
+
+    // Вычисляем следующего игрока
+    const nextPlayerSymbol = currentPlayer === PLAYERS[0] ? PLAYERS[1] : PLAYERS[0];
+    console.log("[Reversi] Устанавливаю nextPlayerSymbol в Yjs:", nextPlayerSymbol);
     
-    const current = yBoard.toArray();
-    const itemToUpdate = current.find(item => item.position === index);
-    
-    if (itemToUpdate) {
-      const idx = current.indexOf(itemToUpdate);
-      
-      // Применяем ход с переворотами через Yjs
-      // В Реверси нужно обновить несколько клеток, поэтому создаем новый board в Yjs
-      const newBoard = applyMove(board, row, col, playerSymbol!);
-      
-      // Преобразуем обратно в формат Yjs
-      const yjsUpdates = newBoard.map((value, pos) => ({
-        position: pos,
-        value: value ? toYjsSymbol(value) : null
-      }));
-      
-      // Обновляем все клетки
+    // Используем транзакцию для атомарного обновления board и currentPlayer
+    doc.transact(() => {
       yBoard.delete(0, yBoard.length);
-      yBoard.insert(0, yjsUpdates);
+      yBoard.insert(0, fullBoardData);
+      
+      // Обновляем текущего игрока в Yjs
+      yCurrentPlayer.set("player", nextPlayerSymbol);
+    });
+    console.log("[Reversi] Отправлен полный board в Yjs:", fullBoardData.filter(x => x.value).length, "фишек, nextPlayer:", nextPlayerSymbol);
+
+    // Обновляем локальный board сразу для UI
+    board = newBoard;
+    updateCounts();
+
+    // Проверяем окончание игры
+    const totalMoves = board.filter((cell) => cell !== null).length;
+    if (totalMoves === SIZE * SIZE) {
+      endGameOnline(determineWinner());
+      return;
+    }
+
+    // Проверяем, есть ли ходы у следующего игрока
+    const nextPlayer = currentPlayer === PLAYERS[0] ? PLAYERS[1] : PLAYERS[0];
+    const nextMoves = getValidMoves(board, nextPlayer);
+
+    if (nextMoves.length > 0) {
+      currentPlayer = nextPlayer;
+      validMoves = nextMoves;
+    } else {
+      // Если у следующего нет ходов, проверяем текущего
+      const currentMoves = getValidMoves(board, currentPlayer);
+      if (currentMoves.length === 0) {
+        endGameOnline(determineWinner());
+        return;
+      }
+      // Пропускаем ход
+      validMoves = currentMoves;
     }
 
     if (provider) {
@@ -748,7 +1016,9 @@
 
   function endGameOnline(winnerPlayer: Player | null) {
     if (gameOver) return;
-    
+
+    // Обновляем счетчики перед определением победителя
+    updateCounts();
     gameOver = true;
     winner = winnerPlayer;
 
@@ -758,98 +1028,156 @@
     if (winnerPlayer) {
       const isMyWin = winnerPlayer === playerSymbol;
       if (integrated) {
-        const msg = isMyWin ? `🎉 Ты победил! ${blackScore}:${whiteScore}` : `💀 Ты проиграл! ${blackScore}:${whiteScore}`;
+        const msg = isMyWin
+          ? `🎉 Ты победил! ${blackScore}:${whiteScore}`
+          : `💀 Ты проиграл! ${blackScore}:${whiteScore}`;
         showModal(isMyWin ? "🎉 Победа!" : "💀 Поражение", msg, []);
-        setTimeout(() => { hideModal(); isMyWin ? onWin?.() : onLose?.(); }, TIMEOUT);
+        setTimeout(() => {
+          hideModal();
+          isMyWin ? onWin?.() : onLose?.();
+        }, TIMEOUT);
       } else {
-        const winnerName = winnerPlayer === PLAYERS[0] ? '⚫' : '⚪';
+        const winnerName = winnerPlayer === PLAYERS[0] ? "⚫" : "⚪";
         const isMyWin = winnerPlayer === playerSymbol;
-        showModal(isMyWin ? "🎉 Ты победил!" : "💀 Ты проиграл", `Победил ${winnerName}\nСчет: ${blackScore}:${whiteScore}`, [
-          { text: "Играть снова", action: () => resetAndInvite() },
-          { text: "В меню", action: async () => { hideModal(); await cleanup(); gameMode = 'menu'; } }
-        ]);
+        showModal(
+          isMyWin ? "🎉 Ты победил!" : "💀 Ты проиграл",
+          `Победил ${winnerName}\nСчет: ${blackScore}:${whiteScore}`,
+          [
+            { text: "Играть снова", action: () => resetAndInvite() },
+            {
+              text: "В меню",
+              action: async () => {
+                hideModal();
+                await cleanup();
+                gameMode = "menu";
+              },
+            },
+          ],
+        );
       }
     } else {
       if (integrated) {
         showModal("🤝 Ничья!", `Ничья! ${blackScore}:${whiteScore}`, []);
-        setTimeout(() => { hideModal(); onLose?.(); }, TIMEOUT);
+        setTimeout(() => {
+          hideModal();
+          onLose?.();
+        }, TIMEOUT);
       } else {
         showModal("🤝 Ничья!", `Ничья!\nСчет: ${blackScore}:${whiteScore}`, [
           { text: "Играть снова", action: () => resetAndInvite() },
-          { text: "В меню", action: async () => { hideModal(); await cleanup(); gameMode = 'menu'; } }
+          {
+            text: "В меню",
+            action: async () => {
+              hideModal();
+              await cleanup();
+              gameMode = "menu";
+            },
+          },
         ]);
       }
     }
   }
 
   async function resetOnlineGame() {
-    if (!yBoard) return;
-    
-    // Создаем начальную расстановку
-    const resetBoard = Array.from({ length: SIZE * SIZE }, (_, i) => ({ position: i, value: null }));
-    
-    const center1 = (SIZE/2 - 1) * SIZE + (SIZE/2 - 1);
-    const center2 = (SIZE/2 - 1) * SIZE + (SIZE/2);
-    const center3 = (SIZE/2) * SIZE + (SIZE/2 - 1);
-    const center4 = (SIZE/2) * SIZE + (SIZE/2);
-    
-    resetBoard[center1].value = YJS_SYMBOLS[1]; // ⚪
-    resetBoard[center2].value = YJS_SYMBOLS[0]; // ⚫
-    resetBoard[center3].value = YJS_SYMBOLS[0]; // ⚫
-    resetBoard[center4].value = YJS_SYMBOLS[1]; // ⚪
-    
-    yBoard.delete(0, yBoard.length);
-    yBoard.insert(0, resetBoard);
-    
-    board = Array(SIZE * SIZE).fill(null);
-    board[center1] = PLAYERS[1];
-    board[center2] = PLAYERS[0];
-    board[center3] = PLAYERS[0];
-    board[center4] = PLAYERS[1];
-    
-    currentPlayer = PLAYERS[0];
-    gameOver = false;
-    winner = null;
-    
-    updateCounts();
-    validMoves = getValidMoves(board, currentPlayer);
-    
-    if (provider) {
-      provider.saveState();
+    if (!yBoard || !provider || isResetting) return;
+
+    // Предотвращаем множественные сбросы
+    isResetting = true;
+
+    try {
+      // Создаем начальную расстановку
+      const resetBoard = Array.from({ length: SIZE * SIZE }, (_, i) => ({
+        position: i,
+        value: null,
+      }));
+
+      const center1 = (SIZE / 2 - 1) * SIZE + (SIZE / 2 - 1);
+      const center2 = (SIZE / 2 - 1) * SIZE + SIZE / 2;
+      const center3 = (SIZE / 2) * SIZE + (SIZE / 2 - 1);
+      const center4 = (SIZE / 2) * SIZE + SIZE / 2;
+
+      resetBoard[center1].value = YJS_SYMBOLS[1]; // ⚪
+      resetBoard[center2].value = YJS_SYMBOLS[0]; // ⚫
+      resetBoard[center3].value = YJS_SYMBOLS[0]; // ⚫
+      resetBoard[center4].value = YJS_SYMBOLS[1]; // ⚪
+
+      // Используем специальный метод провайдера для сброса
+      await provider.resetGame(resetBoard);
+
+      // Обновляем локальное состояние
+      board = Array(SIZE * SIZE).fill(null);
+      board[center1] = PLAYERS[1];
+      board[center2] = PLAYERS[0];
+      board[center3] = PLAYERS[0];
+      board[center4] = PLAYERS[1];
+
+      currentPlayer = PLAYERS[0];
+      gameOver = false;
+      winner = null;
+      blackCount = 2;
+      whiteCount = 2;
+      validMoves = getValidMoves(board, currentPlayer);
+
+      // Если это первый игрок, показываем диалог приглашения
+      if (playerSymbol === PLAYERS[0] && !integrated) {
+        showResetInviteDialog();
+      } else {
+        hideModal();
+      }
+    } catch (e) {
+      console.error("[Reversi] Ошибка при сбросе игры:", e);
+    } finally {
+      // Сбрасываем флаг через некоторое время
+      setTimeout(() => {
+        isResetting = false;
+      }, 500);
     }
-    
-    hideModal();
+  }
+
+  function showResetInviteDialog() {
+    isWaitingForAccept = true;
+
+    showModal(
+      "🎮 Игра сброшена",
+      `Доска очищена. Ход игрока ⚫
+
+Ожидание подтверждения от соперника... (30 сек)`,
+      [
+        {
+          text: "Отмена",
+          action: async () => {
+            await cancelInviteAndExit();
+          },
+        },
+      ],
+    );
+
+    if (inviteTimeout) {
+      clearTimeout(inviteTimeout);
+    }
+
+    inviteTimeout = setTimeout(async () => {
+      isWaitingForAccept = false;
+      showModal("⏰ Время вышло", "Второй игрок не подтвердил перезапуск", [
+        {
+          text: "В меню",
+          action: async () => {
+            hideModal();
+            await cleanup();
+            gameMode = "menu";
+          },
+        },
+      ]);
+    }, 30000);
   }
 
   let inviteTimeout: ReturnType<typeof setTimeout> | null = null;
   let isWaitingForAccept = $state(false);
+  let isResetting = $state(false); // Блокировка повторного сброса
 
   async function resetAndInvite() {
+    if (isResetting) return;
     await resetOnlineGame();
-    
-    if (playerSymbol === PLAYERS[0]) {
-      isWaitingForAccept = true;
-      
-      showModal("🎮 Приглашение отправлено", `Поделитесь названием комнаты с другом:
-
-📋 ${roomName || roomId}
-
-Ожидание подтверждения... (30 сек)`, [
-        { text: "Отмена", action: async () => { await cancelInviteAndExit(); } }
-      ]);
-      
-      inviteTimeout = setTimeout(async () => {
-        isWaitingForAccept = false;
-        showModal("⏰ Время вышло", "Второй игрок не подтвердил приглашение", [
-          { text: "В меню", action: async () => { hideModal(); await cleanup(); gameMode = 'menu'; } }
-        ]);
-      }, 30000);
-    } else {
-      hideModal();
-      showModal("🔄 Игра сброшена", "Доска очищена. Ход игрока ⚫", [
-        { text: "OK", action: hideModal }
-      ]);
-    }
   }
 
   async function cancelInviteAndExit() {
@@ -860,46 +1188,46 @@
     isWaitingForAccept = false;
     hideModal();
     await cleanup();
-    gameMode = 'online_menu';
+    gameMode = "online_menu";
     loadRooms();
   }
 
   // ===== ОФЛАЙН РЕЖИМ =====
 
   function startComputerMode() {
-    gameMode = 'computer';
+    gameMode = "computer";
     initGame();
   }
 
   function startLocalMode() {
-    gameMode = 'local';
+    gameMode = "local";
     initGame();
   }
 
   function handleOfflineClick(index: number) {
     if (gameOver || board[index] !== null) return;
-    
+
     const row = Math.floor(index / SIZE);
     const col = index % SIZE;
-    
+
     // Проверяем валидность хода
     if (!isValidMove(board, row, col, currentPlayer)) return;
 
     // Применяем ход
     board = applyMove(board, row, col, currentPlayer);
     updateCounts();
-    
+
     // Проверяем окончание игры
-    const totalMoves = board.filter(cell => cell !== null).length;
+    const totalMoves = board.filter((cell) => cell !== null).length;
     if (totalMoves === SIZE * SIZE) {
       endGame(determineWinner());
       return;
     }
-    
+
     // Переключаем игрока
     const nextPlayer = currentPlayer === PLAYERS[0] ? PLAYERS[1] : PLAYERS[0];
     const nextMoves = getValidMoves(board, nextPlayer);
-    
+
     if (nextMoves.length > 0) {
       currentPlayer = nextPlayer;
       validMoves = nextMoves;
@@ -911,15 +1239,17 @@
         endGame(determineWinner());
       } else {
         // Пропускаем ход, показываем сообщение
-        showModal("⏭️ Ход пропущен", `У игрока ${nextPlayer === PLAYERS[0] ? '⚫' : '⚪'} нет доступных ходов.`, [
-          { text: "OK", action: hideModal }
-        ]);
+        showModal(
+          "⏭️ Ход пропущен",
+          `У игрока ${nextPlayer === PLAYERS[0] ? "⚫" : "⚪"} нет доступных ходов.`,
+          [{ text: "OK", action: hideModal }],
+        );
         // Остаемся с текущим игроком
       }
     }
 
     // Ход компьютера
-    if (gameMode === 'computer' && currentPlayer === PLAYERS[1] && !gameOver) {
+    if (gameMode === "computer" && currentPlayer === PLAYERS[1] && !gameOver) {
       setTimeout(computerMove, 500);
     }
   }
@@ -943,48 +1273,50 @@
     // Простая стратегия: выбирать угол или край, если есть
     let bestMove = moves[0];
     let bestScore = -1;
-    
+
     for (const move of moves) {
       const row = Math.floor(move / SIZE);
       const col = move % SIZE;
-      
+
       // Приоритет углов
-      if ((row === 0 || row === SIZE-1) && (col === 0 || col === SIZE-1)) {
+      if ((row === 0 || row === SIZE - 1) && (col === 0 || col === SIZE - 1)) {
         bestMove = move;
         break;
       }
-      
+
       // Приоритет краев
-      if (row === 0 || row === SIZE-1 || col === 0 || col === SIZE-1) {
+      if (row === 0 || row === SIZE - 1 || col === 0 || col === SIZE - 1) {
         if (bestScore < 2) {
           bestMove = move;
           bestScore = 2;
         }
       }
-      
+
       // Иначе оцениваем количество переворачиваемых фишек
       const testBoard = applyMove(board, row, col, PLAYERS[1]);
-      const newBlackCount = testBoard.filter(cell => cell === PLAYERS[1]).length;
-      
+      const newBlackCount = testBoard.filter(
+        (cell) => cell === PLAYERS[1],
+      ).length;
+
       if (newBlackCount > bestScore) {
         bestScore = newBlackCount;
         bestMove = move;
       }
     }
-    
+
     const row = Math.floor(bestMove / SIZE);
     const col = bestMove % SIZE;
-    
+
     board = applyMove(board, row, col, PLAYERS[1]);
     updateCounts();
-    
+
     // Проверяем окончание игры
-    const totalMoves = board.filter(cell => cell !== null).length;
+    const totalMoves = board.filter((cell) => cell !== null).length;
     if (totalMoves === SIZE * SIZE) {
       endGame(determineWinner());
       return;
     }
-    
+
     // Переключаем на игрока
     const playerMoves = getValidMoves(board, PLAYERS[0]);
     if (playerMoves.length > 0) {
@@ -994,9 +1326,11 @@
       // Если у игрока нет ходов, компьютер ходит еще раз
       const computerMoves = getValidMoves(board, PLAYERS[1]);
       if (computerMoves.length > 0) {
-        showModal("⏭️ Ход пропущен", "У вас нет доступных ходов. Компьютер ходит снова.", [
-          { text: "OK", action: hideModal }
-        ]);
+        showModal(
+          "⏭️ Ход пропущен",
+          "У вас нет доступных ходов. Компьютер ходит снова.",
+          [{ text: "OK", action: hideModal }],
+        );
         setTimeout(computerMove, 500);
       } else {
         endGame(determineWinner());
@@ -1008,7 +1342,9 @@
 
   function endGame(winnerPlayer: Player | null) {
     if (gameOver) return;
-    
+
+    // Обновляем счетчики перед определением победителя
+    updateCounts();
     gameOver = true;
     winner = winnerPlayer;
 
@@ -1016,20 +1352,32 @@
     const whiteScore = whiteCount;
 
     if (winnerPlayer) {
-      const winnerName = winnerPlayer === PLAYERS[0] ? '⚫' : '⚪';
+      const winnerName = winnerPlayer === PLAYERS[0] ? "⚫" : "⚪";
       if (integrated) {
         const isPlayer1Win = winnerPlayer === PLAYERS[0];
-        showModal(isPlayer1Win ? "🎉 Победа!" : "💀 Поражение", `Победил ${winnerName}!\nСчет: ${blackScore}:${whiteScore}`, []);
-        setTimeout(() => { hideModal(); isPlayer1Win ? onWin?.() : onLose?.(); }, TIMEOUT);
+        showModal(
+          isPlayer1Win ? "🎉 Победа!" : "💀 Поражение",
+          `Победил ${winnerName}!\nСчет: ${blackScore}:${whiteScore}`,
+          [],
+        );
+        setTimeout(() => {
+          hideModal();
+          isPlayer1Win ? onWin?.() : onLose?.();
+        }, TIMEOUT);
       } else {
-        showModal("🎉 Победа!", `Победил ${winnerName}!\nСчет: ${blackScore}:${whiteScore}`, [
-          { text: "Играть снова", action: initGame },
-        ]);
+        showModal(
+          "🎉 Победа!",
+          `Победил ${winnerName}!\nСчет: ${blackScore}:${whiteScore}`,
+          [{ text: "Играть снова", action: initGame }],
+        );
       }
     } else {
       if (integrated) {
         showModal("🤝 Ничья!", `Ничья! ${blackScore}:${whiteScore}`, []);
-        setTimeout(() => { hideModal(); onLose?.(); }, TIMEOUT);
+        setTimeout(() => {
+          hideModal();
+          onLose?.();
+        }, TIMEOUT);
       } else {
         showModal("🤝 Ничья!", `Ничья!\nСчет: ${blackScore}:${whiteScore}`, [
           { text: "Играть снова", action: initGame },
@@ -1041,35 +1389,38 @@
   function initGame(): void {
     // Начальная расстановка для Реверси
     board = Array(SIZE * SIZE).fill(null);
-    
-    const center1 = (SIZE/2 - 1) * SIZE + (SIZE/2 - 1);
-    const center2 = (SIZE/2 - 1) * SIZE + (SIZE/2);
-    const center3 = (SIZE/2) * SIZE + (SIZE/2 - 1);
-    const center4 = (SIZE/2) * SIZE + (SIZE/2);
-    
+
+    const center1 = (SIZE / 2 - 1) * SIZE + (SIZE / 2 - 1);
+    const center2 = (SIZE / 2 - 1) * SIZE + SIZE / 2;
+    const center3 = (SIZE / 2) * SIZE + (SIZE / 2 - 1);
+    const center4 = (SIZE / 2) * SIZE + SIZE / 2;
+
     board[center1] = PLAYERS[1];
     board[center2] = PLAYERS[0];
     board[center3] = PLAYERS[0];
     board[center4] = PLAYERS[1];
-    
+
     currentPlayer = PLAYERS[0];
     gameOver = false;
     winner = null;
-    
+
     updateCounts();
     validMoves = getValidMoves(board, currentPlayer);
-    
+
     hideModal();
   }
 
   function handleGiveUp(): void {
     gameOver = true;
     const winnerPlayer = currentPlayer === PLAYERS[0] ? PLAYERS[1] : PLAYERS[0];
-    const winnerName = winnerPlayer === PLAYERS[0] ? '⚫' : '⚪';
-    
+    const winnerName = winnerPlayer === PLAYERS[0] ? "⚫" : "⚪";
+
     if (integrated) {
       showModal("💀 Сдаюсь", `Победил ${winnerName}!`, []);
-      setTimeout(() => { hideModal(); onLose?.(); }, TIMEOUT);
+      setTimeout(() => {
+        hideModal();
+        onLose?.();
+      }, TIMEOUT);
     } else {
       showModal("Конец", `Победил ${winnerName}! Попробуйте ещё раз!`, [
         { text: "Новая игра", action: initGame },
@@ -1077,7 +1428,11 @@
     }
   }
 
-  function showModal(title: string, text: string, actions: Array<{ text: string; action: () => void; class?: string }>): void {
+  function showModal(
+    title: string,
+    text: string,
+    actions: Array<{ text: string; action: () => void; class?: string }>,
+  ): void {
     modal = { show: true, title, text, actions };
   }
 
@@ -1086,7 +1441,9 @@
   }
 
   function showRules(): void {
-    showModal("📖 Правила Реверси", `Отелло (Reversi) на поле 8x8:
+    showModal(
+      "📖 Правила Реверси",
+      `Отелло (Reversi) на поле 8x8:
 
 🎯 Цель: К концу игры иметь больше своих фишек на доске.
 
@@ -1102,58 +1459,58 @@
 
 🤖 Компьютер — игра против AI
 👥 На одном — два игрока на одном устройстве
-🌐 Онлайн — игра по сети с другом`, [
-      { text: "Понятно", action: hideModal },
-    ]);
+🌐 Онлайн — игра по сети с другом`,
+      [{ text: "Понятно", action: hideModal }],
+    );
   }
 
   function backToMenu(): void {
-    if (gameMode === 'online') {
+    if (gameMode === "online") {
       cleanup();
     }
-    gameMode = 'menu';
+    gameMode = "menu";
     initGame();
   }
 
   function backToOnlineMenu(): void {
-    if (gameMode === 'online') {
+    if (gameMode === "online") {
       cleanup();
     }
-    gameMode = 'online_menu';
+    gameMode = "online_menu";
     loadRooms();
   }
 </script>
 
 <BodyWrapper>
-  {#if gameMode === 'menu'}
+  {#if gameMode === "menu"}
     <!-- МЕНЮ ВЫБОРА РЕЖИМА -->
-    <GameHeader
-      onRestart={() => {}}
-      onShowRules={showRules}
-    />
+    <GameHeader onRestart={() => {}} onShowRules={showRules} />
 
     <div id="game-container">
       <h2 class="menu-title">Реверси (Отелло)</h2>
-      
+
       <button type="button" class="menu-btn" onclick={startComputerMode}>
         <span class="menu-icon">🤖</span>
         <span>Против компьютера</span>
       </button>
-      
+
       <button type="button" class="menu-btn" onclick={startLocalMode}>
         <span class="menu-icon">👥</span>
         <span>На одном устройстве</span>
       </button>
-      
-      <button type="button" class="menu-btn online-btn" onclick={showOnlineMenu}>
+
+      <button
+        type="button"
+        class="menu-btn online-btn"
+        onclick={showOnlineMenu}
+      >
         <span class="menu-icon">🌐</span>
         <span>Играть онлайн</span>
       </button>
     </div>
 
     <GameFooter {rewardItem} {items} {bucketName} />
-
-  {:else if gameMode === 'online_menu'}
+  {:else if gameMode === "online_menu"}
     <!-- ОНЛАЙН МЕНЮ -->
     <GameHeader
       onRestart={() => {}}
@@ -1163,7 +1520,7 @@
 
     <div id="game-container">
       <h2 class="menu-title">Онлайн Реверси</h2>
-      
+
       <!-- Создание комнаты -->
       <div class="create-room-section">
         <input
@@ -1177,7 +1534,7 @@
           <span>Создать комнату</span>
         </button>
       </div>
-      
+
       <div class="divider">
         <span>или</span>
       </div>
@@ -1185,7 +1542,7 @@
       <!-- Список комнат -->
       <div class="rooms-section">
         <h3 class="rooms-title">Доступные комнаты</h3>
-        
+
         {#if isLoadingRooms}
           <div class="loading">Загрузка...</div>
         {:else if rooms.length === 0}
@@ -1193,9 +1550,47 @@
         {:else}
           <div class="rooms-list">
             {#each rooms as room}
-              <button type="button" class="room-item" onclick={() => joinRoom(room.room_id)}>
-                <span class="room-name">{room.room_name}</span>
-                <span class="room-players">{room.player_count}/2 игроков</span>
+              <button
+                type="button"
+                class="room-item"
+                class:user-in-room={room.is_user_in_room}
+                onclick={() => joinRoom(room.room_id)}
+                disabled={room.player_count >= 2 && !room.is_user_in_room}
+              >
+                <div class="room-info">
+                  <span class="room-name">
+                    {room.room_name}
+                    {#if room.is_user_in_room}
+                      <span class="user-badge">(Вы {room.user_symbol === YJS_SYMBOLS[0] ? '⚫' : '⚪'})</span>
+                    {/if}
+                  </span>
+                  <span class="room-players">
+                    {#if room.player_count === 0}
+                      🟢 Пустая
+                    {:else if room.player_count === 1}
+                      {#if room.is_user_in_room}
+                        🟡 Ожидание соперника
+                      {:else}
+                        🟡 1/2 игроков
+                      {/if}
+                    {:else}
+                      🔴 Полная
+                    {/if}
+                  </span>
+                </div>
+                <div class="room-meta">
+                  <span class="room-creator">
+                    👑 {room.created_by_user_key === userKeyStore.getCurrentKey() ? 'Вы' : 'Создатель'}
+                  </span>
+                  <span class="room-expiry">
+                    ⏳ до {new Date(room.expires_at).toLocaleTimeString()}
+                  </span>
+                </div>
+                {#if room.other_player_symbol}
+                  <div class="room-opponent">
+                    Соперник: {room.other_player_symbol === YJS_SYMBOLS[0] ? '⚫' : '⚪'}
+                  </div>
+                {/if}
               </button>
             {/each}
           </div>
@@ -1210,30 +1605,49 @@
           bind:value={roomId}
           placeholder="ID комнаты"
         />
-        <button type="button" class="menu-btn join-btn" onclick={() => joinOnlineRoom()}>
+        <button
+          type="button"
+          class="menu-btn join-btn"
+          onclick={() => joinOnlineRoom()}
+        >
           Присоединиться
         </button>
       </div>
     </div>
 
     <GameFooter {rewardItem} {items} {bucketName} />
-
   {:else}
     <!-- ИГРА -->
     <GameHeader
-      onRestart={gameMode === 'online' ? resetOnlineGame : initGame}
+      onRestart={gameMode === "online" ? resetOnlineGame : initGame}
       onGiveUp={integrated ? handleGiveUp : undefined}
       showGiveUp={integrated}
       onShowRules={showRules}
     />
 
     <div id="game-container">
-      {#if gameMode === 'online'}
+      {#if gameMode === "online"}
         <div class="online-info">
           <span class="room-id">Комната: {roomName || roomId}</span>
           <span class="player-symbol">Вы играете за: {playerSymbol}</span>
+          {#if roomCreator === userKeyStore.getCurrentKey()}
+            <button
+              type="button"
+              class="close-room-btn"
+              onclick={closeRoomManually}
+              title="Закрыть комнату"
+            >
+              ❌
+            </button>
+          {/if}
         </div>
-        
+
+        {#if roomExpiresAt}
+          <div class="room-expiry">
+            ⏳ Комната активна до: {new Date(roomExpiresAt).toLocaleString()}
+          </div>
+        {/if}
+
         {#if waitingForOpponent}
           <div class="waiting-message">
             <div class="waiting-spinner">⏳</div>
@@ -1246,10 +1660,14 @@
             <div class="score black-score">⚫ {blackCount}</div>
             <div class="score white-score">⚪ {whiteCount}</div>
           </div>
-          
+
           <div class="status">
             {#if gameOver && winner}
-              Победил: <span class="winner">{winner} ({winner === PLAYERS[0] ? blackCount : whiteCount})</span>
+              Победил: <span class="winner"
+                >{winner} ({winner === PLAYERS[0]
+                  ? blackCount
+                  : whiteCount})</span
+              >
             {:else if gameOver}
               Ничья ({blackCount}:{whiteCount})
             {:else}
@@ -1259,7 +1677,7 @@
               {/if}
             {/if}
           </div>
-          
+
           <div class="board board-8x8">
             {#each board as cell, i}
               <button
@@ -1267,11 +1685,17 @@
                 class="cell cell-8x8"
                 class:black-cell={cell === PLAYERS[0]}
                 class:white-cell={cell === PLAYERS[1]}
-                class:valid-move={!cell && !gameOver && currentPlayer === playerSymbol && validMoves.includes(i)}
+                class:valid-move={!cell &&
+                  !gameOver &&
+                  currentPlayer === playerSymbol &&
+                  validMoves.includes(i)}
                 onclick={() => handleOnlineClick(i)}
-                disabled={!!cell || gameOver || currentPlayer !== playerSymbol || !validMoves.includes(i)}
+                disabled={!!cell ||
+                  gameOver ||
+                  currentPlayer !== playerSymbol ||
+                  !validMoves.includes(i)}
               >
-                {cell ?? ''}
+                {cell ?? ""}
               </button>
             {/each}
           </div>
@@ -1281,10 +1705,14 @@
           <div class="score black-score">⚫ {blackCount}</div>
           <div class="score white-score">⚪ {whiteCount}</div>
         </div>
-        
+
         <div class="status">
           {#if gameOver && winner}
-            Победил: <span class="winner">{winner} ({winner === PLAYERS[0] ? blackCount : whiteCount})</span>
+            Победил: <span class="winner"
+              >{winner} ({winner === PLAYERS[0]
+                ? blackCount
+                : whiteCount})</span
+            >
           {:else if gameOver}
             Ничья ({blackCount}:{whiteCount})
           {:else}
@@ -1294,7 +1722,7 @@
             {/if}
           {/if}
         </div>
-        
+
         <div class="board board-8x8">
           {#each board as cell, i}
             <button
@@ -1302,11 +1730,17 @@
               class="cell cell-8x8"
               class:black-cell={cell === PLAYERS[0]}
               class:white-cell={cell === PLAYERS[1]}
-              class:valid-move={!cell && !gameOver && (gameMode !== 'computer' || currentPlayer === PLAYERS[0]) && validMoves.includes(i)}
+              class:valid-move={!cell &&
+                !gameOver &&
+                (gameMode !== "computer" || currentPlayer === PLAYERS[0]) &&
+                validMoves.includes(i)}
               onclick={() => handleOfflineClick(i)}
-              disabled={!!cell || gameOver || (gameMode === 'computer' && currentPlayer === PLAYERS[1]) || !validMoves.includes(i)}
+              disabled={!!cell ||
+                gameOver ||
+                (gameMode === "computer" && currentPlayer === PLAYERS[1]) ||
+                !validMoves.includes(i)}
             >
-              {cell ?? ''}
+              {cell ?? ""}
             </button>
           {/each}
         </div>
@@ -1316,8 +1750,8 @@
     <GameFooter {rewardItem} {items} {bucketName}>
       <div class="footer-stats">
         <span class="player-info">
-          {#if gameMode === 'online'}
-            Вы: {playerSymbol} | 
+          {#if gameMode === "online"}
+            Вы: {playerSymbol} |
           {/if}
           Счет: ⚫ {blackCount} : {whiteCount} ⚪
         </span>
@@ -1383,7 +1817,7 @@
 
   .divider::before,
   .divider::after {
-    content: '';
+    content: "";
     flex: 1;
     height: 1px;
     background: rgba(255, 255, 255, 0.1);
@@ -1405,7 +1839,8 @@
     text-align: center;
   }
 
-  .loading, .no-rooms {
+  .loading,
+  .no-rooms {
     text-align: center;
     color: #888;
     padding: 15px;
@@ -1438,6 +1873,60 @@
   .room-item:hover {
     border-color: #00b894;
     transform: translateY(-2px);
+  }
+
+  .room-item.user-in-room {
+    border-color: #00b894;
+    background: linear-gradient(135deg, #2d5a4a, #1d4a3a);
+  }
+
+  .room-item:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .your-room-badge {
+    display: inline-block;
+    font-size: 0.65rem;
+    background: #00b894;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 8px;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+
+  .room-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+  }
+
+  .room-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    margin-top: 6px;
+    font-size: 0.75rem;
+    color: #aaa;
+  }
+
+  .user-badge {
+    font-size: 0.7rem;
+    background: #00b894;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 8px;
+    margin-left: 6px;
+  }
+
+  .room-opponent {
+    font-size: 0.75rem;
+    color: #ff6b6b;
+    margin-top: 4px;
+    width: 100%;
   }
 
   .room-name {
@@ -1521,6 +2010,27 @@
     font-weight: bold;
   }
 
+  .close-room-btn {
+    background: none;
+    border: none;
+    color: #e94560;
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 0 5px;
+    transition: transform 0.2s;
+  }
+
+  .close-room-btn:hover {
+    transform: scale(1.2);
+  }
+
+  .room-expiry {
+    font-size: 0.8rem;
+    color: #888;
+    text-align: center;
+    margin-bottom: 5px;
+  }
+
   .waiting-message {
     text-align: center;
     padding: 30px 20px;
@@ -1532,8 +2042,15 @@
   }
 
   @keyframes pulse {
-    0%, 100% { transform: scale(1); opacity: 1; }
-    50% { transform: scale(1.1); opacity: 0.8; }
+    0%,
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    50% {
+      transform: scale(1.1);
+      opacity: 0.8;
+    }
   }
 
   .waiting-message p {
@@ -1577,12 +2094,12 @@
 
   .black-score {
     color: #666;
-    text-shadow: 0 0 5px rgba(255,255,255,0.3);
+    text-shadow: 0 0 5px rgba(255, 255, 255, 0.3);
   }
 
   .white-score {
     color: #fff;
-    text-shadow: 0 0 5px rgba(0,0,0,0.5);
+    text-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
   }
 
   .status {
@@ -1648,14 +2165,14 @@
   .black-cell {
     background: radial-gradient(circle at 30% 30%, #666, #222);
     color: #333;
-    text-shadow: 0 0 5px rgba(255,255,255,0.5);
+    text-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
     border: 1px solid #444;
   }
 
   .white-cell {
     background: radial-gradient(circle at 30% 30%, #fff, #aaa);
     color: #fff;
-    text-shadow: 0 0 5px rgba(0,0,0,0.5);
+    text-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
     border: 1px solid #ccc;
   }
 
@@ -1664,7 +2181,7 @@
   }
 
   .valid-move::after {
-    content: '';
+    content: "";
     position: absolute;
     top: 50%;
     left: 50%;
@@ -1711,11 +2228,11 @@
       height: 35px;
       font-size: 1rem;
     }
-    
+
     .score-board {
       max-width: 250px;
     }
-    
+
     .score {
       font-size: 1rem;
     }
