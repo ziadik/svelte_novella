@@ -18,6 +18,7 @@
           <button
             class="btn"
             class:btn-secondary={action.class === "btn-secondary"}
+            class:danger-btn={action.class === "danger-btn"}
             onclick={action.action}
           >
             {action.text}
@@ -86,6 +87,15 @@
     gap: 15px;
     justify-content: center;
     flex-wrap: wrap;
+  }
+
+  .btn.danger-btn {
+    background: linear-gradient(135deg, #e94560, #c0392b);
+    color: white;
+  }
+
+  .btn.danger-btn:hover {
+    background: linear-gradient(135deg, #c0392b, #a93226);
   }
 
   @media (max-width: 400px) {
