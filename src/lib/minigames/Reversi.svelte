@@ -91,6 +91,13 @@
   let roomCreator = $state<string | null>(null); // Кто создал комнату
   let roomExpiresAt = $state<string | null>(null); // Время истечения комнаты
 
+  // Блокировка для предотвращения одновременных ходов
+  let isMoveInProgress = $state(false); // Блокировка во время обработки хода
+  let lastMoveTimestamp = $state(0); // Timestamp последнего хода для детекции конфликтов
+
+  // Храним текущего игрока из Yjs для реактивного отображения
+  let yCurrentPlayerValue = $state<Player | null>(null);
+
   // Yjs
   let doc: Y.Doc | null = null;
   let provider: YjsSupabaseProvider | null = null;
@@ -177,29 +184,49 @@
 
   async function cleanupOldRooms() {
     try {
-      // Пытаемся использовать RPC функцию для очистки
-      await supabase.rpc('cleanup_expired_rooms');
-    } catch (e) {
-      // Если RPC недоступна, используем старый метод
-      try {
-        const oneHourAgo = new Date(Date.now() - 3600000).toISOString();
-
-        const { data: oldRooms } = await supabase
-          .from("game_rooms")
-          .select("room_id")
-          .eq("game_type", "reversi")
-          .lt("created_at", oneHourAgo);
-
-        if (oldRooms && oldRooms.length > 0) {
-          const oldRoomIds = oldRooms.map((r) => r.room_id);
-
-          await supabase.from("game_players").delete().in("room_id", oldRoomIds);
-
-          await supabase.from("game_rooms").delete().in("room_id", oldRoomIds);
-        }
-      } catch (e2) {
-        console.error("[Reversi] Ошибка очистки старых комнат:", e2);
+      // Используем RPC функцию для очистки просроченных комнат
+      const { data, error } = await supabase.rpc('cleanup_expired_rooms');
+      
+      if (error) {
+        console.error("[Reversi] Ошибка RPC cleanup_expired_rooms:", error);
+        // Fallback: удаляем только просроченные по expires_at
+        await cleanupExpiredRoomsFallback();
+      } else {
+        console.log("[Reversi] Очищено просроченных комнат:", data);
       }
+    } catch (e) {
+      console.error("[Reversi] Ошибка очистки комнат:", e);
+      // Fallback при ошибке
+      await cleanupExpiredRoomsFallback();
+    }
+  }
+
+  // Fallback метод для очистки просроченных комнат (если RPC недоступна)
+  async function cleanupExpiredRoomsFallback() {
+    try {
+      const now = new Date().toISOString();
+
+      // Находим просроченные комнаты
+      const { data: expiredRooms } = await supabase
+        .from("game_rooms")
+        .select("room_id")
+        .eq("game_type", "reversi")
+        .lt("expires_at", now);
+
+      if (expiredRooms && expiredRooms.length > 0) {
+        const expiredIds = expiredRooms.map((r) => r.room_id);
+
+        // Удаляем игроков
+        await supabase.from("game_players").delete().in("room_id", expiredIds);
+        // Удаляем состояние игры
+        await supabase.from("game_state").delete().in("room_id", expiredIds);
+        // Удаляем комнаты
+        await supabase.from("game_rooms").delete().in("room_id", expiredIds);
+        
+        console.log("[Reversi] Fallback: очищено просроченных комнат:", expiredRooms.length);
+      }
+    } catch (e) {
+      console.error("[Reversi] Ошибка fallback очистки:", e);
     }
   }
 
@@ -288,13 +315,65 @@
     isLoadingRooms = false;
   }
 
+  // Удаление комнаты из списка
+  async function deleteRoom(roomIdToDelete: string) {
+    const userKey = userKeyStore.getCurrentKey();
+    
+    // Показываем подтверждение
+    showModal("🗑️ Удалить комнату?", "Комната будет удалена безвозвратно. Все игроки будут удалены.", [
+      { 
+        text: "Удалить", 
+        action: async () => {
+          hideModal();
+          await performDeleteRoom(roomIdToDelete);
+        },
+        class: "danger-btn"
+      },
+      { text: "Отмена", action: hideModal }
+    ]);
+  }
+
+  async function performDeleteRoom(roomIdToDelete: string) {
+    try {
+      // Удаляем игроков
+      await supabase
+        .from("game_players")
+        .delete()
+        .eq("room_id", roomIdToDelete);
+
+      // Удаляем состояние игры
+      await supabase
+        .from("game_state")
+        .delete()
+        .eq("room_id", roomIdToDelete);
+
+      // Удаляем комнату
+      await supabase
+        .from("game_rooms")
+        .delete()
+        .eq("room_id", roomIdToDelete);
+
+      // Обновляем список комнат
+      rooms = rooms.filter(r => r.room_id !== roomIdToDelete);
+      
+      showModal("✅ Комната удалена", "Комната успешно удалена", [
+        { text: "OK", action: hideModal }
+      ]);
+    } catch (e) {
+      console.error('[Reversi] Ошибка при удалении комнаты:', e);
+      showModal("⚠️ Ошибка", "Не удалось удалить комнату", [
+        { text: "OK", action: hideModal }
+      ]);
+    }
+  }
+
   async function loadRoomsFromTable() {
     try {
+      // Загружаем все комнаты для reversi, фильтруем просроченные
       const { data: roomsData, error: roomsError } = await supabase
         .from("game_rooms")
         .select("room_id, room_name, created_at, created_by_user_key, expires_at")
         .eq("game_type", "reversi")
-        .gt("created_at", new Date(Date.now() - 3600000).toISOString())
         .order("created_at", { ascending: false });
 
       if (roomsError) {
@@ -303,32 +382,43 @@
         return;
       }
 
-      // Фильтруем просроченные комнаты
+      // Фильтруем просроченные комнаты по expires_at
       const now = new Date();
       const validRooms = (roomsData || []).filter(room => {
         if (!room.expires_at) return true; // Если нет expires_at, считаем валидной
         return new Date(room.expires_at) > now;
       });
 
+      const userKey = userKeyStore.getCurrentKey();
+
       const roomsWithPlayers = await Promise.all(
         validRooms.map(async (room) => {
-          const { count } = await supabase
+          const { data: players, count } = await supabase
             .from("game_players")
-            .select("*", { count: "exact", head: true })
+            .select("symbol, user_key")
             .eq("room_id", room.room_id);
+
+          const isUserInRoom = userKey ? players?.some(p => p.user_key === userKey) : false;
+          const playerCount = count || 0;
 
           return {
             room_id: room.room_id,
             room_name: room.room_name,
-            player_count: count || 0,
+            player_count: playerCount,
             created_at: room.created_at,
             created_by_user_key: room.created_by_user_key,
             expires_at: room.expires_at,
+            is_user_in_room: isUserInRoom,
           };
         }),
       );
 
-      rooms = roomsWithPlayers.filter((r) => r.player_count < 2);
+      // Показываем:
+      // - Комнаты с < 2 игроками
+      // - Комнаты, где текущий пользователь уже играет (чтобы мог вернуться)
+      rooms = roomsWithPlayers.filter(
+        (r) => r.player_count < 2 || r.is_user_in_room
+      );
     } catch (e) {
       console.error("Error in loadRoomsFromTable:", e);
       rooms = [];
@@ -586,10 +676,22 @@
       yCurrentPlayer.set("player", PLAYERS[0]); // ⚫ ходит первым
     }
 
+    // Инициализируем реактивную переменную для отображения
+    const initialPlayer = yCurrentPlayer.get("player") as Player;
+    yCurrentPlayerValue = initialPlayer || PLAYERS[0];
+    currentPlayer = yCurrentPlayerValue;
+
     // Наблюдатель за изменениями
     yBoard.observe((event) => {
       // Сбрасываем флаг блокировки при получении обновления от другого игрока
       isResetting = false;
+
+      // РАЗБЛОКИРУЕМ ход при получении обновления от Yjs
+      // Это позволяет следующему игроку сделать ход
+      if (isMoveInProgress) {
+        console.log("[Reversi] Получено обновление от Yjs - разблокируем ход");
+        isMoveInProgress = false;
+      }
 
       const freshYBoard = doc!.getArray<{
         position: number;
@@ -612,19 +714,22 @@
         }
       }
 
-      if (!boardChanged) return; // Если доска не изменилась, ничего не делаем
-
-      board = newBoard;
-      updateCounts();
-
-      // Получаем текущего игрока из Yjs
+      // ВСЕГДА обновляем currentPlayer из Yjs при любом изменении
       const yPlayer = yCurrentPlayer.get("player");
       if (yPlayer) {
         const newCurrentPlayer = yPlayer as Player;
         if (currentPlayer !== newCurrentPlayer) {
+          console.log("[Reversi] Наблюдатель: обновляем currentPlayer:", currentPlayer, "->", newCurrentPlayer);
           currentPlayer = newCurrentPlayer;
         }
+        // Также обновляем реактивную переменную для шаблона
+        yCurrentPlayerValue = newCurrentPlayer;
       }
+
+      if (!boardChanged) return; // Если доска не изменилась, выходим после обновления игрока
+
+      board = newBoard;
+      updateCounts();
 
       // Проверяем, не закончилась ли игра
       const totalMoves = board.filter((cell) => cell !== null).length;
@@ -709,6 +814,12 @@
       return;
     }
 
+    // Разблокируем ход при синхронизации
+    if (isMoveInProgress) {
+      console.log("[Reversi] syncBoardFromYjs - разблокируем ход");
+      isMoveInProgress = false;
+    }
+
     const currentYBoard = doc.getArray<{
       position: number;
       value: string | null;
@@ -737,6 +848,7 @@
         if (currentPlayer !== newCurrentPlayer) {
           console.log("[Reversi] syncBoardFromYjs - смена игрока:", currentPlayer, "->", newCurrentPlayer);
           currentPlayer = newCurrentPlayer;
+          yCurrentPlayerValue = newCurrentPlayer;
         }
       }
     }
@@ -943,10 +1055,30 @@
 
   function handleOnlineClick(index: number) {
     console.log("[Reversi] handleOnlineClick вызван, currentPlayer:", currentPlayer, "playerSymbol:", playerSymbol);
+    
+    // Проверка базовых условий
     if (!isConnected || !yBoard || gameOver || !opponentJoined) return;
     if (board[index] !== null) return;
+    
+    // Проверка блокировки - предотвращаем повторные ходы во время обработки
+    if (isMoveInProgress) {
+      console.log("[Reversi] Ход заблокирован - идёт обработка");
+      return;
+    }
+
+    // ЧИТАЕМ текущего игрока напрямую из Yjs для максимальной надёжности
+    const yCurrentPlayerValue = yCurrentPlayer?.get("player");
+    const actualCurrentPlayer = yCurrentPlayerValue as Player | null;
+    
+    // Проверяем, что именно наш ход (читаем из Yjs, не из локальной переменной)
+    if (actualCurrentPlayer !== playerSymbol) {
+      console.log("[Reversi] Ход невозможен - не ваш ход! (Yjs):", actualCurrentPlayer, "vs", playerSymbol);
+      return;
+    }
+
+    // Дополнительная проверка локальной переменной (для быстрого отклика)
     if (currentPlayer !== playerSymbol) {
-      console.log("[Reversi] Ход невозможен - не ваш ход!");
+      console.log("[Reversi] Ход невозможен - не ваш ход! (локально):", currentPlayer, "vs", playerSymbol);
       return;
     }
 
@@ -955,6 +1087,13 @@
 
     // Проверяем валидность хода
     if (!isValidMove(board, row, col, playerSymbol!)) return;
+
+    // === БЛОКИРУЕМ ХОД ===
+    isMoveInProgress = true;
+    lastMoveTimestamp = Date.now();
+    
+    // Записываем timestamp в Yjs для детекции конфликтов
+    yCurrentPlayer.set("last_move_timestamp", lastMoveTimestamp.toString());
 
     // Применяем ход с переворотами
     const newBoard = applyMove(board, row, col, playerSymbol!);
@@ -987,6 +1126,7 @@
     // Проверяем окончание игры
     const totalMoves = board.filter((cell) => cell !== null).length;
     if (totalMoves === SIZE * SIZE) {
+      isMoveInProgress = false;
       endGameOnline(determineWinner());
       return;
     }
@@ -1002,6 +1142,7 @@
       // Если у следующего нет ходов, проверяем текущего
       const currentMoves = getValidMoves(board, currentPlayer);
       if (currentMoves.length === 0) {
+        isMoveInProgress = false;
         endGameOnline(determineWinner());
         return;
       }
@@ -1012,6 +1153,10 @@
     if (provider) {
       provider.saveState();
     }
+    
+    // Разблокируем ход после отправки - другой игрок получит обновление и разблокируется сам
+    // Но оставляем блокировку пока не получим подтверждение от Yjs
+    // Это делается в наблюдателе yBoard.observe
   }
 
   function endGameOnline(winnerPlayer: Player | null) {
@@ -1550,48 +1695,59 @@
         {:else}
           <div class="rooms-list">
             {#each rooms as room}
-              <button
-                type="button"
-                class="room-item"
-                class:user-in-room={room.is_user_in_room}
-                onclick={() => joinRoom(room.room_id)}
-                disabled={room.player_count >= 2 && !room.is_user_in_room}
-              >
-                <div class="room-info">
-                  <span class="room-name">
-                    {room.room_name}
-                    {#if room.is_user_in_room}
-                      <span class="user-badge">(Вы {room.user_symbol === YJS_SYMBOLS[0] ? '⚫' : '⚪'})</span>
-                    {/if}
-                  </span>
-                  <span class="room-players">
-                    {#if room.player_count === 0}
-                      🟢 Пустая
-                    {:else if room.player_count === 1}
+              <div class="room-item-wrapper" class:user-in-room={room.is_user_in_room}>
+                <button
+                  type="button"
+                  class="room-item"
+                  onclick={() => joinRoom(room.room_id)}
+                  disabled={room.player_count >= 2 && !room.is_user_in_room}
+                >
+                  <div class="room-info">
+                    <span class="room-name">
+                      {room.room_name}
                       {#if room.is_user_in_room}
-                        🟡 Ожидание соперника
-                      {:else}
-                        🟡 1/2 игроков
+                        <span class="user-badge">(Вы {room.user_symbol === YJS_SYMBOLS[0] ? '⚫' : '⚪'})</span>
                       {/if}
-                    {:else}
-                      🔴 Полная
-                    {/if}
-                  </span>
-                </div>
-                <div class="room-meta">
-                  <span class="room-creator">
-                    👑 {room.created_by_user_key === userKeyStore.getCurrentKey() ? 'Вы' : 'Создатель'}
-                  </span>
-                  <span class="room-expiry">
-                    ⏳ до {new Date(room.expires_at).toLocaleTimeString()}
-                  </span>
-                </div>
-                {#if room.other_player_symbol}
-                  <div class="room-opponent">
-                    Соперник: {room.other_player_symbol === YJS_SYMBOLS[0] ? '⚫' : '⚪'}
+                    </span>
+                    <span class="room-players">
+                      {#if room.player_count === 0}
+                        🟢 Пустая
+                      {:else if room.player_count === 1}
+                        {#if room.is_user_in_room}
+                          🟡 Ожидание соперника
+                        {:else}
+                          🟡 1/2 игроков
+                        {/if}
+                      {:else}
+                        🔴 Полная
+                      {/if}
+                    </span>
                   </div>
+                  <div class="room-meta">
+                    <span class="room-creator">
+                      👑 {room.created_by_user_key === userKeyStore.getCurrentKey() ? 'Вы' : 'Создатель'}
+                    </span>
+                    <span class="room-expiry">
+                      ⏳ до {new Date(room.expires_at).toLocaleTimeString()}
+                    </span>
+                  </div>
+                  {#if room.other_player_symbol}
+                    <div class="room-opponent">
+                      Соперник: {room.other_player_symbol === YJS_SYMBOLS[0] ? '⚫' : '⚪'}
+                    </div>
+                  {/if}
+                </button>
+                {#if room.created_by_user_key === userKeyStore.getCurrentKey()}
+                  <button
+                    type="button"
+                    class="delete-room-btn"
+                    onclick={(e) => { e.stopPropagation(); deleteRoom(room.room_id); }}
+                    title="Удалить комнату"
+                  >
+                    🗑️
+                  </button>
                 {/if}
-              </button>
+              </div>
             {/each}
           </div>
         {/if}
@@ -1671,7 +1827,11 @@
             {:else if gameOver}
               Ничья ({blackCount}:{whiteCount})
             {:else}
-              Ход: <span class="current-player">{currentPlayer}</span>
+              {#if yCurrentPlayerValue === playerSymbol}
+                <span class="your-turn">Ваш ход {currentPlayer}</span>
+              {:else}
+                <span class="opponent-turn">Ход соперника {currentPlayer}</span>
+              {/if}
               {#if validMoves.length === 0}
                 <span class="no-moves-warning"> (нет ходов)</span>
               {/if}
@@ -1883,6 +2043,32 @@
   .room-item:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+
+  .room-item-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .room-item-wrapper .room-item {
+    flex: 1;
+  }
+
+  .delete-room-btn {
+    background: rgba(233, 69, 96, 0.2);
+    border: 1px solid #e94560;
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+
+  .delete-room-btn:hover {
+    background: #e94560;
+    transform: scale(1.1);
   }
 
   .your-room-badge {
@@ -2111,6 +2297,16 @@
 
   .current-player {
     color: #ff9f43;
+    font-weight: bold;
+  }
+
+  .your-turn {
+    color: #00b894;
+    font-weight: bold;
+  }
+
+  .opponent-turn {
+    color: #e94560;
     font-weight: bold;
   }
 
