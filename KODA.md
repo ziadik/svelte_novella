@@ -23,6 +23,7 @@
   - Хранилище файлов для историй (JSON) и ресурсов (изображения, Rive-файлы)
   - Аутентификация пользователей через Telegram
   - Таблица `stories` для хранения метаданных историй
+  - Таблицы для онлайн-игр: `game_rooms`, `game_players`, `game_state`
 
 ### Анимации и визуализация
 - **Rive** — интерактивные анимации для персонажей и фонов
@@ -74,22 +75,24 @@ src/
 │   │   ├── MemoMonsters.svelte
 │   │   ├── OnetMonsters.svelte
 │   │   ├── OnetMonsters144.svelte
-│   │   ├── AlchemicalCalculator.svelte
-│   │   ├── AlchemistsCross.svelte
-│   │   ├── Bones421.svelte
-│   │   ├── BrokenMirror.svelte
-│   │   ├── CrystalsOfTime.svelte
-│   │   ├── CursedCrypts.svelte
 │   │   ├── Evolution2048.svelte
-│   │   ├── FloodIt.svelte
-│   │   ├── LabyrinthOfMinotaur.svelte
-│   │   ├── LightOut.svelte
-│   │   ├── RunesOfFate.svelte
-│   │   ├── SoulCycle.svelte
-│   │   ├── TicTacToe.svelte
-│   │   ├── TowerOfSouls.svelte
 │   │   ├── WhisperOfSpiders.svelte
+│   │   ├── TowerOfSouls.svelte
+│   │   ├── SoulCycle.svelte
+│   │   ├── LabyrinthOfMinotaur.svelte
+│   │   ├── CursedCrypts.svelte
+│   │   ├── BrokenMirror.svelte
+│   │   ├── AlchemistsCross.svelte
+│   │   ├── TicTacToe.svelte
+│   │   ├── Renju.svelte          # Рэндзю (5 в ряд) - с онлайн режимом
+│   │   ├── Reversi.svelte        # Реверси (Отелло) - с онлайн режимом
+│   │   ├── LightOut.svelte
+│   │   ├── FloodIt.svelte
+│   │   ├── Bones421.svelte
+│   │   ├── CrystalsOfTime.svelte
+│   │   ├── RunesOfFate.svelte
 │   │   ├── WitchesCauldrons.svelte
+│   │   ├── AlchemicalCalculator.svelte
 │   │   ├── AllGames.svelte
 │   │   ├── gamesList.ts
 │   │   ├── types.ts
@@ -118,7 +121,7 @@ src/
 │   ├── client_utils.ts       # Утилиты для клиента
 │   ├── types/                # Глобальные типы
 │   │   └── supabase.ts
-│   └── yjsSupabaseProvider.ts # Провайдер для коллаборации
+│   └── yjsSupabaseProvider.ts # Провайдер для коллаборации (Yjs)
 ├── public/
 │   ├── sw.js                 # Service Worker для PWA
 │   ├── manifest.json         # PWA манифест
@@ -137,7 +140,7 @@ src/
 - Инициализирует аутентификацию и аналитику пользователей
 - Содержит debug-панель (Ctrl+Shift+D) для разработки
 - Поддерживает событие `open-all-games` для открытия списка мини-игр
-- **Интеграция с Telegram WebApp**: автоматическое определение запуска через Telegram, установка `backgroundColor`, получение имени пользователя (`initDataUnsafe.user.first_name`), расширение на весь экран (`tg.expand()`), приветствие пользователя
+- **Интеграция с Telegram WebApp**: автоматическое определение запуска через Telegram, установка `backgroundColor`, получение имени пользователя (`initDataUnsafe.user.first_name`), расширение на весь экран (`tg.expand()`), приветствие пользователя с анимацией fadeInOut
 
 #### Игровой движок (`src/lib/novella/`)
 - **Main.svelte**: Загружает историю из JSON, управляет состоянием игры, обрабатывает навигацию между диалогами. Содержит проверку онлайн-статуса для управления доступом к редактору. Поддерживает внешние ссылки через URL параметр `?story=id`. Кнопка выбора истории (📚) в левом нижнем углу, кнопка редактора (✏️) в правом нижнем углу.
@@ -177,10 +180,11 @@ src/
 - **gameModeStore.svelte.ts**: Управление режимами игры
 
 #### Мини-игры (`src/lib/minigames/`)
-- Более 18 различных мини-игр (память, головоломки, аркады)
+- Более 20 различных мини-игр (память, головоломки, аркады, настольные)
 - Все мини-игры следуют единому интерфейсу
 - Поддержка наград (предметы, статы)
 - Общие компоненты: BodyWrapper, GameFooter, GameHeader, MinigameModal, RewardPanel
+- **Онлайн-режим**: Некоторые игры (Reversi, Renju, TicTacToe) поддерживают онлайн-игру через Yjs и Supabase
 
 ### Система нескольких историй (Multi-Story)
 
@@ -205,6 +209,26 @@ Supabase Storage
 - `deleteStoryBucket(bucketName)` — удалить bucket
 - `getCurrentBucket()` — получить текущий выбранный bucket
 - `isBucketSelected()` — проверить, выбран ли bucket
+
+### База данных Supabase
+
+#### Таблицы
+- `stories` — метаданные историй (id, title, author_id, json_url, bucket, is_public)
+- `game_rooms` — комнаты для онлайн-игр (room_id, room_name, game_type, created_by, expires_at)
+- `game_players` — игроки в комнатах (room_id, user_key, symbol)
+- `game_state` — сохранённые состояния игр
+- `user_key_profiles` — профили пользователей по ключам
+- `trophies_view` — представление для трофеев
+
+#### SQL-функции
+- `get_active_rooms(p_game_type)` — получение активных комнат с фильтрацией по expires_at
+- `cleanup_expired_rooms()` — удаление истёкших комнат
+
+#### Миграции (supabase/migrations/)
+- `game_players.sql` — таблица игроков
+- `game_state.sql` — таблица состояний игр
+- `trophies_view.sql` — представление трофеев
+- `user_key_profiles.sql` — профили пользователей
 
 ### PWA и Офлайн-режим
 
@@ -351,6 +375,11 @@ npm run test:run      # Однократный запуск тестов
 npm run test:coverage # Запуск с покрытием
 ```
 
+### Экспорт ресурсов историй
+```bash
+npm run export        # Экспорт всех ресурсов историй
+```
+
 ### CI/CD (GitHub Actions)
 При пуше в ветку `main` автоматически:
 1. Устанавливаются зависимости
@@ -413,6 +442,7 @@ Workflow файл: `.github/workflows/main.yml`
 - **RLS политики**: Для публичных историй использовать политику `is_public = true`
 - Логирование всех запросов через custom fetch в `supabaseClient.ts`
 - Кастомный fetch логирует метод, URL, статус и время выполнения каждого запроса
+- Для онлайн-игр используются таблицы `game_rooms` и `game_players`
 
 ### Интеграция с Telegram
 
@@ -421,7 +451,7 @@ Workflow файл: `.github/workflows/main.yml`
 - Получение данных пользователя: `tg.initDataUnsafe.user.first_name`
 - Установка background color: `document.body.style.backgroundColor = tg.backgroundColor`
 - Расширять приложение на весь экран: `tg.expand()`
-- Приветствие пользователя с анимацией fadeInOut
+- Приветствие пользователя с анимацией fadeInOut (класс `.tg-welcome`)
 
 ### Анимации Rive
 
@@ -437,9 +467,14 @@ Workflow файл: `.github/workflows/main.yml`
 - Мини-игры интегрируются через опции диалогов
 - Обязательно указывать `onWinDialogueId` и `onLoseDialogueId`
 - Мини-игры должны быть оптимизированы для мобильных устройств
-- Более 18 игр в `src/lib/minigames/`
+- Более 20 игр в `src/lib/minigames/`
 - Использовать общие компоненты: BodyWrapper, GameFooter, GameHeader, MinigameModal, RewardPanel
 - Доступ к списку всех игр через событие `window.dispatchEvent(new CustomEvent('open-all-games'))`
+- **Онлайн-режим**: Некоторые игры (Reversi, Renju, TicTacToe) поддерживают онлайн-игру:
+  - Используют Yjs для синхронизации состояния
+  - Создают комнаты в `game_rooms`
+  - Регистрируют игроков в `game_players`
+  - Используют `YjsSupabaseProvider` для real-time синхронизации
 
 ### PWA и Офлайн
 
@@ -465,6 +500,7 @@ Workflow файл: `.github/workflows/main.yml`
 - Проверять работу в офлайн-режиме
 - Тестировать в Telegram Mini App окружении
 - Тестировать установку PWA на iOS Safari
+- Тестировать онлайн-игры (создание комнат, синхронизация Yjs)
 
 ### Git workflow
 
@@ -522,6 +558,7 @@ Workflow файл: `.github/workflows/main.yml`
 - URL и anon key через переменные окружения `VITE_SUPABASE_URL` и `VITE_SUPABASE_ANON_KEY`
 - Таблица `stories` для метаданных историй
 - Storage buckets для каждой истории
+- Таблицы для онлайн-игр: `game_rooms`, `game_players`, `game_state`
 
 ### Telegram WebApp
 - Типы определены в `src/vite-env.d.ts`
@@ -542,13 +579,41 @@ Workflow файл: `.github/workflows/main.yml`
 
 Fallback-истории для офлайн-режима определены в `storiesStore.svelte.ts`.
 
+## Список мини-игр
+
+| ID | Название | Описание | Категория |
+|----|----------|----------|-----------|
+| memo_monsters | Память монстров | Найди все пары одинаковых монстров | memory |
+| onet_monsters | Связь монстров min | Соедини одинаковых монстров линией | puzzle |
+| onet_monsters_144 | Связь монстров middle | Соедини одинаковых монстров линией (144 плитки) | puzzle |
+| evolution_2048 | Эволюция 2048 | Объединяй плитки и достигни 2048 | puzzle |
+| whisper_of_spiders | Шёпот пауков | Реши математические примеры за 30 секунд | arcade |
+| tower_of_souls | Башня душ | Классический пасьянс - собери карты по мастям | board |
+| soul_cycle | Цикл душ | Повторяй последовательность символов | memory |
+| labyrinth_of_minotaur | Лабиринт Минотавра | Найди выход из лабиринта | puzzle |
+| cursed_crypts | Проклятые склепы | Сапёр - найди все безопасные ячейки | puzzle |
+| broken_mirror | Разбитое зеркало | Собери числа от 1 до 15 | puzzle |
+| alchemists_cross | Алхимический крестик | Крестики-нолики - первым выстрой 3 в ряд | board |
+| tic_tac_toe | Крестики-нолики | Классические крестики-нолики 3x3 | board |
+| Renju | Рэндзю | Рэндзю (5 в ряд) | board |
+| reversi | Реверси | Отелло (Reversi) на поле 8x8 | board |
+| light_out | Погаси свет | Погаси все клетки на поле | logic |
+| flood_it | Затопи поле | Заливай поле одним цветом за минимальное количество ходов | logic |
+| bones_421 | Кости 4-2-1 | Брось кости и набери комбинацию 4-2-1 | board |
+| crystals_of_time | Кристаллы времени | Повтори последовательность кристаллов | memory |
+| runes_of_fate | Руны судьбы | Победи духа в поединке рун | board |
+| witches_cauldrons | Котёл ведьмы | Собери ингредиенты для зелья | arcade |
+| alchemical_calculator | Алхимический калькулятор | Получи целевое число используя все числа | logic |
+
 ## Ограничения
 
 ### Без интернета
 - ❌ Авторизация недоступна
 - ❌ Редактирование историй недоступно
 - ❌ Загрузка историй из Supabase недоступна
+- ❌ Онлайн-игры недоступны
 - ✅ Прохождение доступных историй (fallback)
+- ✅ Офлайн-игры (против компьютера, на одном устройстве)
 - ✅ Все загруженные ранее истории доступны
 
 ### Редактор
@@ -588,13 +653,14 @@ Fallback-истории для офлайн-режима определены в
 
 ## TODO и планы развития
 
-- [ ] Добавить больше мини-игр
+- [ ] Добавить больше мини-игр с онлайн-режимом
 - [ ] Улучшить систему достижений
 - [ ] Добавить поддержку сохранений/загрузок прогресса
 - [ ] Интеграция с Telegram Payments (опционально)
 - [ ] Мультиязычность (i18n)
 - [ ] Улучшить анимации переходов
 - [ ] Добавить систему настроек (звук, эффекты)
+- [ ] Добавить чат для онлайн-игроков
 
 ## Документация
 
@@ -611,8 +677,9 @@ Fallback-истории для офлайн-режима определены в
 - [Service Worker API](https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API)
 - [MDN Web Docs - Service Worker](https://developer.mozilla.org/ru-RU/docs/Web/API/Service_Worker_API)
 - [Vitest Documentation](https://vitest.dev/)
+- [Yjs Documentation](https://docs.yjs.dev/)
 
 ---
 
 **Последнее обновление:** Январь 2025
-**Версия документации:** 4.1
+**Версия документации:** 4.2

@@ -70,10 +70,14 @@
   let waitingForOpponent = $state(false);
   let opponentJoined = $state(false);
   
+  // Храним текущего игрока из Yjs для реактивного отображения
+  let yCurrentPlayerValue = $state<Player | null>(null);
+
   // Yjs
   let doc: Y.Doc | null = null;
   let provider: YjsSupabaseProvider | null = null;
   let yBoard: Y.Array<{ position: number; value: string | null }> | null = null;
+  let yCurrentPlayer: Y.Map<string> | null = null;
 
   let modal = $state<ModalState>({ show: false, title: "", text: "", actions: [] });
 
@@ -115,6 +119,7 @@
       doc = null;
     }
     yBoard = null;
+    yCurrentPlayer = null;
     
     roomId = '';
     roomName = '';
@@ -145,6 +150,7 @@
       doc = null;
     }
     yBoard = null;
+    yCurrentPlayer = null;
   });
 
   // ===== ОНЛАЙН РЕЖИМ =====
@@ -390,6 +396,7 @@
     // Инициализируем Yjs
     doc = new Y.Doc();
     yBoard = doc.getArray<{ position: number; value: string | null }>('board');
+    yCurrentPlayer = doc.getMap<string>('currentPlayer');
 
     if (yBoard.length !== SIZE * SIZE) {
       if (yBoard.length > 0) {
@@ -399,21 +406,48 @@
       yBoard.insert(0, initialBoard);
     }
 
+    // Инициализируем текущего игрока в Yjs если не установлен
+    if (!yCurrentPlayer.has('player')) {
+      yCurrentPlayer.set('player', PLAYERS[0]); // ⚫ ходит первым
+    }
+
+    // Инициализируем реактивную переменную для отображения
+    const initialPlayer = yCurrentPlayer.get('player') as Player;
+    yCurrentPlayerValue = initialPlayer || PLAYERS[0];
+    currentPlayer = yCurrentPlayerValue;
+
     // Наблюдатель за изменениями
     yBoard.observe((event) => {
+      // ВСЕГДА обновляем currentPlayer из Yjs при любом изменении
+      const yPlayer = yCurrentPlayer!.get('player');
+      if (yPlayer) {
+        const newCurrentPlayer = yPlayer as Player;
+        if (currentPlayer !== newCurrentPlayer) {
+          currentPlayer = newCurrentPlayer;
+        }
+        // Также обновляем реактивную переменную для шаблона
+        yCurrentPlayerValue = newCurrentPlayer;
+      }
+
       const freshYBoard = doc!.getArray<{ position: number; value: string | null }>('board');
       if (!freshYBoard) return;
       
       const yjsBoard = freshYBoard.toArray();
       const sorted = yjsBoard.sort((a, b) => a.position - b.position);
-      board = sorted.map(item => fromYjsSymbol(item.value));
-      
-      // Подсчет камней для определения чей ход
-      const blackCount = board.filter(c => c === PLAYERS[0]).length;
-      const whiteCount = board.filter(c => c === PLAYERS[1]).length;
-      
-      // Черные ходят первыми, ход переходит когда количества равны
-      currentPlayer = blackCount === whiteCount ? PLAYERS[0] : PLAYERS[1];
+
+      // Проверяем, изменилась ли доска
+      const newBoard = sorted.map(item => fromYjsSymbol(item.value));
+      let boardChanged = false;
+      for (let i = 0; i < newBoard.length; i++) {
+        if (board[i] !== newBoard[i]) {
+          boardChanged = true;
+          break;
+        }
+      }
+
+      if (!boardChanged) return; // Если доска не изменилась, выходим после обновления игрока
+
+      board = newBoard;
       
       winner = checkWinner(board);
       
@@ -424,6 +458,15 @@
       }
     });
 
+    // Наблюдатель за изменениями текущего игрока
+    yCurrentPlayer.observe((event) => {
+      const newPlayer = yCurrentPlayer!.get('player') as Player | undefined;
+      if (newPlayer && newPlayer !== currentPlayer) {
+        currentPlayer = newPlayer;
+        yCurrentPlayerValue = newPlayer;
+      }
+    });
+
     provider = new YjsSupabaseProvider(
       doc, 
       roomId, 
@@ -431,22 +474,8 @@
         syncBoardFromYjs();
       },
       (boardData?: (string | null)[] | null) => {
-        if (boardData && Array.isArray(boardData)) {
-          board = boardData.map(s => fromYjsSymbol(s));
-        } else {
-          syncBoardFromYjs();
-          return;
-        }
-        
-        const blackCount = board.filter(c => c === PLAYERS[0]).length;
-        const whiteCount = board.filter(c => c === PLAYERS[1]).length;
-        currentPlayer = blackCount === whiteCount ? PLAYERS[0] : PLAYERS[1];
-        
-        winner = checkWinner(board);
-        const hasAnyMove = board.some(cell => cell !== null);
-        if (winner || (hasAnyMove && board.every(cell => cell !== null))) {
-          endGameOnline(winner);
-        }
+        // ВСЕГДА синхронизируем board из Yjs для надёжности
+        syncBoardFromYjs();
       }
     );
     isConnected = true;
@@ -471,9 +500,17 @@
     const sorted = yjsBoard.sort((a, b) => a.position - b.position);
     board = sorted.map(item => fromYjsSymbol(item.value));
     
-    const blackCount = board.filter(c => c === PLAYERS[0]).length;
-    const whiteCount = board.filter(c => c === PLAYERS[1]).length;
-    currentPlayer = blackCount === whiteCount ? PLAYERS[0] : PLAYERS[1];
+    // Получаем текущего игрока из Yjs
+    if (yCurrentPlayer) {
+      const yPlayer = yCurrentPlayer.get('player');
+      if (yPlayer && (yPlayer === PLAYERS[0] || yPlayer === PLAYERS[1])) {
+        const newCurrentPlayer = yPlayer as Player;
+        if (currentPlayer !== newCurrentPlayer) {
+          currentPlayer = newCurrentPlayer;
+          yCurrentPlayerValue = newCurrentPlayer;
+        }
+      }
+    }
     
     winner = checkWinner(board);
   }
@@ -597,6 +634,10 @@
       yBoard.insert(idx, [{ position: index, value: yjsSymbol }]);
     }
 
+    // Переключаем текущего игрока в Yjs
+    const nextPlayer = playerSymbol === PLAYERS[0] ? PLAYERS[1] : PLAYERS[0];
+    yCurrentPlayer?.set('player', nextPlayer);
+
     if (provider) {
       provider.saveState();
     }
@@ -640,8 +681,12 @@
     yBoard.delete(0, yBoard.length);
     yBoard.insert(0, resetBoard);
     
+    // Сбрасываем текущего игрока в Yjs
+    yCurrentPlayer?.set('player', PLAYERS[0]);
+    
     board = Array(SIZE * SIZE).fill(null);
     currentPlayer = PLAYERS[0];
+    yCurrentPlayerValue = PLAYERS[0];
     gameOver = false;
     winner = null;
     
@@ -1001,7 +1046,11 @@
             {:else if gameOver}
               Ничья
             {:else}
-              Ход: <span class="current-player">{currentPlayer}</span>
+              {#if yCurrentPlayerValue === playerSymbol}
+                <span class="your-turn">Ваш ход</span>
+              {:else}
+                Ход: <span class="current-player">{currentPlayer}</span>
+              {/if}
             {/if}
           </div>
           
@@ -1013,7 +1062,7 @@
                 class:black-cell={cell === PLAYERS[0]}
                 class:white-cell={cell === PLAYERS[1]}
                 onclick={() => handleOnlineClick(i)}
-                disabled={!!cell || gameOver || currentPlayer !== playerSymbol}
+                disabled={!!cell || gameOver || yCurrentPlayerValue !== playerSymbol}
               >
                 {cell ?? ''}
               </button>
@@ -1303,6 +1352,12 @@
   .current-player {
     color: #ff9f43;
     font-weight: bold;
+  }
+
+  .your-turn {
+    color: #00b894;
+    font-weight: bold;
+    font-size: 1.2rem;
   }
 
   .winner {
