@@ -67,10 +67,14 @@
   let waitingForOpponent = $state(false); // Ожидание второго игрока
   let opponentJoined = $state(false); // Второй игрок присоединился
   
+  // Храним текущего игрока из Yjs для реактивного отображения
+  let yCurrentPlayerValue = $state<Player | null>(null);
+
   // Yjs
   let doc: Y.Doc | null = null;
   let provider: YjsSupabaseProvider | null = null;
-  let yBoard: Y.Array<string | null> | null = null;
+  // Храним доску и текущего игрока в одной структуре - тогда они синхронизируются вместе
+  let yGameState: Y.Map<any> | null = null;
 
   let modal = $state<ModalState>({ show: false, title: "", text: "", actions: [] });
 
@@ -116,7 +120,7 @@
       doc.destroy();
       doc = null;
     }
-    yBoard = null;
+    yGameState = null;
     
     roomId = '';
     roomName = '';
@@ -150,7 +154,7 @@
       doc.destroy();
       doc = null;
     }
-    yBoard = null;
+    yGameState = null;
     // Асинхронную очистку игроков можно опустить при размонтировании
   });
 
@@ -439,44 +443,57 @@
       return;
     }
 
-    // Инициализируем Yjs
+    // Инициализируем Yjs - используем единую структуру для доски и текущего игрока
     doc = new Y.Doc();
-    yBoard = doc.getArray<{position: number, value: string | null}>('board');
+    yGameState = doc.getMap<any>('gameState');
 
-    // Создаём пустой board если его нет (для новых комнат)
-    // Защита от задвоения - проверяем точный размер
-    if (yBoard.length !== SIZE * SIZE) {
-      console.log('[TicTacToe] Создаём board, текущий размер:', yBoard.length);
-      if (yBoard.length > 0) {
-        yBoard.delete(0, yBoard.length);
-      }
-      // Создаём массив объектов {position, value}
+    // Инициализируем состояние если его нет
+    if (!yGameState.has('board')) {
+      // Создаём пустой board
       const initialBoard = Array.from({length: SIZE * SIZE}, (_, i) => ({position: i, value: null}));
-      yBoard.insert(0, initialBoard);
-      console.log('[TicTacToe] Board создан, размер:', yBoard.length);
+      yGameState.set('board', initialBoard);
+      yGameState.set('currentPlayer', PLAYERS[0]); // ❌ ходит первым
+      console.log('[TicTacToe] Игра инициализирована');
     }
 
-    // Наблюдатель за изменениями - конвертируем X/O -> ❌/⭕
-    yBoard.observe((event) => {
-      // ВСЕГДА получаем свежую ссылку на массив!
-      const freshYBoard = doc!.getArray<{position: number, value: string | null}>('board');
-      if (!freshYBoard) return;
+    // Инициализируем реактивную переменную для отображения
+    const initialPlayer = yGameState.get('currentPlayer') as Player;
+    yCurrentPlayerValue = initialPlayer || PLAYERS[0];
+    currentPlayer = yCurrentPlayerValue;
+
+    // Наблюдатель за изменениями - вся игра в одной структуре
+    yGameState.observe((event) => {
+      // Получаем свежее состояние
+      const freshBoard = yGameState!.get('board') as {position: number, value: string | null}[] | undefined;
+      const freshPlayer = yGameState!.get('currentPlayer') as Player | undefined;
+      
+      // Обновляем текущего игрока
+      if (freshPlayer && freshPlayer !== currentPlayer) {
+        currentPlayer = freshPlayer;
+        yCurrentPlayerValue = freshPlayer;
+      }
+
+      if (!freshBoard) return;
       
       // Конвертируем Yjs символы в отображаемые
-      const yjsBoard = freshYBoard.toArray();
-      const sorted = yjsBoard.sort((a, b) => a.position - b.position);
-      board = sorted.map(item => fromYjsSymbol(item.value));
-      const xCount = board.filter(c => c === PLAYERS[0]).length;
-      const oCount = board.filter(c => c === PLAYERS[1]).length;
+      const sorted = [...freshBoard].sort((a, b) => a.position - b.position);
       
-      // Логика определения хода:
-      // Если количества равны - ход первого (X/❌)
-      // Если X больше - ход второго (O/⭕)
-      currentPlayer = xCount === oCount ? PLAYERS[0] : (xCount > oCount ? PLAYERS[1] : PLAYERS[0]);
+      // Проверяем, изменилась ли доска
+      const newBoard = sorted.map(item => fromYjsSymbol(item.value));
+      let boardChanged = false;
+      for (let i = 0; i < newBoard.length; i++) {
+        if (board[i] !== newBoard[i]) {
+          boardChanged = true;
+          break;
+        }
+      }
+
+      if (!boardChanged) return; // Если доска не изменилась, выходим
+
+      board = newBoard;
       
-      console.log('[TicTacToe] Наблюдатель:', { xCount, oCount, currentPlayer });
+      console.log('[TicTacToe] Наблюдатель сработал, board:', JSON.stringify(board), 'currentPlayer:', currentPlayer);
       winner = checkWinner(board);
-      console.log('[TicTacToe] Наблюдатель сработал, board:', JSON.stringify(board));
       
       // Ничья - только если все 9 ячеек заполнены (не null) и нет победителя
       const hasAnyMove = board.some(cell => cell !== null);
@@ -496,35 +513,9 @@
         // Синхронизируем board
         syncBoardFromYjs();
       },
-      (boardData?: (string | null)[] | null) => {
-        // Колбэк при удалённом обновлении (ход соперника)
-        console.log('[TicTacToe] 📡 Колбэк: получено обновление от соперника', boardData);
-        
-        if (boardData && Array.isArray(boardData)) {
-          // Используем переданные данные напрямую из провайдера
-          board = boardData.map(s => fromYjsSymbol(s));
-        } else {
-          // Fallback - синхронизируем из Yjs
-          syncBoardFromYjs();
-          return;
-        }
-        
-        const xCount = board.filter(c => c === PLAYERS[0]).length;
-        const oCount = board.filter(c => c === PLAYERS[1]).length;
-        
-        // Определяем чей ход
-        currentPlayer = xCount === oCount ? PLAYERS[0] : (xCount > oCount ? PLAYERS[1] : PLAYERS[0]);
-        
-        console.log('[TicTacToe] Обновлено:', { xCount, oCount, currentPlayer, board: JSON.stringify(board) });
-        
-        winner = checkWinner(board);
-        // Ничья - только если все 9 ячеек заполнены (не null) и нет победителя
-        const hasAnyMove = board.some(cell => cell !== null);
-        if (winner || (hasAnyMove && board.every(cell => cell))) {
-          endGameOnline(winner);
-        }
-        
-        console.log('[TicTacToe] Текущий игрок после синхронизации:', currentPlayer, 'Вы:', playerSymbol);
+      () => {
+        // ВСЕГДА синхронизируем board из Yjs для надёжности
+        syncBoardFromYjs();
       }
     );
     isConnected = true;
@@ -546,25 +537,26 @@
 
   // Синхронизировать локальный board из Yjs
   function syncBoardFromYjs() {
-    if (!doc) return;
+    if (!doc || !yGameState) return;
     
-    // Получаем СВЕЖУЮ ссылку на массив board
-    const currentYBoard = doc.getArray<{position: number, value: string | null}>('board');
-    if (!currentYBoard) return;
+    // Получаем состояние из единой структуры
+    const yjsBoard = yGameState.get('board') as {position: number, value: string | null}[] | undefined;
+    if (!yjsBoard) return;
     
-    const yjsBoard = currentYBoard.toArray();
     // Сортируем по position и извлекаем value
-    const sorted = yjsBoard.sort((a, b) => a.position - b.position);
+    const sorted = [...yjsBoard].sort((a, b) => a.position - b.position);
     board = sorted.map(item => fromYjsSymbol(item.value));
-    const xCount = board.filter(c => c === PLAYERS[0]).length;
-    const oCount = board.filter(c => c === PLAYERS[1]).length;
     
-    // Логика определения хода:
-    // Если количества равны - ход первого (X/❌)
-    // Если X больше - ход второго (O/⭕)
-    currentPlayer = xCount === oCount ? PLAYERS[0] : (xCount > oCount ? PLAYERS[1] : PLAYERS[0]);
+    // Получаем текущего игрока
+    const yPlayer = yGameState.get('currentPlayer') as Player | undefined;
+    if (yPlayer && (yPlayer === PLAYERS[0] || yPlayer === PLAYERS[1])) {
+      if (currentPlayer !== yPlayer) {
+        currentPlayer = yPlayer;
+        yCurrentPlayerValue = yPlayer;
+      }
+    }
     
-    console.log('[TicTacToe] Синхронизация:', { xCount, oCount, currentPlayer });
+    console.log('[TicTacToe] Синхронизация:', { currentPlayer });
     winner = checkWinner(board);
     console.log('[TicTacToe] Board синхронизирован:', JSON.stringify(board));
   }
@@ -610,8 +602,8 @@
     console.log('[TicTacToe] ХОД игрока:', playerSymbol, 'на позицию:', index);
     
     // Нельзя ходить если ждём соперника или игра не началась
-    if (!isConnected || !yBoard || gameOver || !opponentJoined) {
-      console.log('[TicTacToe] ❌ Ход заблокирован:', { isConnected, yBoard: !!yBoard, gameOver, opponentJoined });
+    if (!isConnected || !yGameState || gameOver || !opponentJoined) {
+      console.log('[TicTacToe] ❌ Ход заблокирован:', { isConnected, yGameState: !!yGameState, gameOver, opponentJoined });
       return;
     }
     if (board[index] !== null) {
@@ -627,16 +619,19 @@
     const yjsSymbol = toYjsSymbol(playerSymbol!);
     console.log('[TicTacToe] Вставляем:', {position: index, value: yjsSymbol});
     
-    // Атомарное обновление через Yjs - заменяем объект
-    const current = yBoard.toArray();
-    console.log('[TicTacToe] Board до хода:', JSON.stringify(current));
-    const itemToUpdate = current.find(item => item.position === index);
+    // Обновляем доску в единой структуре
+    const currentBoard = [...(yGameState.get('board') as any[])];
+    const itemToUpdate = currentBoard.find(item => item.position === index);
     if (itemToUpdate) {
-      const idx = current.indexOf(itemToUpdate);
-      yBoard.delete(idx, 1);
-      yBoard.insert(idx, [{position: index, value: yjsSymbol}]);
-      console.log('[TicTacToe] Ход выполнен, board после:', JSON.stringify(yBoard.toArray()));
+      const idx = currentBoard.indexOf(itemToUpdate);
+      currentBoard[idx] = {position: index, value: yjsSymbol};
+      yGameState.set('board', currentBoard);
+      console.log('[TicTacToe] Ход выполнен, board после:', JSON.stringify(currentBoard));
     }
+
+    // Переключаем текущего игрока в той же транзакции
+    const nextPlayer = playerSymbol === PLAYERS[0] ? PLAYERS[1] : PLAYERS[0];
+    yGameState.set('currentPlayer', nextPlayer);
 
     // Сохраняем состояние после хода
     if (provider) {
@@ -677,23 +672,24 @@
   }
 
   async function resetOnlineGame() {
-    if (!yBoard) return;
+    if (!yGameState) return;
     
     console.log('[TicTacToe] Сброс игры...');
     
     // Устанавливаем флаг сброса - игнорируем проверку на ничью в наблюдателе
     isResetting = true;
     
-    // Сбрасываем доску в Yjs - создаём новые объекты
+    // Сбрасываем доску и текущего игрока в единой структуре
     const resetBoard = Array.from({length: SIZE * SIZE}, (_, i) => ({position: i, value: null}));
-    yBoard.delete(0, yBoard.length);
-    yBoard.insert(0, resetBoard);
+    yGameState.set('board', resetBoard);
+    yGameState.set('currentPlayer', PLAYERS[0]);
     
-    console.log('[TicTacToe] Yjs board после сброса:', JSON.stringify(yBoard.toArray()));
+    console.log('[TicTacToe] Yjs state после сброса');
     
     // Сбрасываем локальное состояние
     board = Array(SIZE * SIZE).fill(null);
     currentPlayer = PLAYERS[0]; // Первый игрок всегда начинает
+    yCurrentPlayerValue = PLAYERS[0];
     gameOver = false;
     winner = null;
     
@@ -1086,7 +1082,11 @@
             {:else if gameOver}
               Ничья
             {:else}
-              Ход: <span class="current-player">{currentPlayer}</span>
+              {#if yCurrentPlayerValue === playerSymbol}
+                <span class="your-turn">Ваш ход</span>
+              {:else}
+                Ход: <span class="current-player">{currentPlayer}</span>
+              {/if}
             {/if}
           </div>
           
@@ -1098,7 +1098,7 @@
                 class:x-cell={cell === PLAYERS[0]}
                 class:o-cell={cell === PLAYERS[1]}
                 onclick={() => handleOnlineClick(i)}
-                disabled={!!cell || gameOver || currentPlayer !== playerSymbol}
+                disabled={!!cell || gameOver || yCurrentPlayerValue !== playerSymbol}
               >
                 {cell ?? ''}
               </button>
@@ -1394,6 +1394,12 @@
   .current-player {
     color: #ff9f43;
     font-weight: bold;
+  }
+
+  .your-turn {
+    color: #00b894;
+    font-weight: bold;
+    font-size: 1.2rem;
   }
 
   .winner {
