@@ -30,7 +30,7 @@
     {
       "id": "0",
       "chapterId": "ch_minigame",
-      "text": "Хочешь сыграть?!!",
+      "text": "Хочешь сыграть?",
       "characterImage": "dracula_hehe.riv",
       "stateMachineCharacterRive": "SM1",
       "backgroundImage": "dracula_back_room_3.riv",

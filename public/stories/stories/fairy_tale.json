@@ -1,0 +1,187 @@
+{
+  "meta": {
+    "version": "1",
+    "title": "Fairy Tale Quiz"
+  },
+  "items": [
+    {
+      "id": "rose",
+      "name": "Черная роза",
+      "description": "Черная роза найденная при осмотре сада у замка",
+      "icon": "rose.png",
+      "type": "misc"
+    },
+    {
+      "id": "master_key",
+      "name": "Тайный ключ",
+      "description": "Тайный ключ отпирающий самую главную дверь...",
+      "icon": "master_key.png",
+      "type": "key"
+    }
+  ],
+  "miniGames": [],
+  "activities": [],
+  "chapters": [
+    {
+      "id": "ch_intro",
+      "title": "Глава 1. Прелюдия под аккомпанемент грома",
+      "description": ""
+    }
+  ],
+  "dialogues": [
+    {
+      "id": "01",
+      "chapterId": "ch_intro",
+      "text": "Глава 1. Прелюдия под аккомпанемент грома",
+      "backgroundImage": "back_garden_x05.png",
+      "nextDialogueId": "narrator_1",
+      "options": [
+        {
+          "text": "Игра!!!",
+          "enabled": true,
+          "visible": true,
+          "visibilityCondition": {
+            "type": "always"
+          },
+          "nextDialogueId": "",
+          "miniGame": {
+            "id": "memo_monsters",
+            "onWinDialogueId": "gamer_1",
+            "onLoseDialogueId": "gamer_2",
+            "rewardItem": "rose"
+          }
+        },
+        {
+          "text": "Дальше",
+          "enabled": true,
+          "visible": true,
+          "visibilityCondition": {
+            "type": "always"
+          },
+          "nextDialogueId": "narrator_1"
+        }
+      ],
+      "characterImage": ""
+    },
+    {
+      "id": "narrator_1",
+      "chapterId": "ch_intro",
+      "text": "Знал я одну вампиршу… Не ту, о которых поют баллады. \nЕё главный ужас был в том, что она отчаянно боялась собственной тени. \nА ещё — тишины, пустого замка и мысли, что она… плохо справляется.",
+      "options": [],
+      "backgroundImage": "back_garden_x05.png",
+      "characterImage": "",
+      "nextDialogueId": "narrator_2"
+    },
+    {
+      "id": "narrator_2",
+      "chapterId": "ch_intro",
+      "text": "Всё началось с дождя. Как и многие хорошие и плохие вещи. Конец этой истории мне не очень нравится, и думаю вы сможете ее изменить.",
+      "options": [],
+      "backgroundImage": "back_castle_x05.png",
+      "characterImage": "",
+      "nextDialogueId": "gamer_1"
+    },
+    {
+      "id": "gamer_1",
+      "chapterId": "ch_intro",
+      "text": "\"Бросать сразу в холод и слякоть? Не самое гостеприимное решение... Да и что я могу изменить?\"",
+      "options": [],
+      "backgroundImage": "back_castle_x05.png",
+      "characterImage": "",
+      "nextDialogueId": "gamer_2"
+    },
+    {
+      "id": "gamer_2",
+      "chapterId": "ch_intro",
+      "text": "\"Ну рас уж я здесь, для начало стоит скрыться от дождя\"",
+      "options": [
+        {
+          "text": "Осмотреться",
+          "enabled": true,
+          "visible": true,
+          "visibilityCondition": {
+            "type": "has_item",
+            "itemId": "rose"
+          },
+          "nextDialogueId": "gamer_look_1"
+        },
+        {
+          "text": "Идти к замку",
+          "enabled": true,
+          "visible": true,
+          "visibilityCondition": {
+            "type": "always"
+          },
+          "nextDialogueId": "gamer_3"
+        }
+      ],
+      "backgroundImage": "back_castle_x05.png",
+      "characterImage": "",
+      "nextDialogueId": ""
+    },
+    {
+      "id": "gamer_look_1",
+      "chapterId": "ch_intro",
+      "text": "Слева от замка, за ажурной калиткой — запущенные кусты с чёрными розами. Они растут как попало, но одна ветка аккуратно подвязана к колышку белой ниткой.",
+      "options": [],
+      "backgroundImage": "back_garden_x05.png",
+      "characterImage": "",
+      "nextDialogueId": "gamer_look_2"
+    },
+    {
+      "id": "gamer_look_2",
+      "chapterId": "ch_intro",
+      "text": "Справа - сухой фонтан в виде горгульи. Внутри чаши — многолетний слой листьев. Но если присмотреться — листья лежат не хаотично, а аккуратным кругом, будто их специально разровняли. Кто-то явно ухаживает даже за пустотой.  ",
+      "options": [],
+      "backgroundImage": "back_pound_x05.png",
+      "characterImage": "",
+      "nextDialogueId": "gamer_look_3"
+    },
+    {
+      "id": "gamer_look_3",
+      "chapterId": "ch_intro",
+      "text": "А на самой верхушке замка виден свет в окне.  Бархатная занавеска колыхнулась. Свет погас не сразу, а будто его задули в спешке. Кто-то там есть, и он явно не рад гостям.",
+      "options": [],
+      "backgroundImage": "back_castle_x05.png",
+      "characterImage": "",
+      "nextDialogueId": "gamer_look_4"
+    },
+    {
+      "id": "gamer_look_4",
+      "chapterId": "ch_intro",
+      "text": "\"Ладно, идти тут особо некуда, так что придаться потревожить жителей этого места\"",
+      "options": [],
+      "backgroundImage": "back_castle_x05.png",
+      "characterImage": "",
+      "nextDialogueId": "gamer_3"
+    },
+    {
+      "id": "gamer_3",
+      "chapterId": "ch_intro",
+      "text": "Дверь старого замка была единственным спасением от промокшей насквозь участи. Перед вами массивная дубовая дверь. Железные скобы отполированы до блеска но вид все равно был потрепанным временем.",
+      "options": [
+        {
+          "text": "Громко постучатся",
+          "enabled": true,
+          "visible": true,
+          "visibilityCondition": {
+            "type": "always"
+          },
+          "nextDialogueId": ""
+        },
+        {
+          "text": "Попробовать открыть дверь",
+          "enabled": true,
+          "visible": true,
+          "visibilityCondition": {
+            "type": "always"
+          },
+          "nextDialogueId": ""
+        }
+      ],
+      "backgroundImage": "back_gate_x05.png",
+      "characterImage": "",
+      "nextDialogueId": ""
+    }
+  ]
+}

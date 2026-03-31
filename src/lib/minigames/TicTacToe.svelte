@@ -281,16 +281,17 @@
     const now = new Date();
     const hour = now.getHours().toString().padStart(2, '0');
     
-    // Пробуем получить имя из Telegram
+    // =============================================================================
+    // Получение имени из Telegram - ОТКЛЮЧЕНО
+    // =============================================================================
     let username = 'Player';
-    if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp?.initDataUnsafe?.user) {
-      const tgUser = (window as any).Telegram.WebApp.initDataUnsafe.user;
-      username = tgUser.first_name || tgUser.username || 'Player';
-      // Ограничиваем длину имени
-      if (username.length > 10) {
-        username = username.slice(0, 10);
-      }
-    }
+    // if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp?.initDataUnsafe?.user) {
+    //   const tgUser = (window as any).Telegram.WebApp.initDataUnsafe.user;
+    //   username = tgUser.first_name || tgUser.username || 'Player';
+    //   if (username.length > 10) {
+    //     username = username.slice(0, 10);
+    //   }
+    // }
     
     return `${username} ${key3}${hour}`;
   }

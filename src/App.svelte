@@ -23,9 +23,15 @@ import { gameState } from "./lib/store/gameStore.svelte";
   import { userKeyStore, type UserStats } from "./lib/store/userKeyStore";
   import { gameModeState, setAppMode } from "./lib/store/gameModeStore.svelte";
 
-  // Telegram WebApp данные
-  let tgUserFirstName = $state<string | null>(null);
-  let isTelegramApp = $state(false);
+  // =============================================================================
+  // Telegram WebApp данные - ОТКЛЮЧЕНЫ
+  // =============================================================================
+  // let tgUserFirstName = $state<string | null>(null);
+  // let isTelegramApp = $state(false);
+  
+  // Статические значения - Telegram отключён
+  let tgUserFirstName: string | null = null;
+  let isTelegramApp = false;
 
   let userKey: string | null = null;
   let userStats: UserStats | null = null;
@@ -146,25 +152,20 @@ import { gameState } from "./lib/store/gameStore.svelte";
   onMount(async () => {
     console.log("[App] Mounted");
     
-    // Инициализация Telegram WebApp
-    if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
-      const tg = window.Telegram.WebApp;
-      
-      // Устанавливаем background color
-      const bg = tg.backgroundColor;
-      if (bg) {
-        document.body.style.backgroundColor = bg;
-      }
-      
-      // Получаем данные пользователя
-      tgUserFirstName = tg.initDataUnsafe?.user?.first_name || null;
-      isTelegramApp = true;
-      
-      // Расширяем приложение на весь экран
-      tg.expand();
-      
-      console.log("[App] Telegram WebApp initialized, user:", tgUserFirstName);
-    }
+    // =============================================================================
+    // Telegram WebApp инициализация - ОТКЛЮЧЕНА
+    // =============================================================================
+    // if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
+    //   const tg = window.Telegram.WebApp;
+    //   const bg = tg.backgroundColor;
+    //   if (bg) {
+    //     document.body.style.backgroundColor = bg;
+    //   }
+    //   tgUserFirstName = tg.initDataUnsafe?.user?.first_name || null;
+    //   isTelegramApp = true;
+    //   tg.expand();
+    //   console.log("[App] Telegram WebApp initialized, user:", tgUserFirstName);
+    // }
     
     // Запускаем таймер сессии
     userKeyStore.startSessionTimer();
@@ -300,12 +301,14 @@ import { gameState } from "./lib/store/gameStore.svelte";
     <UserMenu />
   {/if}
   
-  <!-- Приветствие для Telegram пользователя -->
-  {#if isTelegramApp && tgUserFirstName}
+  <!-- =============================================================================
+  Приветствие для Telegram пользователя - ОТКЛЮЧЕНО
+  ============================================================================= -->
+  <!-- {#if isTelegramApp && tgUserFirstName}
     <div class="tg-welcome">
       Привет, {tgUserFirstName}! 👋
     </div>
-  {/if}
+  {/if} -->
   
   <Main />
 {/if}
@@ -317,9 +320,10 @@ import { gameState } from "./lib/store/gameStore.svelte";
     <div><strong>Auth:</strong> {authDerivedState.isAuthenticated ? '✅' : '❌'}</div>
     <div><strong>User:</strong> {authState.user?.email || 'guest'}</div>
     <div><strong>Key:</strong> {userKey ? userKey.substring(0, 8) + '...' : 'none'}</div>
+    <!-- Telegram отключён
     {#if isTelegramApp}
       <div><strong>TG:</strong> ✅ {tgUserFirstName || 'anon'}</div>
-    {/if}
+    {/if} -->
   </div>
   
   <!-- Панель аналитики (показываем только в специальном режиме) -->
