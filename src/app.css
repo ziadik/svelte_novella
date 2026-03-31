@@ -1,14 +1,26 @@
+/* =============================================================================
+   Стили приложения - Telegram-зависимые переменные заменены на статические значения
+   ============================================================================= */
+
+/* Основные цвета - статические значения вместо tg-theme переменных */
+:root {
+    --app-bg-color: #000000;
+    --app-text-color: #ffffff;
+    --app-button-color: #8b0000;
+    --app-button-text-color: #ffffff;
+}
 
 :global(body) {
     font-family: -apple-system, BlinkMacSystemFont, sans-serif;
     margin: 0;
     padding: 0;
-    background: var(--tg-theme-bg-color, #000000);
-    color: var(--tg-theme-text-color, #ffffff);
+    /* Telegram переменные отключены - используем статические цвета */
+    background: var(--app-bg-color, #000000);
+    color: var(--app-text-color, #ffffff);
 }
 
 .app {
-    background: var(--tg-theme-bg-color, #000000);
+    background: var(--app-bg-color, #000000);
     min-height: 100vh;
     padding: 0;
     max-width: 100%;
@@ -16,7 +28,7 @@
 }
 
 .header {
-    background: var(--tg-theme-bg-color, #000000);
+    background: var(--app-bg-color, #000000);
     padding: 16px;
     display: flex;
     align-items: center;
@@ -31,11 +43,11 @@
     width: 40px;
     height: 40px;
     border-radius: 50%;
-    background: var(--tg-theme-button-color, #8b0000);
+    background: var(--app-button-color, #8b0000);
     display: flex;
     align-items: center;
     justify-content: center;
-    color: var(--tg-theme-text-color, #ffffff);
+    color: var(--app-text-color, #ffffff);
     font-weight: bold;
     font-size: 16px;
 }
@@ -48,14 +60,14 @@
     font-weight: 600;
     font-size: 14px;
     margin: 0 0 2px 0;
-    color: var(--tg-theme-text-color, #ffffff);
+    color: var(--app-text-color, #ffffff);
 }
 
 .user-meta {
     font-size: 12px;
     opacity: 0.7;
     margin: 0;
-    color: var(--tg-theme-text-color, #ffffff);
+    color: var(--app-text-color, #ffffff);
 }
 
 .dialogues-container {
@@ -74,7 +86,7 @@
 
 .nav-button {
     background: rgba(139, 0, 0, 0.3);
-    color: var(--tg-theme-text-color, #ffffff);
+    color: var(--app-text-color, #ffffff);
     border: none;
     padding: 12px 20px;
     border-radius: 25px;
@@ -108,7 +120,7 @@
 }
 
 .dot.active {
-    background: var(--tg-theme-button-color, #8b0000);
+    background: var(--app-button-color, #8b0000);
 }
 
 .dot:hover {
@@ -119,7 +131,7 @@
     text-align: center;
     padding: 60px 20px;
     font-size: 16px;
-    color: var(--tg-theme-text-color, #ffffff);
+    color: var(--app-text-color, #ffffff);
 }
 
 .error {
@@ -146,19 +158,19 @@
     font-size: 28px;
     font-weight: 600;
     margin: 0 0 16px 0;
-    color: var(--tg-theme-text-color, #ffffff);
+    color: var(--app-text-color, #ffffff);
 }
 
 .welcome-text {
     font-size: 16px;
     opacity: 0.8;
     margin: 0 0 32px 0;
-    color: var(--tg-theme-text-color, #ffffff);
+    color: var(--app-text-color, #ffffff);
 }
 
 .button {
-    background: var(--tg-theme-button-color, #8b0000);
-    color: var(--tg-theme-button-text-color, #ffffff);
+    background: var(--app-button-color, #8b0000);
+    color: var(--app-button-text-color, #ffffff);
     border: none;
     padding: 16px 32px;
     border-radius: 25px;
